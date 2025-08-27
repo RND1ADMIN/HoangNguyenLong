@@ -13,6 +13,8 @@ import XuatNhapKhoForm from './pages/XuatNhapKhoForm';
 import DMHHManagement  from './pages/DMHHManagement';
 import XuatNhapKhoManager from './pages/XuatNhapKhoManager';
 import CongDoanManagement from './pages/CongDoan';
+import CongDoanDonGiaManagement from './pages/CongDoanDonGiaManagement';
+import PhanBoNhanSuManagement from './pages/PhanBoNhanSuManagement';
 import BaoCaoMobie from './pages/BaoCaoMobie';
 import TonKhoManager from './pages/TonKhoManager';
 import Baocaoreport from './pages/Baocaoreport';
@@ -52,7 +54,9 @@ function App() {
                   <Route path="/tonkho" element={<TonKhoManager />} />
                   <Route path="/baocaoreport" element={<Baocaoreport />} />
                   
-                  <Route path="/congdoan" element={<CongDoanManagement />} />
+                  {/* <Route path="/congdoan" element={<CongDoanManagement />} /> */}
+                  <Route path="/congdoan_dongia" element={<CongDoanDonGiaManagement />} />
+                  <Route path="/phanbonhansu" element={<PhanBoNhanSuManagement />} />
                   <Route path="/report" element={<ReportManagement />} />
                   <Route path="/reportMobile" element={<BaoCaoMobie />} />
 
