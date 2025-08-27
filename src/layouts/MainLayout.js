@@ -86,19 +86,13 @@ const MainLayout = ({ children }) => {
 
     const menuItems = [
         { text: 'Tổng quan', icon: Gauge, path: '/dashboard' },
-
-
-
-
         { text: 'Quản lý xuất nhập kho', icon: Table, path: '/xuatnhapkho' },
         { text: 'Nhập sản lượng', icon: NotebookPen, path: '/report' },
         { text: 'Quản lý hàng hóa', icon: FileBox, path: '/dmhh' },
         { text: 'Danh sách công đoạn', icon: LayoutList, path: '/congdoan' },
         { text: 'Báo cáo kho', icon: ChartArea, path: '/tonkho' },
-
         { text: 'Báo cáo sản xuất', icon: ChartPie, path: '/baocaoreport' },
         { text: 'Quản lý người dùng', icon: User, path: '/users' },
-
         { text: 'Đăng xuất', icon: LogOut, path: '/', isLogout: true }
     ];
 
@@ -119,7 +113,7 @@ const MainLayout = ({ children }) => {
             <div className="flex items-center justify-between px-6 py-4 border-b">
                 <img src="/logo1.png" alt="Logo" className="h-8" />
                 <h1 className="text-xl font-semibold text-gray-800">
-                    DUNG HOA PHAT
+                    Hoàng Nguyên Long
                 </h1>
                 <button
                     className="text-gray-500 hover:text-gray-700"
