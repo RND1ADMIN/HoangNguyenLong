@@ -16,6 +16,9 @@ const PhanBoNhanSuManagement = () => {
         'TỔ': '',
         'MÃ CÔNG ĐOẠN': '',
         'TÊN CÔNG ĐOẠN': '',
+        'ĐƠN VỊ TÍNH': '',
+        'PP TÍNH NĂNG SUẤT': '',
+        'ĐƠN GIÁ NĂNG SUẤT': '',
         'NHÂN SỰ': [],
         'SỐ LƯỢNG NHÂN SỰ': 0,
         'ĐƠN GIÁ PHỤ CẤP TN/THÁNG': ''
@@ -87,6 +90,9 @@ const PhanBoNhanSuManagement = () => {
                 'TỔ': item['TỔ'] || '',
                 'MÃ CÔNG ĐOẠN': item['MÃ CÔNG ĐOẠN'] || '',
                 'TÊN CÔNG ĐOẠN': item['TÊN CÔNG ĐOẠN'] || '',
+                'ĐƠN VỊ TÍNH': item['ĐƠN VỊ TÍNH'] || '',
+                'PP TÍNH NĂNG SUẤT': item['PP TÍNH NĂNG SUẤT'] || '',
+                'ĐƠN GIÁ NĂNG SUẤT': item['ĐƠN GIÁ NĂNG SUẤT'] || '',
                 'NHÂN SỰ': item['NHÂN SỰ'] || [],
                 'SỐ LƯỢNG NHÂN SỰ': item['SỐ LƯỢNG NHÂN SỰ'] || 0,
                 'ĐƠN GIÁ PHỤ CẤP TN/THÁNG': item['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'] || ''
@@ -102,6 +108,9 @@ const PhanBoNhanSuManagement = () => {
                 'TỔ': '',
                 'MÃ CÔNG ĐOẠN': '',
                 'TÊN CÔNG ĐOẠN': '',
+                'ĐƠN VỊ TÍNH': '',
+                'PP TÍNH NĂNG SUẤT': '',
+                'ĐƠN GIÁ NĂNG SUẤT': '',
                 'NHÂN SỰ': [],
                 'SỐ LƯỢNG NHÂN SỰ': 0,
                 'ĐƠN GIÁ PHỤ CẤP TN/THÁNG': ''
@@ -122,6 +131,9 @@ const PhanBoNhanSuManagement = () => {
             'TỔ': '',
             'MÃ CÔNG ĐOẠN': '',
             'TÊN CÔNG ĐOẠN': '',
+            'ĐƠN VỊ TÍNH': '',
+            'PP TÍNH NĂNG SUẤT': '',
+            'ĐƠN GIÁ NĂNG SUẤT': '',
             'NHÂN SỰ': [],
             'SỐ LƯỢNG NHÂN SỰ': 0,
             'ĐƠN GIÁ PHỤ CẤP TN/THÁNG': ''
@@ -153,7 +165,10 @@ const PhanBoNhanSuManagement = () => {
         setCurrentPhanBoNhanSu(prev => ({
             ...prev,
             'TÊN CÔNG ĐOẠN': tenCongDoan,
-            'MÃ CÔNG ĐOẠN': selectedCongDoan ? selectedCongDoan['MÃ CÔNG ĐOẠN'] : ''
+            'MÃ CÔNG ĐOẠN': selectedCongDoan ? selectedCongDoan['MÃ CÔNG ĐOẠN'] : '',
+            'ĐƠN VỊ TÍNH': selectedCongDoan ? selectedCongDoan['ĐƠN VỊ TÍNH'] : '',
+            'PP TÍNH NĂNG SUẤT': selectedCongDoan ? selectedCongDoan['PP TÍNH NĂNG SUẤT'] : '',
+            'ĐƠN GIÁ NĂNG SUẤT': selectedCongDoan ? selectedCongDoan['ĐƠN GIÁ NĂNG SUẤT'] : ''
         }));
     };
 
@@ -662,24 +677,67 @@ const PhanBoNhanSuManagement = () => {
                                         <option value="">Chọn công đoạn</option>
                                         {congDoanDonGias.map(cd => (
                                             <option key={cd['MÃ CÔNG ĐOẠN']} value={cd['TÊN CÔNG ĐOẠN']}>
-                                                {cd['TÊN CÔNG ĐOẠN']} ({cd['MÃ CÔNG ĐOẠN']})
+                                                {cd['TÊN CÔNG ĐOẠN']}
                                             </option>
                                         ))}
                                     </select>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Mã công đoạn (tự động)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={currentPhanBoNhanSu['MÃ CÔNG ĐOẠN']}
-                                        className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100"
-                                        readOnly
-                                    />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Mã công đoạn
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={currentPhanBoNhanSu['MÃ CÔNG ĐOẠN']}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100"
+                                            readOnly
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Đơn giá năng suất
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={currentPhanBoNhanSu['ĐƠN GIÁ NĂNG SUẤT'] ? parseFloat(currentPhanBoNhanSu['ĐƠN GIÁ NĂNG SUẤT']).toLocaleString('vi-VN') : ''}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100"
+                                            readOnly
+                                        />
+                                    </div>
                                 </div>
 
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Đơn vị tính
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={currentPhanBoNhanSu['ĐƠN VỊ TÍNH']}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100"
+                                            readOnly
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            PP tính năng suất
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={currentPhanBoNhanSu['PP TÍNH NĂNG SUẤT']}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100"
+                                            readOnly
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Right Column - Nhân sự selection */}
+                            <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Đơn giá phụ cấp TN/Tháng <span className="text-red-500">*</span>
@@ -695,10 +753,6 @@ const PhanBoNhanSuManagement = () => {
                                         required
                                     />
                                 </div>
-                            </div>
-
-                            {/* Right Column - Nhân sự selection */}
-                            <div className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Số lượng nhân sự (tự động đếm)
@@ -725,7 +779,7 @@ const PhanBoNhanSuManagement = () => {
                                                             onClick={() => removeNhanSu(nv['Họ và Tên'])}
                                                             className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50"
                                                         >
-                                                            <UserMinus className="w-4 h-4" />
+                                                            <UserMinus className="w-5 h-5" />
                                                         </button>
                                                     ) : (
                                                         <button
@@ -733,7 +787,7 @@ const PhanBoNhanSuManagement = () => {
                                                             onClick={() => addNhanSu(nv['Họ và Tên'])}
                                                             className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50"
                                                         >
-                                                            <UserPlus className="w-4 h-4" />
+                                                            <UserPlus className="w-5 h-5" />
                                                         </button>
                                                     )}
                                                 </div>

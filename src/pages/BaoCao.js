@@ -154,12 +154,14 @@ const ReportManagement = () => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState([]);
 
-  // Default empty report
+  // Default empty report - updated
   const emptyReport = {
     ID: '',
     'NGÀY': new Date(),
     'TỔ': '',
     'CÔNG ĐOẠN': '',
+    'ĐƠN VỊ TÍNH': '',
+    'PP TÍNH NĂNG SUẤT': '',
     'KHỐI LƯỢNG': '',
     'NHÂN SỰ THAM GIA': [],
     'GHI CHÚ': '',
@@ -216,7 +218,7 @@ const ReportManagement = () => {
   };
 
   // Hàm xử lý khi chọn tổ
-  // Hàm xử lý khi chọn tổ - sửa lại
+  // Hàm xử lý khi chọn tổ - updated version
   const handleTeamChange = (teamName) => {
     const teamWorkStages = getTeamWorkStages(teamName);
 
@@ -224,7 +226,9 @@ const ReportManagement = () => {
       // Lấy tất cả thông tin của tổ này
       const allStaff = teamWorkStages.map(stage => stage['NHÂN SỰ']).join(', ');
       const allWorkStages = teamWorkStages.map(stage => stage['TÊN CÔNG ĐOẠN']).join(', ');
-      const avgPrice = teamWorkStages.reduce((sum, stage) => sum + parseFloat(stage['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'] || 0), 0) / teamWorkStages.length;
+      const allUnits = [...new Set(teamWorkStages.map(stage => stage['ĐƠN VỊ TÍNH']))].join(', ');
+      const allMethods = [...new Set(teamWorkStages.map(stage => stage['PP TÍNH NĂNG SUẤT']))].join(', ');
+      const avgPrice = teamWorkStages.reduce((sum, stage) => sum + parseFloat(stage['ĐƠN GIÁ NĂNG SUẤT'] || 0), 0) / teamWorkStages.length;
 
       // Chuyển đổi nhân sự từ string thành array cho react-select
       const staffArray = allStaff
@@ -237,9 +241,11 @@ const ReportManagement = () => {
       setCurrentReport(prev => ({
         ...prev,
         'TỔ': teamName,
-        'CÔNG ĐOẠN': allWorkStages, // Tự động điền tất cả công đoạn của tổ
-        'NHÂN SỰ THAM GIA': staffArray, // Tự động điền tất cả nhân sự của tổ
-        'ĐƠN GIÁ': avgPrice.toString(), // Đơn giá trung bình hoặc có thể tính theo cách khác
+        'CÔNG ĐOẠN': allWorkStages,
+        'ĐƠN VỊ TÍNH': allUnits,
+        'PP TÍNH NĂNG SUẤT': allMethods,
+        'NHÂN SỰ THAM GIA': staffArray,
+        'ĐƠN GIÁ': avgPrice.toString(),
         'THÀNH TIỀN': calculateThanhTien(prev['KHỐI LƯỢNG'], avgPrice.toString())
       }));
     } else {
@@ -247,6 +253,8 @@ const ReportManagement = () => {
         ...prev,
         'TỔ': teamName,
         'CÔNG ĐOẠN': '',
+        'ĐƠN VỊ TÍNH': '',
+        'PP TÍNH NĂNG SUẤT': '',
         'NHÂN SỰ THAM GIA': [],
         'ĐƠN GIÁ': '',
         'THÀNH TIỀN': ''
@@ -254,7 +262,7 @@ const ReportManagement = () => {
     }
   };
 
-  // Hàm xử lý khi chọn công đoạn
+  // Hàm xử lý khi chọn công đoạn - updated version
   const handleWorkStageChange = (workStage) => {
     const activeAssignments = getActiveTeamAssignments();
     const selectedStageData = activeAssignments.find(
@@ -274,9 +282,11 @@ const ReportManagement = () => {
       setCurrentReport(prev => ({
         ...prev,
         'CÔNG ĐOẠN': workStage,
+        'ĐƠN VỊ TÍNH': selectedStageData['ĐƠN VỊ TÍNH'] || '',
+        'PP TÍNH NĂNG SUẤT': selectedStageData['PP TÍNH NĂNG SUẤT'] || '',
         'NHÂN SỰ THAM GIA': staffArray,
-        'ĐƠN GIÁ': selectedStageData['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'] || '',
-        'THÀNH TIỀN': calculateThanhTien(prev['KHỐI LƯỢNG'], selectedStageData['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'])
+        'ĐƠN GIÁ': selectedStageData['ĐƠN GIÁ NĂNG SUẤT'] || '',
+        'THÀNH TIỀN': calculateThanhTien(prev['KHỐI LƯỢNG'], selectedStageData['ĐƠN GIÁ NĂNG SUẤT'])
       }));
     }
   };
@@ -807,7 +817,7 @@ const ReportManagement = () => {
                 assignment['TÊN CÔNG ĐOẠN'] === row['CÔNG ĐOẠN']
             );
 
-            const donGia = matchingAssignment ? matchingAssignment['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'] : '';
+            const donGia = matchingAssignment ? matchingAssignment['ĐƠN GIÁ NĂNG SUẤT'] : '';
             const nhanSu = matchingAssignment ? matchingAssignment['NHÂN SỰ'] : '';
 
             // Create history entry for import
@@ -1227,6 +1237,8 @@ const ReportManagement = () => {
                         <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
                         <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
                         <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn vị tính</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">PP tính năng suất</th>
                         <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
                         <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
                         <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhân sự</th>
@@ -1268,6 +1280,8 @@ const ReportManagement = () => {
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{report['TỔ']}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{report['KHỐI LƯỢNG']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['ĐƠN VỊ TÍNH']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['PP TÍNH NĂNG SUẤT']}</td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                               {formatNumber(report['ĐƠN GIÁ'])}
                             </td>
@@ -1590,6 +1604,30 @@ const ReportManagement = () => {
                     value={currentReport['KHỐI LƯỢNG']}
                     onChange={(e) => handleInputChange('KHỐI LƯỢNG', e.target.value)}
                     required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Đơn vị tính</label>
+                  <input
+                    type="text"
+                    className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                    value={currentReport['ĐƠN VỊ TÍNH']}
+                    readOnly
+                    placeholder="Chọn tổ để tự động điền đơn vị tính"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">PP tính năng suất</label>
+                  <input
+                    type="text"
+                    className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                    value={currentReport['PP TÍNH NĂNG SUẤT']}
+                    readOnly
+                    placeholder="Chọn tổ để tự động điền PP tính năng suất"
                   />
                 </div>
               </div>
