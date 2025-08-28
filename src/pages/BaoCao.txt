@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Check, Upload, X, Calendar } from 'lucide-react';
+import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Check, Upload, X, Calendar, AlertCircle, List } from 'lucide-react';
+
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
@@ -16,8 +17,6 @@ const formatDateToString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-
-
 // Parse date for filtering
 const parseVNDate = (dateString) => {
   if (!dateString) return null;
@@ -32,202 +31,6 @@ const parseVNDate = (dateString) => {
   return date;
 };
 
-// Improved dashboard component with animated metrics
-const ProductionDashboard = ({ reports, congDoanList }) => {
-  const [timeView, setTimeView] = useState('day');
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
-
-  const handleDateChange = (e) => {
-    // Create date at noon to avoid timezone issues
-    const date = new Date(e.target.value + 'T12:00:00');
-    setSelectedDate(date);
-  };
-
-  const handleMonthChange = (e) => {
-    const [year, month] = e.target.value.split('-');
-    // Create date at noon on the first day of month to avoid timezone issues
-    const date = new Date(year, month - 1, 1, 12, 0, 0);
-    setSelectedMonth(date);
-  };
-
-  const dashboardData = useMemo(() => {
-    const result = {
-      byDay: {},
-      byMonth: {},
-      all: { total: 0, stages: {} }
-    };
-
-    congDoanList.forEach(stage => {
-      result.all.stages[stage] = 0;
-    });
-
-    reports.forEach(report => {
-      if (!report['NGÀY'] || !report['CÔNG ĐOẠN'] || !report['KHỐI LƯỢNG']) return;
-
-      // Create date and set hours to noon to avoid timezone issues
-      const reportDate = new Date(report['NGÀY']);
-      reportDate.setHours(12, 0, 0, 0);
-
-      // Format the date key consistently with how we'll look it up
-      const dateKey = formatDateToString(reportDate);
-      const monthKey = `${reportDate.getFullYear()}-${String(reportDate.getMonth() + 1).padStart(2, '0')}`;
-      const stage = report['CÔNG ĐOẠN'];
-
-      const quantityStr = report['KHỐI LƯỢNG'].toString().replace(/[^\d.-]/g, '');
-      const quantity = parseFloat(quantityStr) || 0;
-
-      if (!stage || isNaN(quantity)) return;
-
-      // Initialize if needed
-      if (!result.byDay[dateKey]) {
-        result.byDay[dateKey] = { total: 0, stages: {} };
-        congDoanList.forEach(s => {
-          result.byDay[dateKey].stages[s] = 0;
-        });
-      }
-
-      if (!result.byMonth[monthKey]) {
-        result.byMonth[monthKey] = { total: 0, stages: {} };
-        congDoanList.forEach(s => {
-          result.byMonth[monthKey].stages[s] = 0;
-        });
-      }
-
-      // Add quantities
-      result.byDay[dateKey].stages[stage] += quantity;
-      result.byDay[dateKey].total += quantity;
-
-      result.byMonth[monthKey].stages[stage] += quantity;
-      result.byMonth[monthKey].total += quantity;
-
-      result.all.stages[stage] += quantity;
-      result.all.total += quantity;
-    });
-
-    return result;
-  }, [reports, congDoanList]);
-
-  const currentData = useMemo(() => {
-    if (timeView === 'day') {
-      // Format the selected date consistently with how we stored it
-      const dateKey = formatDateToString(selectedDate);
-
-      // Debug output to check the keys
-      console.log('Looking for date key:', dateKey);
-      console.log('Available date keys:', Object.keys(dashboardData.byDay));
-
-      return dashboardData.byDay[dateKey] || { total: 0, stages: {} };
-    } else if (timeView === 'month') {
-      const monthKey = `${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`;
-      return dashboardData.byMonth[monthKey] || { total: 0, stages: {} };
-    } else {
-      return dashboardData.all;
-    }
-  }, [timeView, selectedDate, selectedMonth, dashboardData]);
-
-  return (
-    <div className="bg-white rounded-lg shadow p-5 mb-6 border border-gray-100">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <h2 className="text-xl font-bold text-gray-800">Tổng hợp sản lượng</h2>
-        <div className="flex flex-wrap items-center gap-3">
-          {timeView === 'day' && (
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Calendar className="w-4 h-4 text-gray-500" />
-              </div>
-              <input
-                type="date"
-                value={formatDateToString(selectedDate)}
-                onChange={handleDateChange}
-                className="pl-10 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-          )}
-
-          {timeView === 'month' && (
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                <Calendar className="w-4 h-4 text-gray-500" />
-              </div>
-              <input
-                type="month"
-                value={`${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`}
-                onChange={handleMonthChange}
-                className="pl-10 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              />
-            </div>
-          )}
-          <div className="inline-flex rounded-md shadow-sm">
-            <button
-              onClick={() => setTimeView('day')}
-              className={`px-4 py-2 text-sm font-medium ${timeView === 'day' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'} border border-gray-300 rounded-l-md focus:z-10 focus:outline-none focus:ring-1 focus:ring-indigo-500`}
-            >
-              Theo ngày
-            </button>
-            <button
-              onClick={() => setTimeView('month')}
-              className={`px-4 py-2 text-sm font-medium ${timeView === 'month' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'} border-t border-b border-gray-300 focus:z-10 focus:outline-none focus:ring-1 focus:ring-indigo-500`}
-            >
-              Theo tháng
-            </button>
-            <button
-              onClick={() => setTimeView('all')}
-              className={`px-4 py-2 text-sm font-medium ${timeView === 'all' ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'} border border-gray-300 rounded-r-md focus:z-10 focus:outline-none focus:ring-1 focus:ring-indigo-500`}
-            >
-              Tổng cộng
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Total production card */}
-      <div className="mb-6">
-        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-lg p-5">
-          <p className="text-sm text-indigo-600 mb-1">Tổng sản lượng {timeView === 'day' ? 'ngày' : timeView === 'month' ? 'tháng' : ''}</p>
-          <h3 className="text-3xl font-bold text-indigo-700 mb-2">
-            {currentData.total.toFixed(2)} {currentData.total > 0 ? 'khối' : ''}
-          </h3>
-          <p className="text-sm text-indigo-600">
-            {timeView === 'day'
-              ? `Ngày ${selectedDate.toLocaleDateString('vi-VN')}`
-              : timeView === 'month'
-                ? `Tháng ${selectedMonth.getMonth() + 1}/${selectedMonth.getFullYear()}`
-                : 'Tổng tất cả các ngày'}
-          </p>
-        </div>
-      </div>
-
-      {/* Production by stage - redesigned cards */}
-      <h3 className="text-lg font-semibold text-gray-800 mb-4">Chi tiết theo công đoạn</h3>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {congDoanList.map((stage, index) => (
-          <div key={index} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-4">
-            <h4 className="text-md font-medium text-gray-700 mb-2 truncate" title={stage}>{stage}</h4>
-            <p className="text-2xl font-bold text-gray-800 mb-3">
-              {(currentData.stages[stage] || 0).toFixed(2)} {currentData.stages[stage] > 0 ? 'khối' : ''}
-            </p>
-            <div className="relative pt-1">
-              <div className="overflow-hidden h-2 mb-2 text-xs flex rounded-full bg-gray-200">
-                <div
-                  style={{
-                    width: `${currentData.total > 0 ? (currentData.stages[stage] / currentData.total) * 100 : 0}%`
-                  }}
-                  className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-indigo-500 transition-all duration-500 ease-in-out"
-                ></div>
-              </div>
-              <p className="text-xs text-gray-500">
-                {currentData.total > 0
-                  ? `${((currentData.stages[stage] || 0) / currentData.total * 100).toFixed(1)}%`
-                  : '0%'} của tổng
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
 
 // Improved pagination component with better styling
 const Pagination = ({ currentPage, totalPages, onPageChange }) => (
@@ -290,6 +93,7 @@ const ReportManagement = () => {
     "Bào tinh ghép ngang", "Trám trít", "Chà nhám - kiểm hàng", "Nhập kho thành phẩm"
   ]);
   const [congDoanData, setCongDoanData] = useState([]);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'grouped'
 
   // State - UI controls
   const [open, setOpen] = useState(false);
@@ -299,6 +103,7 @@ const ReportManagement = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedReports, setSelectedReports] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
+
   const [filters, setFilters] = useState({
     congDoan: '',
     trangThai: '',
@@ -320,6 +125,20 @@ const ReportManagement = () => {
     ghiChu: ''
   });
 
+  // State - confirm modal
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [isConfirmLoading, setIsConfirmLoading] = useState(false);
+
+  // State - approval modal
+  const [isApproving, setIsApproving] = useState(false);
+
+  // State - view history modal
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [selectedHistory, setSelectedHistory] = useState([]);
+
   // Default empty report
   const emptyReport = {
     ID: '',
@@ -332,10 +151,30 @@ const ReportManagement = () => {
     'GHI CHÚ': '',
     'NGƯỜI NHẬP': '',
     'TRẠNG THÁI': 'Chờ duyệt',
-    'NGƯỜI DUYỆT': ''
+    'NGƯỜI DUYỆT': '',
+    'LỊCH SỬ': ''
   };
 
   const [currentReport, setCurrentReport] = useState(emptyReport);
+
+  // Helper functions
+  const getCurrentTimestamp = () => {
+    return new Date().toLocaleString('vi-VN');
+  };
+
+  const getCurrentUserName = () => {
+    const currentUser = authUtils.getUserData();
+    return currentUser?.['Họ và Tên'] || 'Người dùng';
+  };
+
+  const addHistoryEntry = (report, action) => {
+    const timestamp = getCurrentTimestamp();
+    const username = getCurrentUserName();
+    const entry = `[${timestamp}] ${username} - ${action}`;
+
+    const currentHistory = report['LỊCH SỬ'] || '';
+    return currentHistory ? `${currentHistory}\n${entry}` : entry;
+  };
 
   // Hàm tính thành tiền
   const calculateThanhTien = (khoiLuong, donGia) => {
@@ -418,6 +257,18 @@ const ReportManagement = () => {
     }
   };
 
+  // View history
+  const handleViewHistory = (report) => {
+    if (!report['LỊCH SỬ']) {
+      toast.info('Chưa có lịch sử cho báo cáo này');
+      return;
+    }
+
+    const historyEntries = report['LỊCH SỬ'].split('\n').filter(entry => entry.trim() !== '');
+    setSelectedHistory(historyEntries);
+    setShowHistoryModal(true);
+  };
+
   // Report modal functions
   const handleOpen = useCallback((report = null) => {
     if (report && report['TRẠNG THÁI'] === 'Đã duyệt') {
@@ -445,7 +296,8 @@ const ReportManagement = () => {
         'GHI CHÚ': report['GHI CHÚ'] || '',
         'NGƯỜI NHẬP': report['NGƯỜI NHẬP'] || '',
         'TRẠNG THÁI': report['TRẠNG THÁI'] || 'Chờ duyệt',
-        'NGƯỜI DUYỆT': report['NGƯỜI DUYỆT'] || ''
+        'NGƯỜI DUYỆT': report['NGƯỜI DUYỆT'] || '',
+        'LỊCH SỬ': report['LỊCH SỬ'] || ''
       });
     } else {
       // Get current user for new report
@@ -521,14 +373,16 @@ const ReportManagement = () => {
         .map(staff => staff.value)
         .join(', ');
 
-      const reportData = {
+      let reportData = {
         ...currentReport,
         'NGÀY': currentReport['NGÀY'].toISOString().split('T')[0], // Format date as YYYY-MM-DD
         'NHÂN SỰ THAM GIA': staffString
       };
 
       if (reportData.ID) {
-        // Edit existing report
+        // Edit existing report - add history entry
+        reportData['LỊCH SỬ'] = addHistoryEntry(reportData, 'Cập nhật báo cáo');
+
         await authUtils.apiRequest('BC', 'Edit', {
           "Rows": [reportData]
         });
@@ -545,6 +399,9 @@ const ReportManagement = () => {
         const newReportID = `BC${newID.toString().padStart(3, '0')}`;
         reportData.ID = newReportID;
         reportData['TRẠNG THÁI'] = 'Chờ duyệt';
+
+        // Add initial history entry
+        reportData['LỊCH SỬ'] = addHistoryEntry(reportData, 'Tạo báo cáo mới');
 
         await authUtils.apiRequest('BC', 'Add', {
           "Rows": [reportData]
@@ -563,7 +420,7 @@ const ReportManagement = () => {
   };
 
   // Delete report
-  const handleDelete = async (ID) => {
+  const handleDelete = (ID) => {
     // Find the report to check its status
     const reportToDelete = reports.find(report => report.ID === ID);
 
@@ -572,18 +429,21 @@ const ReportManagement = () => {
       return;
     }
 
-    if (!window.confirm('Bạn có chắc chắn muốn xóa báo cáo này?')) return;
-
-    try {
-      await authUtils.apiRequest('BC', 'Delete', {
-        "Rows": [{ "ID": ID }]
-      });
-      toast.success('Xóa báo cáo thành công!');
-      await fetchReports();
-    } catch (error) {
-      console.error('Error deleting report:', error);
-      toast.error('Có lỗi xảy ra khi xóa báo cáo');
-    }
+    setConfirmTitle("Xóa báo cáo");
+    setConfirmMessage("Bạn có chắc chắn muốn xóa báo cáo này?");
+    setConfirmAction(async () => {
+      try {
+        await authUtils.apiRequest('BC', 'Delete', {
+          "Rows": [{ "ID": ID }]
+        });
+        toast.success('Xóa báo cáo thành công!');
+        await fetchReports();
+      } catch (error) {
+        console.error('Error deleting report:', error);
+        toast.error('Có lỗi xảy ra khi xóa báo cáo');
+      }
+    });
+    setShowConfirmModal(true);
   };
 
   // Approval functions
@@ -595,6 +455,7 @@ const ReportManagement = () => {
   const handleApprove = async (approve) => {
     if (!reportToApprove) return;
 
+    setIsApproving(true);
     try {
       const currentUser = authUtils.getUserData();
       const approverName = currentUser?.['Họ và Tên'] || '';
@@ -604,11 +465,16 @@ const ReportManagement = () => {
       const donGia = parseFloat(reportToApprove['ĐƠN GIÁ']) || 0;
       const thanhTien = khoiLuong * donGia;
 
+      // Add history entry
+      const historyAction = approve ? 'Duyệt báo cáo' : 'Từ chối báo cáo';
+      const updatedHistory = addHistoryEntry(reportToApprove, historyAction);
+
       const reportData = {
         ...reportToApprove,
         'TRẠNG THÁI': approve ? 'Đã duyệt' : 'Từ chối',
         'NGƯỜI DUYỆT': approverName,
-        'THÀNH TIỀN': approve ? thanhTien.toString() : ''
+        'THÀNH TIỀN': approve ? thanhTien.toString() : '',
+        'LỊCH SỬ': updatedHistory
       };
 
       await authUtils.apiRequest('BC', 'Edit', {
@@ -622,36 +488,43 @@ const ReportManagement = () => {
     } catch (error) {
       console.error('Error approving report:', error);
       toast.error('Có lỗi xảy ra khi xử lý báo cáo');
+    } finally {
+      setIsApproving(false);
     }
   };
-  // Add this function after handleApprove around line 750
-  const handleUnapprove = async (report) => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy duyệt báo cáo này?')) return;
 
-    try {
-      const reportData = {
-        ...report,
-        'TRẠNG THÁI': 'Chờ duyệt',
-        'THÀNH TIỀN': '',
-        // Preserve the person who un-approved in the notes
-        'GHI CHÚ': report['GHI CHÚ']
-          ? `${report['GHI CHÚ']} | Hủy duyệt bởi: ${authUtils.getUserData()?.['Họ và Tên'] || ''} vào ${new Date().toLocaleString('vi-VN')}`
-          : `Hủy duyệt bởi: ${authUtils.getUserData()?.['Họ và Tên'] || ''} vào ${new Date().toLocaleString('vi-VN')}`
-      };
+  // Handle un-approve function
+  const handleUnapprove = (report) => {
+    setConfirmTitle("Hủy duyệt báo cáo");
+    setConfirmMessage("Bạn có chắc chắn muốn hủy duyệt báo cáo này?");
+    setConfirmAction(async () => {
+      try {
+        // Add history entry for un-approval
+        const updatedHistory = addHistoryEntry(report, 'Hủy duyệt báo cáo');
 
-      await authUtils.apiRequest('BC', 'Edit', {
-        "Rows": [reportData]
-      });
+        const reportData = {
+          ...report,
+          'TRẠNG THÁI': 'Chờ duyệt',
+          'THÀNH TIỀN': '',
+          'LỊCH SỬ': updatedHistory
+        };
 
-      toast.success('Đã hủy duyệt báo cáo thành công!');
-      await fetchReports();
-    } catch (error) {
-      console.error('Error unapproving report:', error);
-      toast.error('Có lỗi xảy ra khi hủy duyệt báo cáo');
-    }
+        await authUtils.apiRequest('BC', 'Edit', {
+          "Rows": [reportData]
+        });
+
+        toast.success('Đã hủy duyệt báo cáo thành công!');
+        await fetchReports();
+      } catch (error) {
+        console.error('Error unapproving report:', error);
+        toast.error('Có lỗi xảy ra khi hủy duyệt báo cáo');
+      }
+    });
+    setShowConfirmModal(true);
   };
+
   // Bulk actions
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedReports.length === 0) {
       toast.warning('Vui lòng chọn báo cáo để xóa');
       return;
@@ -673,24 +546,28 @@ const ReportManagement = () => {
       return;
     }
 
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${reportsToDelete.length} báo cáo đã chọn?`)) return;
+    setConfirmTitle("Xóa nhiều báo cáo");
+    setConfirmMessage(`Bạn có chắc chắn muốn xóa ${reportsToDelete.length} báo cáo đã chọn?`);
+    setConfirmAction(async () => {
+      try {
+        await Promise.all(
+          reportsToDelete.map(id =>
+            authUtils.apiRequest('BC', 'Delete', {
+              "Rows": [{ "ID": id }]
+            })
+          )
+        );
 
-    try {
-      await Promise.all(
-        reportsToDelete.map(id =>
-          authUtils.apiRequest('BC', 'Delete', {
-            "Rows": [{ "ID": id }]
-          })
-        )
-      );
-
-      toast.success('Xóa báo cáo thành công!');
-      setSelectedReports(selectedReports.filter(id => !reportsToDelete.includes(id)));
-      await fetchReports();
-    } catch (error) {
-      toast.error('Có lỗi xảy ra khi xóa báo cáo');
-    }
+        toast.success('Xóa báo cáo thành công!');
+        setSelectedReports(selectedReports.filter(id => !reportsToDelete.includes(id)));
+        await fetchReports();
+      } catch (error) {
+        toast.error('Có lỗi xảy ra khi xóa báo cáo');
+      }
+    });
+    setShowConfirmModal(true);
   };
+
   const handleExportSelected = () => {
     if (selectedReports.length === 0) {
       toast.warning('Vui lòng chọn báo cáo để xuất file');
@@ -732,7 +609,6 @@ const ReportManagement = () => {
 
     setImportFile(file);
 
-    // Parse Excel file for preview
     // Parse Excel file for preview
     const reader = new FileReader();
     reader.onload = (evt) => {
@@ -834,6 +710,9 @@ const ReportManagement = () => {
             const congDoan = congDoanData.find(item => item['CÔNG ĐOẠN'] === row['CÔNG ĐOẠN']);
             const donGia = congDoan ? congDoan['ĐƠN GIÁ'] : '';
 
+            // Create history entry for import
+            const importEntry = `[${getCurrentTimestamp()}] ${getCurrentUserName()} - Nhập từ file Excel`;
+
             // Create report object
             const report = {
               ID: row.ID || `BC${newIdCounter.toString().padStart(3, '0')}`,
@@ -846,7 +725,8 @@ const ReportManagement = () => {
               'GHI CHÚ': row['GHI CHÚ'] || '',
               'NGƯỜI NHẬP': row['NGƯỜI NHẬP'] || currentUserName,
               'TRẠNG THÁI': 'Chờ duyệt',
-              'NGƯỜI DUYỆT': ''
+              'NGƯỜI DUYỆT': '',
+              'LỊCH SỬ': importEntry
             };
 
             validatedData.push(report);
@@ -949,7 +829,42 @@ const ReportManagement = () => {
       toast.error('Có lỗi xảy ra khi thêm công đoạn mới');
     }
   };
+  // Thêm hàm xử lý duyệt trực tiếp
+  const handleDirectApprove = async (report) => {
+    try {
+      setIsSubmitting(true);
+      const currentUser = authUtils.getUserData();
+      const approverName = currentUser?.['Họ và Tên'] || '';
 
+      // Tính thành tiền khi duyệt
+      const khoiLuong = parseFloat(report['KHỐI LƯỢNG']) || 0;
+      const donGia = parseFloat(report['ĐƠN GIÁ']) || 0;
+      const thanhTien = khoiLuong * donGia;
+
+      // Add history entry
+      const updatedHistory = addHistoryEntry(report, 'Duyệt báo cáo trực tiếp');
+
+      const reportData = {
+        ...report,
+        'TRẠNG THÁI': 'Đã duyệt',
+        'NGƯỜI DUYỆT': approverName,
+        'THÀNH TIỀN': thanhTien.toString(),
+        'LỊCH SỬ': updatedHistory
+      };
+
+      await authUtils.apiRequest('BC', 'Edit', {
+        "Rows": [reportData]
+      });
+
+      toast.success('Báo cáo đã được duyệt!');
+      await fetchReports();
+    } catch (error) {
+      console.error('Error approving report:', error);
+      toast.error('Có lỗi xảy ra khi duyệt báo cáo');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
   const handleDownloadTemplate = () => {
     const templateData = [
       ['NGÀY', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'NHÂN SỰ THAM GIA', 'GHI CHÚ', 'NGƯỜI NHẬP'],
@@ -1013,7 +928,34 @@ const ReportManagement = () => {
         return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
     }
   }, []);
-
+  const groupedReports = useMemo(() => {
+    if (viewMode !== 'grouped') return null;
+    
+    const groups = {};
+    filteredReports.forEach(report => {
+      const date = new Date(report['NGÀY']).toLocaleDateString('vi-VN');
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(report);
+    });
+    
+    // Sort dates in descending order (newest first)
+    return Object.keys(groups)
+      .sort((a, b) => {
+        const dateA = parseVNDate(a);
+        const dateB = parseVNDate(b);
+        return dateB - dateA;
+      })
+      .map(date => ({
+        date,
+        reports: groups[date],
+        totalReports: groups[date].length,
+        approvedCount: groups[date].filter(r => r['TRẠNG THÁI'] === 'Đã duyệt').length,
+        pendingCount: groups[date].filter(r => r['TRẠNG THÁI'] === 'Chờ duyệt').length,
+        rejectedCount: groups[date].filter(r => r['TRẠNG THÁI'] === 'Từ chối').length
+      }));
+  }, [filteredReports, viewMode]);
   return (
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
       <div className=" mx-auto">
@@ -1064,6 +1006,23 @@ const ReportManagement = () => {
                 <Plus className="w-4 h-4" />
                 Thêm báo cáo
               </button>
+              {/* View toggle button */}
+<button
+  onClick={() => setViewMode(viewMode === 'list' ? 'grouped' : 'list')}
+  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors shadow-sm"
+>
+  {viewMode === 'list' ? (
+    <>
+      <Calendar className="w-4 h-4" />
+      Nhóm theo ngày
+    </>
+  ) : (
+    <>
+      <List className="w-4 h-4" />
+      Danh sách
+    </>
+  )}
+</button>
             </div>
           </div>
 
@@ -1160,11 +1119,9 @@ const ReportManagement = () => {
             </div>
           </div>
 
-          {/* Dashboard */}
-          <ProductionDashboard reports={reports} congDoanList={congDoanList} />
-
-          {/* Table Section */}
-          <div className="overflow-x-auto -mx-4 md:mx-0">
+          {/* Table or Grouped View Section */}
+{viewMode === 'list' ? (
+  <div className="overflow-x-auto -mx-4 md:mx-0">
             <div className="inline-block min-w-full align-middle">
               <div className="overflow-hidden border border-gray-200 rounded-lg">
                 <table className="min-w-full divide-y divide-gray-200">
@@ -1177,7 +1134,11 @@ const ReportManagement = () => {
                             checked={selectedReports.length === filteredReports.length && filteredReports.length > 0}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedReports(filteredReports.map(r => r.ID));
+                                // Only select non-approved reports
+                                setSelectedReports(filteredReports
+                                  .filter(r => r['TRẠNG THÁI'] !== 'Đã duyệt')
+                                  .map(r => r.ID)
+                                );
                               } else {
                                 setSelectedReports([]);
                               }
@@ -1247,17 +1208,23 @@ const ReportManagement = () => {
                             </span>
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI DUYỆT'] || '—'}</td>
-
                           <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex justify-end space-x-1">
                               {report['TRẠNG THÁI'] === 'Chờ duyệt' && (
                                 <>
                                   <button
-                                    onClick={() => openApprovalModal(report)}
+                                    onClick={() => handleDirectApprove(report)}
                                     className="text-green-600 hover:text-green-900 p-1.5 rounded-full hover:bg-green-50"
-                                    title="Duyệt báo cáo"
+                                    title="Duyệt trực tiếp"
                                   >
                                     <Check className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => openApprovalModal(report)}
+                                    className="text-amber-600 hover:text-amber-900 p-1.5 rounded-full hover:bg-amber-50"
+                                    title="Xem chi tiết và duyệt"
+                                  >
+                                    <AlertCircle className="h-4 w-4" />
                                   </button>
                                   <button
                                     onClick={() => handleOpen(report)}
@@ -1284,12 +1251,17 @@ const ReportManagement = () => {
                                   <X className="h-4 w-4" />
                                 </button>
                               )}
-                              {report['TRẠNG THÁI'] === 'Từ chối' && (
-                                <span className="text-gray-400 text-xs italic px-2">Đã từ chối</span>
+                              {report['LỊCH SỬ'] && (
+                                <button
+                                  onClick={() => handleViewHistory(report)}
+                                  className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
+                                  title="Xem lịch sử"
+                                >
+                                  <AlertCircle className="h-4 w-4" />
+                                </button>
                               )}
                             </div>
                           </td>
-
                         </tr>
                       ))
                     ) : (
@@ -1304,7 +1276,159 @@ const ReportManagement = () => {
               </div>
             </div>
           </div>
+) : (
+  <div className="space-y-6">
+    {groupedReports.map(group => (
+      <div key={group.date} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+        <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-medium text-gray-800">
+              Ngày: {group.date}
+            </h3>
+            <div className="flex flex-wrap gap-2 mt-2">
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                Tổng: {group.totalReports}
+              </span>
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
+                Đã duyệt: {group.approvedCount}
+              </span>
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
+                Chờ duyệt: {group.pendingCount}
+              </span>
+              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-red-100 text-red-800">
+                Từ chối: {group.rejectedCount}
+              </span>
+            </div>
+          </div>
+          <div>
+            <button
+              onClick={() => {
+                // Export reports for this date
+                const excelData = group.reports.map(item => ({
+                  ID: item.ID,
+                  'NGÀY': item['NGÀY'],
+                  'CÔNG ĐOẠN': item['CÔNG ĐOẠN'],
+                  'KHỐI LƯỢNG': item['KHỐI LƯỢNG'],
+                  'ĐƠN GIÁ': item['ĐƠN GIÁ'],
+                  'THÀNH TIỀN': item['THÀNH TIỀN'],
+                  'NHÂN SỰ THAM GIA': item['NHÂN SỰ THAM GIA'],
+                  'GHI CHÚ': item['GHI CHÚ'],
+                  'NGƯỜI NHẬP': item['NGƯỜI NHẬP'],
+                  'TRẠNG THÁI': item['TRẠNG THÁI'],
+                  'NGƯỜI DUYỆT': item['NGƯỜI DUYỆT'] || ''
+                }));
+                
+                const ws = XLSX.utils.json_to_sheet(excelData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
+                XLSX.writeFile(wb, `bao-cao-${group.date.replace(/\//g, '-')}.xlsx`);
+              }}
+              className="px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 flex items-center gap-1.5 text-sm transition-colors shadow-sm"
+            >
+              <Download className="w-3.5 h-3.5" />
+              Xuất file
+            </button>
+          </div>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID</th>
+                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
+                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
+                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
+                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
+                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trạng thái</th>
+                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {group.reports.map(report => (
+                <tr key={report.ID} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{report.ID}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{report['KHỐI LƯỢNG']}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['ĐƠN GIÁ']}</td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
+                    {report['TRẠNG THÁI'] === 'Đã duyệt' ? report['THÀNH TIỀN'] : '—'}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm">
+                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(report['TRẠNG THÁI'])}`}>
+                      {report['TRẠNG THÁI']}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end space-x-1">
+                      {/* Same action buttons as in the list view */}
+                      {report['TRẠNG THÁI'] === 'Chờ duyệt' && (
+                        <>
+                          <button
+                            onClick={() => handleDirectApprove(report)}
+                            className="text-green-600 hover:text-green-900 p-1.5 rounded-full hover:bg-green-50"
+                            title="Duyệt trực tiếp"
+                          >
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => openApprovalModal(report)}
+                            className="text-amber-600 hover:text-amber-900 p-1.5 rounded-full hover:bg-amber-50"
+                            title="Xem chi tiết và duyệt"
+                          >
+                            <AlertCircle className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleOpen(report)}
+                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
+                            title="Sửa báo cáo"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(report.ID)}
+                            className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
+                            title="Xóa báo cáo"
+                          >
+                            <Trash className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                      {report['TRẠNG THÁI'] === 'Đã duyệt' && (
+                        <button
+                          onClick={() => handleUnapprove(report)}
+                          className="text-amber-600 hover:text-amber-900 p-1.5 rounded-full hover:bg-amber-50"
+                          title="Hủy duyệt báo cáo"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                      {report['LỊCH SỬ'] && (
+                        <button
+                          onClick={() => handleViewHistory(report)}
+                          className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
+                          title="Xem lịch sử"
+                        >
+                          <AlertCircle className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ))}
 
+    {groupedReports.length === 0 && (
+      <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+        <p className="text-gray-500">Không tìm thấy báo cáo nào phù hợp với tiêu chí tìm kiếm</p>
+      </div>
+    )}
+  </div>
+)}
           {/* Pagination */}
           {currentItems.length > 0 && (
             <Pagination
@@ -1712,6 +1836,7 @@ const ReportManagement = () => {
                   setReportToApprove(null);
                 }}
                 className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                disabled={isApproving}
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1764,17 +1889,156 @@ const ReportManagement = () => {
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => handleApprove(false)}
+                  disabled={isApproving}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2 transition-colors shadow-sm"
                 >
-                  <X className="h-4 w-4" />
-                  Từ chối
+                  {isApproving ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <X className="h-4 w-4" />
+                      Từ chối
+                    </>
+                  )}
                 </button>
                 <button
                   onClick={() => handleApprove(true)}
+                  disabled={isApproving}
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors shadow-sm"
                 >
-                  <Check className="h-4 w-4" />
-                  Duyệt
+                  {isApproving ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Duyệt
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {/* Confirmation Modal */}
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
+              <h2 className="text-xl font-bold text-gray-800">{confirmTitle}</h2>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                disabled={isConfirmLoading}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <p className="text-gray-600">{confirmMessage}</p>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+                  disabled={isConfirmLoading}
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={async () => {
+                    if (confirmAction && typeof confirmAction === 'function') {
+                      setIsConfirmLoading(true);
+                      try {
+                        await confirmAction();
+                      } catch (error) {
+                        console.error("Error executing confirmation action:", error);
+                        toast.error("Có lỗi xảy ra khi thực hiện thao tác");
+                      } finally {
+                        setIsConfirmLoading(false);
+                        setShowConfirmModal(false);
+                      }
+                    } else {
+                      console.error("Confirmation action is not a function", confirmAction);
+                      setShowConfirmModal(false);
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2"
+                  disabled={isConfirmLoading}
+                >
+                  {isConfirmLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    'Xác nhận'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* History Modal */}
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6">
+            <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
+              <h2 className="text-xl font-bold text-gray-800">Lịch sử thay đổi</h2>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setSelectedHistory([]);
+                }}
+                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
+                {selectedHistory.length > 0 ? (
+                  <ul className="space-y-3">
+                    {selectedHistory.map((entry, index) => (
+                      <li key={index} className={`p-3 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} rounded-md border border-gray-100`}>
+                        {entry}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">Không có dữ liệu lịch sử</p>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-gray-200">
+                <button
+                  onClick={() => {
+                    setShowHistoryModal(false);
+                    setSelectedHistory([]);
+                  }}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
+                >
+                  Đóng
                 </button>
               </div>
             </div>

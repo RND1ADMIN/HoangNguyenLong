@@ -128,6 +128,20 @@ const PhanBoNhanSuManagement = () => {
         });
     };
 
+    // Format date cho input type="date" (yyyy-mm-dd)
+    const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '';
+
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+
+        return `${year}-${month}-${day}`;
+    };
+
     // Handle công đoạn selection
     const handleCongDoanChange = (tenCongDoan) => {
         const selectedCongDoan = congDoanDonGias.find(cd => cd['TÊN CÔNG ĐOẠN'] === tenCongDoan);
@@ -517,9 +531,11 @@ const PhanBoNhanSuManagement = () => {
                                             </td>
                                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
                                                 <div>
-                                                    <div>{item['HIỆU LỰC TỪ']}</div>
-                                                    {item['HIỆU LỰC ĐẾN'] && (
-                                                        <div className="text-xs text-gray-500">đến {item['HIỆU LỰC ĐẾN']}</div>
+                                                    <div>{new Date(item['HIỆU LỰC TỪ']).toLocaleDateString('vi-VN')}</div>
+                                                    {new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN') !== '1970-01-01' ? (
+                                                        <div className="text-xs text-gray-500">đến {new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN')}</div>
+                                                    ) : (
+                                                        <div className="text-xs text-gray-500">—</div>
                                                     )}
                                                 </div>
                                             </td>
@@ -580,36 +596,38 @@ const PhanBoNhanSuManagement = () => {
                                     </label>
                                     <input
                                         type="date"
-                                        value={currentPhanBoNhanSu['NGÀY CÀI ĐẶT']}
+                                        value={formatDateForInput(currentPhanBoNhanSu['NGÀY CÀI ĐẶT'])}
                                         onChange={(e) => handleInputChange('NGÀY CÀI ĐẶT', e.target.value)}
                                         className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                                         required
                                     />
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Hiệu lực từ <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={currentPhanBoNhanSu['HIỆU LỰC TỪ']}
-                                        onChange={(e) => handleInputChange('HIỆU LỰC TỪ', e.target.value)}
-                                        className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                                        required
-                                    />
-                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Hiệu lực từ <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={formatDateForInput(currentPhanBoNhanSu['HIỆU LỰC TỪ'])}
+                                            onChange={(e) => handleInputChange('HIỆU LỰC TỪ', e.target.value)}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
+                                            required
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Hiệu lực đến
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={currentPhanBoNhanSu['HIỆU LỰC ĐẾN']}
-                                        onChange={(e) => handleInputChange('HIỆU LỰC ĐẾN', e.target.value)}
-                                        className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Hiệu lực đến
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={formatDateForInput(currentPhanBoNhanSu['HIỆU LỰC ĐẾN'])}
+                                            onChange={(e) => handleInputChange('HIỆU LỰC ĐẾN', e.target.value)}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div>

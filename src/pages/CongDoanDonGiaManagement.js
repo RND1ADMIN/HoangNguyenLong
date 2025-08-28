@@ -16,7 +16,6 @@ const CongDoanDonGiaManagement = () => {
         'NHÓM': '',
         'CHI TIẾT CÔNG ĐOẠN': '',
         'ĐƠN VỊ TÍNH': '',
-        'PP TÍNH NĂNG SUẤT': '',
         'ĐƠN GIÁ NĂNG SUẤT': ''
     });
     const [showModal, setShowModal] = useState(false);
@@ -29,6 +28,9 @@ const CongDoanDonGiaManagement = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [dateFilter, setDateFilter] = useState('');
     const [nhomFilter, setNhomFilter] = useState('');
+
+    const [nhomOptions, setNhomOptions] = useState([]);
+    const [chiTietOptions, setChiTietOptions] = useState([]);
 
     // Fetch data
     const fetchCongDoanDonGias = async () => {
@@ -44,6 +46,33 @@ const CongDoanDonGiaManagement = () => {
     useEffect(() => {
         fetchCongDoanDonGias();
     }, []);
+
+    // 2. Thêm vào useEffect để lấy data có sẵn
+    useEffect(() => {
+        if (congDoanDonGias.length > 0) {
+            // Lấy danh sách nhóm unique
+            const uniqueNhoms = [...new Set(congDoanDonGias.map(item => item['NHÓM']).filter(Boolean))];
+            setNhomOptions(uniqueNhoms);
+
+            // Lấy danh sách chi tiết unique  
+            const uniqueChiTiet = [...new Set(congDoanDonGias.map(item => item['CHI TIẾT CÔNG ĐOẠN']).filter(Boolean))];
+            setChiTietOptions(uniqueChiTiet);
+        }
+    }, [congDoanDonGias]);
+
+    // Format date cho input type="date" (yyyy-mm-dd)
+    const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '';
+
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+
+        return `${year}-${month}-${day}`;
+    };
 
     // Generate mã công đoạn from nhóm and chi tiết công đoạn
     const generateMaCongDoan = (nhom, chiTiet) => {
@@ -102,7 +131,6 @@ const CongDoanDonGiaManagement = () => {
                 'NHÓM': congDoanDonGia['NHÓM'] || '',
                 'CHI TIẾT CÔNG ĐOẠN': congDoanDonGia['CHI TIẾT CÔNG ĐOẠN'] || '',
                 'ĐƠN VỊ TÍNH': congDoanDonGia['ĐƠN VỊ TÍNH'] || '',
-                'PP TÍNH NĂNG SUẤT': congDoanDonGia['PP TÍNH NĂNG SUẤT'] || '',
                 'ĐƠN GIÁ NĂNG SUẤT': congDoanDonGia['ĐƠN GIÁ NĂNG SUẤT'] || ''
             });
         } else {
@@ -117,7 +145,6 @@ const CongDoanDonGiaManagement = () => {
                 'NHÓM': '',
                 'CHI TIẾT CÔNG ĐOẠN': '',
                 'ĐƠN VỊ TÍNH': '',
-                'PP TÍNH NĂNG SUẤT': '',
                 'ĐƠN GIÁ NĂNG SUẤT': ''
             });
         }
@@ -136,7 +163,6 @@ const CongDoanDonGiaManagement = () => {
             'NHÓM': '',
             'CHI TIẾT CÔNG ĐOẠN': '',
             'ĐƠN VỊ TÍNH': '',
-            'PP TÍNH NĂNG SUẤT': '',
             'ĐƠN GIÁ NĂNG SUẤT': ''
         });
     };
@@ -169,7 +195,7 @@ const CongDoanDonGiaManagement = () => {
         if (!congDoanDonGia['HIỆU LỰC TỪ']) errors.push('Hiệu lực từ không được để trống');
         if (!congDoanDonGia['NHÓM']) errors.push('Nhóm không được để trống');
         if (!congDoanDonGia['CHI TIẾT CÔNG ĐOẠN']) errors.push('Chi tiết công đoạn không được để trống');
-        if (!congDoanDonGia['ĐƠN VỊ TÍNH']) errors.push('Đơn vị tính không được để trống');
+        if (!congDoanDonGia['ĐƠN VỊ TÍNH']) errors.push('ĐVT năng suất không được để trống');
         if (!congDoanDonGia['ĐƠN GIÁ NĂNG SUẤT']) errors.push('Đơn giá năng suất không được để trống');
 
         // Validate dates
@@ -509,10 +535,10 @@ const CongDoanDonGiaManagement = () => {
                                                 {parseFloat(item['ĐƠN GIÁ NĂNG SUẤT']).toLocaleString('vi-VN')}
                                             </td>
                                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                {item['HIỆU LỰC TỪ']}
+                                                {new Date(item['HIỆU LỰC TỪ']).toLocaleDateString('vi-VN')}
                                             </td>
                                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                {item['HIỆU LỰC ĐẾN'] || '—'}
+                                                {item['HIỆU LỰC ĐẾN'] ? new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN') : '—'}
                                             </td>
                                             <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                                                 <div className="flex justify-center space-x-2">
@@ -572,64 +598,80 @@ const CongDoanDonGiaManagement = () => {
                                     </label>
                                     <input
                                         type="date"
-                                        value={currentCongDoanDonGia['NGÀY CÀI ĐẶT']}
+                                        value={formatDateForInput(currentCongDoanDonGia['NGÀY CÀI ĐẶT'])}
                                         onChange={(e) => handleInputChange('NGÀY CÀI ĐẶT', e.target.value)}
                                         className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                                         required
                                     />
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Hiệu lực từ <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={currentCongDoanDonGia['HIỆU LỰC TỪ']}
-                                        onChange={(e) => handleInputChange('HIỆU LỰC TỪ', e.target.value)}
-                                        className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                                        required
-                                    />
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Hiệu lực từ <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={formatDateForInput(currentCongDoanDonGia['HIỆU LỰC TỪ'])}
+                                            onChange={(e) => handleInputChange('HIỆU LỰC TỪ', e.target.value)}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
+                                            required
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Hiệu lực đến
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={formatDateForInput(currentCongDoanDonGia['HIỆU LỰC ĐẾN'])}
+                                            onChange={(e) => handleInputChange('HIỆU LỰC ĐẾN', e.target.value)}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
+                                        />
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Hiệu lực đến
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={currentCongDoanDonGia['HIỆU LỰC ĐẾN']}
-                                        onChange={(e) => handleInputChange('HIỆU LỰC ĐẾN', e.target.value)}
-                                        className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                                    />
-                                </div>
-
+                                {/* Nhóm */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Nhóm <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
+                                        list="nhom-options"
                                         value={currentCongDoanDonGia['NHÓM']}
                                         onChange={(e) => handleInputChange('NHÓM', e.target.value)}
                                         className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="Nhập nhóm công đoạn"
+                                        placeholder="Chọn hoặc nhập nhóm công đoạn"
                                         required
                                     />
+                                    <datalist id="nhom-options">
+                                        {nhomOptions.map(nhom => (
+                                            <option key={nhom} value={nhom} />
+                                        ))}
+                                    </datalist>
                                 </div>
 
+                                {/* Chi tiết công đoạn */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Chi tiết công đoạn <span className="text-red-500">*</span>
                                     </label>
                                     <input
                                         type="text"
+                                        list="chitiet-options"
                                         value={currentCongDoanDonGia['CHI TIẾT CÔNG ĐOẠN']}
                                         onChange={(e) => handleInputChange('CHI TIẾT CÔNG ĐOẠN', e.target.value)}
                                         className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="Nhập chi tiết công đoạn"
+                                        placeholder="Chọn hoặc nhập chi tiết công đoạn"
                                         required
                                     />
+                                    <datalist id="chitiet-options">
+                                        {chiTietOptions.map(chiTiet => (
+                                            <option key={chiTiet} value={chiTiet} />
+                                        ))}
+                                    </datalist>
                                 </div>
                             </div>
 
@@ -667,7 +709,7 @@ const CongDoanDonGiaManagement = () => {
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Đơn vị tính <span className="text-red-500">*</span>
+                                        ĐVT năng suất <span className="text-red-500">*</span>
                                     </label>
                                     <select
                                         value={currentCongDoanDonGia['ĐƠN VỊ TÍNH']}
@@ -675,7 +717,7 @@ const CongDoanDonGiaManagement = () => {
                                         className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                                         required
                                     >
-                                        <option value="">Chọn đơn vị tính</option>
+                                        <option value="">Chọn ĐVT năng suất</option>
                                         <option value="Tấn">Tấn</option>
                                         <option value="Kg">Kg</option>
                                         <option value="M2">M2</option>
@@ -685,20 +727,6 @@ const CongDoanDonGiaManagement = () => {
                                         <option value="Giờ">Giờ</option>
                                         <option value="Ngày">Ngày</option>
                                     </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Phương pháp tính năng suất
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={currentCongDoanDonGia['PP TÍNH NĂNG SUẤT']}
-                                        onChange={(e) => handleInputChange('PP TÍNH NĂNG SUẤT', e.target.value)}
-                                        className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="Nhập phương pháp tính năng suất"
-                                        required
-                                    />
                                 </div>
 
                                 <div>

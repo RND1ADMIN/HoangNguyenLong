@@ -31,8 +31,22 @@ const parseVNDate = (dateString) => {
   return date;
 };
 
+// Thêm hàm format tiền tệ
+const formatCurrency = (amount) => {
+  if (!amount || isNaN(amount)) return '0 VNĐ';
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND'
+  }).format(amount);
+};
 
-// Improved pagination component with better styling
+// Hoặc nếu muốn format đơn giản hơn:
+const formatNumber = (number) => {
+  if (!number || isNaN(number)) return '0';
+  return new Intl.NumberFormat('vi-VN').format(number);
+};
+
+// Improved pagination component
 const Pagination = ({ currentPage, totalPages, onPageChange }) => (
   <div className="flex justify-center items-center space-x-2 mt-6">
     <button
@@ -88,11 +102,8 @@ const ReportManagement = () => {
   // State Management - core data
   const [reports, setReports] = useState([]);
   const [staffList, setStaffList] = useState([]);
-  const [congDoanList, setCongDoanList] = useState([
-    "Cắt thô", "Bào, lựa phôi", "Finger ghép dọc 1", "Finger ghép dọc 2",
-    "Bào tinh ghép ngang", "Trám trít", "Chà nhám - kiểm hàng", "Nhập kho thành phẩm"
-  ]);
-  const [congDoanData, setCongDoanData] = useState([]);
+  const [teamAssignments, setTeamAssignments] = useState([]); // Dữ liệu từ PHANBONHANSU
+  const [teams, setTeams] = useState([]); // Danh sách tổ
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'grouped'
 
   // State - UI controls
@@ -105,6 +116,7 @@ const ReportManagement = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const [filters, setFilters] = useState({
+    to: '',
     congDoan: '',
     trangThai: '',
     startDate: null,
@@ -114,16 +126,10 @@ const ReportManagement = () => {
   // State - modals
   const [showImportModal, setShowImportModal] = useState(false);
   const [showApprovalModal, setShowApprovalModal] = useState(false);
-  const [showAddCongDoanModal, setShowAddCongDoanModal] = useState(false);
   const [reportToApprove, setReportToApprove] = useState(null);
   const [importFile, setImportFile] = useState(null);
   const [importPreview, setImportPreview] = useState([]);
   const [isImporting, setIsImporting] = useState(false);
-  const [newCongDoan, setNewCongDoan] = useState({
-    ten: '',
-    donGia: '',
-    ghiChu: ''
-  });
 
   // State - confirm modal
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -143,15 +149,16 @@ const ReportManagement = () => {
   const emptyReport = {
     ID: '',
     'NGÀY': new Date(),
+    'TỔ': '',
     'CÔNG ĐOẠN': '',
     'KHỐI LƯỢNG': '',
-    'ĐƠN GIÁ': '',
-    'THÀNH TIỀN': '',
     'NHÂN SỰ THAM GIA': [],
     'GHI CHÚ': '',
     'NGƯỜI NHẬP': '',
     'TRẠNG THÁI': 'Chờ duyệt',
     'NGƯỜI DUYỆT': '',
+    'ĐƠN GIÁ': '',
+    'THÀNH TIỀN': '',
     'LỊCH SỬ': ''
   };
 
@@ -183,21 +190,86 @@ const ReportManagement = () => {
     return (kl * dg).toString();
   };
 
-  // Hàm xử lý khi chọn công đoạn
-  const handleCongDoanChange = (congDoan) => {
-    const selectedCongDoan = congDoanData.find(item => item['CÔNG ĐOẠN'] === congDoan);
-    let donGia = '';
+  // Lấy thông tin tổ theo ngày hiện tại
+  const getActiveTeamAssignments = () => {
+    const today = new Date();
+    return teamAssignments.filter(assignment => {
+      const startDate = new Date(assignment['HIỆU LỰC TỪ']);
+      const endDate = new Date(assignment['HIỆU LỰC ĐẾN']);
+      return today >= startDate && today <= endDate;
+    });
+  };
 
-    if (selectedCongDoan) {
-      donGia = selectedCongDoan['ĐƠN GIÁ'] || '';
+  // Lấy thông tin công đoạn theo tổ
+  const getTeamWorkStages = (teamName) => {
+    const activeAssignments = getActiveTeamAssignments();
+    return activeAssignments.filter(assignment => assignment['TỔ'] === teamName);
+  };
+
+  // Hàm xử lý khi chọn tổ
+  // Hàm xử lý khi chọn tổ - sửa lại
+  const handleTeamChange = (teamName) => {
+    const teamWorkStages = getTeamWorkStages(teamName);
+
+    if (teamWorkStages.length > 0) {
+      // Lấy tất cả thông tin của tổ này
+      const allStaff = teamWorkStages.map(stage => stage['NHÂN SỰ']).join(', ');
+      const allWorkStages = teamWorkStages.map(stage => stage['TÊN CÔNG ĐOẠN']).join(', ');
+      const avgPrice = teamWorkStages.reduce((sum, stage) => sum + parseFloat(stage['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'] || 0), 0) / teamWorkStages.length;
+
+      // Chuyển đổi nhân sự từ string thành array cho react-select
+      const staffArray = allStaff
+        ? [...new Set(allStaff.split(','))].map(name => ({
+          value: name.trim(),
+          label: name.trim()
+        }))
+        : [];
+
+      setCurrentReport(prev => ({
+        ...prev,
+        'TỔ': teamName,
+        'CÔNG ĐOẠN': allWorkStages, // Tự động điền tất cả công đoạn của tổ
+        'NHÂN SỰ THAM GIA': staffArray, // Tự động điền tất cả nhân sự của tổ
+        'ĐƠN GIÁ': avgPrice.toString(), // Đơn giá trung bình hoặc có thể tính theo cách khác
+        'THÀNH TIỀN': calculateThanhTien(prev['KHỐI LƯỢNG'], avgPrice.toString())
+      }));
+    } else {
+      setCurrentReport(prev => ({
+        ...prev,
+        'TỔ': teamName,
+        'CÔNG ĐOẠN': '',
+        'NHÂN SỰ THAM GIA': [],
+        'ĐƠN GIÁ': '',
+        'THÀNH TIỀN': ''
+      }));
     }
+  };
 
-    setCurrentReport(prev => ({
-      ...prev,
-      'CÔNG ĐOẠN': congDoan,
-      'ĐƠN GIÁ': donGia,
-      'THÀNH TIỀN': calculateThanhTien(prev['KHỐI LƯỢNG'], donGia)
-    }));
+  // Hàm xử lý khi chọn công đoạn
+  const handleWorkStageChange = (workStage) => {
+    const activeAssignments = getActiveTeamAssignments();
+    const selectedStageData = activeAssignments.find(
+      assignment => assignment['TỔ'] === currentReport['TỔ'] &&
+        assignment['TÊN CÔNG ĐOẠN'] === workStage
+    );
+
+    if (selectedStageData) {
+      // Chuyển đổi nhân sự từ string thành array cho react-select
+      const staffArray = selectedStageData['NHÂN SỰ']
+        ? selectedStageData['NHÂN SỰ'].split(',').map(name => ({
+          value: name.trim(),
+          label: name.trim()
+        }))
+        : [];
+
+      setCurrentReport(prev => ({
+        ...prev,
+        'CÔNG ĐOẠN': workStage,
+        'NHÂN SỰ THAM GIA': staffArray,
+        'ĐƠN GIÁ': selectedStageData['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'] || '',
+        'THÀNH TIỀN': calculateThanhTien(prev['KHỐI LƯỢNG'], selectedStageData['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'])
+      }));
+    }
   };
 
   const handleFilterDateChange = (field, value) => {
@@ -219,7 +291,7 @@ const ReportManagement = () => {
   useEffect(() => {
     fetchReports();
     fetchStaffList();
-    fetchCongDoanList();
+    fetchTeamAssignments();
   }, []);
 
   const fetchReports = async () => {
@@ -246,14 +318,24 @@ const ReportManagement = () => {
     }
   };
 
-  const fetchCongDoanList = async () => {
+  const fetchTeamAssignments = async () => {
     try {
-      const response = await authUtils.apiRequest('CONGDOAN', 'Find', {});
-      setCongDoanData(response);
-      setCongDoanList(response.map(item => item['CÔNG ĐOẠN']));
+      const response = await authUtils.apiRequest('PHANBONHANSU', 'Find', {});
+      setTeamAssignments(response);
+
+      // Lấy danh sách các tổ đang hoạt động
+      const activeAssignments = response.filter(assignment => {
+        const today = new Date();
+        const startDate = new Date(assignment['HIỆU LỰC TỪ']);
+        const endDate = new Date(assignment['HIỆU LỰC ĐẾN']);
+        return today >= startDate && today <= endDate;
+      });
+
+      const uniqueTeams = [...new Set(activeAssignments.map(assignment => assignment['TỔ']))];
+      setTeams(uniqueTeams);
     } catch (error) {
-      console.error('Error fetching cong doan list:', error);
-      toast.error('Lỗi khi tải danh sách công đoạn');
+      console.error('Error fetching team assignments:', error);
+      toast.error('Lỗi khi tải danh sách phân bổ nhân sự');
     }
   };
 
@@ -288,15 +370,16 @@ const ReportManagement = () => {
       setCurrentReport({
         ID: report.ID || '',
         'NGÀY': report['NGÀY'] ? new Date(report['NGÀY']) : new Date(),
+        'TỔ': report['TỔ'] || '',
         'CÔNG ĐOẠN': report['CÔNG ĐOẠN'] || '',
         'KHỐI LƯỢNG': report['KHỐI LƯỢNG'] || '',
-        'ĐƠN GIÁ': report['ĐƠN GIÁ'] || '',
-        'THÀNH TIỀN': report['THÀNH TIỀN'] || '',
         'NHÂN SỰ THAM GIA': staffArray,
         'GHI CHÚ': report['GHI CHÚ'] || '',
         'NGƯỜI NHẬP': report['NGƯỜI NHẬP'] || '',
         'TRẠNG THÁI': report['TRẠNG THÁI'] || 'Chờ duyệt',
         'NGƯỜI DUYỆT': report['NGƯỜI DUYỆT'] || '',
+        'ĐƠN GIÁ': report['ĐƠN GIÁ'] || '',
+        'THÀNH TIỀN': report['THÀNH TIỀN'] || '',
         'LỊCH SỬ': report['LỊCH SỬ'] || ''
       });
     } else {
@@ -349,6 +432,7 @@ const ReportManagement = () => {
   // Report validation
   const validateReport = useCallback((report) => {
     const errors = [];
+    if (!report['TỔ']) errors.push('TỔ không được để trống');
     if (!report['CÔNG ĐOẠN']) errors.push('CÔNG ĐOẠN không được để trống');
     if (!report['KHỐI LƯỢNG']) errors.push('KHỐI LƯỢNG không được để trống');
     if (!report['NGÀY']) errors.push('NGÀY không được để trống');
@@ -578,15 +662,16 @@ const ReportManagement = () => {
     const excelData = selectedItems.map(item => ({
       ID: item.ID,
       'NGÀY': item['NGÀY'],
+      'TỔ': item['TỔ'],
       'CÔNG ĐOẠN': item['CÔNG ĐOẠN'],
       'KHỐI LƯỢNG': item['KHỐI LƯỢNG'],
-      'ĐƠN GIÁ': item['ĐƠN GIÁ'],
-      'THÀNH TIỀN': item['THÀNH TIỀN'],
       'NHÂN SỰ THAM GIA': item['NHÂN SỰ THAM GIA'],
       'GHI CHÚ': item['GHI CHÚ'],
       'NGƯỜI NHẬP': item['NGƯỜI NHẬP'],
       'TRẠNG THÁI': item['TRẠNG THÁI'],
-      'NGƯỜI DUYỆT': item['NGƯỜI DUYỆT'] || ''
+      'NGƯỜI DUYỆT': item['NGƯỜI DUYỆT'] || '',
+      'ĐƠN GIÁ': item['ĐƠN GIÁ'],
+      'THÀNH TIỀN': item['THÀNH TIỀN']
     }));
 
     const ws = XLSX.utils.json_to_sheet(excelData);
@@ -629,7 +714,7 @@ const ReportManagement = () => {
 
         // Extract headers and validate required columns
         const headers = jsonData[0];
-        const requiredColumns = ['NGÀY', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'NHÂN SỰ THAM GIA', 'NGƯỜI NHẬP'];
+        const requiredColumns = ['NGÀY', 'TỔ', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'NGƯỜI NHẬP'];
         const missingColumns = requiredColumns.filter(col => !headers.includes(col));
 
         if (missingColumns.length > 0) {
@@ -701,14 +786,20 @@ const ReportManagement = () => {
             const row = jsonData[i];
 
             // Basic validation
-            if (!row['CÔNG ĐOẠN'] || !row['KHỐI LƯỢNG'] || !row['NGÀY']) {
+            if (!row['TỔ'] || !row['CÔNG ĐOẠN'] || !row['KHỐI LƯỢNG'] || !row['NGÀY']) {
               invalidRows.push(i + 2); // +2 for 0-indexing and header row
               continue;
             }
 
-            // Lấy đơn giá từ CONGDOAN
-            const congDoan = congDoanData.find(item => item['CÔNG ĐOẠN'] === row['CÔNG ĐOẠN']);
-            const donGia = congDoan ? congDoan['ĐƠN GIÁ'] : '';
+            // Tìm thông tin tương ứng từ PHANBONHANSU
+            const activeAssignments = getActiveTeamAssignments();
+            const matchingAssignment = activeAssignments.find(
+              assignment => assignment['TỔ'] === row['TỔ'] &&
+                assignment['TÊN CÔNG ĐOẠN'] === row['CÔNG ĐOẠN']
+            );
+
+            const donGia = matchingAssignment ? matchingAssignment['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'] : '';
+            const nhanSu = matchingAssignment ? matchingAssignment['NHÂN SỰ'] : '';
 
             // Create history entry for import
             const importEntry = `[${getCurrentTimestamp()}] ${getCurrentUserName()} - Nhập từ file Excel`;
@@ -717,15 +808,16 @@ const ReportManagement = () => {
             const report = {
               ID: row.ID || `BC${newIdCounter.toString().padStart(3, '0')}`,
               'NGÀY': row['NGÀY'],
+              'TỔ': row['TỔ'],
               'CÔNG ĐOẠN': row['CÔNG ĐOẠN'],
               'KHỐI LƯỢNG': row['KHỐI LƯỢNG'],
-              'ĐƠN GIÁ': donGia,
-              'THÀNH TIỀN': '',
-              'NHÂN SỰ THAM GIA': row['NHÂN SỰ THAM GIA'] || '',
+              'NHÂN SỰ THAM GIA': row['NHÂN SỰ THAM GIA'] || nhanSu,
               'GHI CHÚ': row['GHI CHÚ'] || '',
               'NGƯỜI NHẬP': row['NGƯỜI NHẬP'] || currentUserName,
               'TRẠNG THÁI': 'Chờ duyệt',
               'NGƯỜI DUYỆT': '',
+              'ĐƠN GIÁ': donGia,
+              'THÀNH TIỀN': '',
               'LỊCH SỬ': importEntry
             };
 
@@ -784,51 +876,6 @@ const ReportManagement = () => {
     }
   };
 
-  const handleAddCongDoan = async () => {
-    if (!newCongDoan.ten.trim()) {
-      toast.error('Tên công đoạn không được để trống');
-      return;
-    }
-
-    if (!newCongDoan.donGia.trim()) {
-      toast.error('Đơn giá không được để trống');
-      return;
-    }
-
-    // Check if stage already exists
-    if (congDoanList.includes(newCongDoan.ten.trim())) {
-      toast.error('Công đoạn này đã tồn tại');
-      return;
-    }
-
-    try {
-      // Add new stage to CONGDOAN table
-      await authUtils.apiRequest('CONGDOAN', 'Add', {
-        "Rows": [{
-          "CÔNG ĐOẠN": newCongDoan.ten.trim(),
-          "ĐƠN GIÁ": newCongDoan.donGia.trim(),
-          "GHI CHÚ": newCongDoan.ghiChu
-        }]
-      });
-
-      // Update local state
-      const newStage = {
-        "CÔNG ĐOẠN": newCongDoan.ten.trim(),
-        "ĐƠN GIÁ": newCongDoan.donGia.trim(),
-        "GHI CHÚ": newCongDoan.ghiChu
-      };
-
-      setCongDoanList([...congDoanList, newCongDoan.ten.trim()]);
-      setCongDoanData([...congDoanData, newStage]);
-
-      setNewCongDoan({ ten: '', donGia: '', ghiChu: '' });
-      setShowAddCongDoanModal(false);
-      toast.success('Thêm công đoạn mới thành công');
-    } catch (error) {
-      console.error('Error adding new cong doan:', error);
-      toast.error('Có lỗi xảy ra khi thêm công đoạn mới');
-    }
-  };
   // Thêm hàm xử lý duyệt trực tiếp
   const handleDirectApprove = async (report) => {
     try {
@@ -865,11 +912,12 @@ const ReportManagement = () => {
       setIsSubmitting(false);
     }
   };
+
   const handleDownloadTemplate = () => {
     const templateData = [
-      ['NGÀY', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'NHÂN SỰ THAM GIA', 'GHI CHÚ', 'NGƯỜI NHẬP'],
-      ['2025-03-22', 'Cưa gỗ', '50 khối', 'Nguyễn Văn A, Trần Văn B', 'Hoàn thành đúng tiến độ', 'Lê Văn C'],
-      ['2025-03-22', 'Đóng thùng', '30 khối', 'Phạm Văn D, Ngô Văn E', 'Cần bổ sung nhân lực', 'Lê Văn C']
+      ['NGÀY', 'TỔ', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'NHÂN SỰ THAM GIA', 'GHI CHÚ', 'NGƯỜI NHẬP'],
+      ['2025-03-22', 'Tổ A', 'Cắt thô', '50', 'Nguyễn Văn A, Trần Văn B', 'Hoàn thành đúng tiến độ', 'Lê Văn C'],
+      ['2025-03-22', 'Tổ B', 'Bào tinh', '30', 'Phạm Văn D, Ngô Văn E', 'Cần bổ sung nhân lực', 'Lê Văn C']
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(templateData);
@@ -883,8 +931,10 @@ const ReportManagement = () => {
     return reports.filter(report => {
       const matchesSearch =
         report['CÔNG ĐOẠN']?.toLowerCase().includes(search.toLowerCase()) ||
+        report['TỔ']?.toLowerCase().includes(search.toLowerCase()) ||
         report.ID?.toLowerCase().includes(search.toLowerCase());
 
+      const matchesTo = !filters.to || report['TỔ'] === filters.to;
       const matchesCongDoan = !filters.congDoan || report['CÔNG ĐOẠN'] === filters.congDoan;
       const matchesTrangThai = !filters.trangThai || report['TRẠNG THÁI'] === filters.trangThai;
 
@@ -893,7 +943,6 @@ const ReportManagement = () => {
       if (filters.startDate || filters.endDate) {
         const reportDate = parseVNDate(report['NGÀY']);
 
-        // Đảm bảo filters.startDate và filters.endDate cũng đặt giờ về 00:00:00
         const startDate = filters.startDate ? new Date(filters.startDate.setHours(0, 0, 0, 0)) : null;
         const endDate = filters.endDate ? new Date(filters.endDate.setHours(0, 0, 0, 0)) : null;
 
@@ -905,7 +954,7 @@ const ReportManagement = () => {
           dateMatches = reportDate <= endDate;
         }
       }
-      return matchesSearch && matchesCongDoan && matchesTrangThai && dateMatches;
+      return matchesSearch && matchesTo && matchesCongDoan && matchesTrangThai && dateMatches;
     });
   }, [reports, search, filters]);
 
@@ -928,9 +977,11 @@ const ReportManagement = () => {
         return 'bg-yellow-100 text-yellow-800 border border-yellow-200';
     }
   }, []);
+
+  // Grouped reports for date view
   const groupedReports = useMemo(() => {
     if (viewMode !== 'grouped') return null;
-    
+
     const groups = {};
     filteredReports.forEach(report => {
       const date = new Date(report['NGÀY']).toLocaleDateString('vi-VN');
@@ -939,7 +990,7 @@ const ReportManagement = () => {
       }
       groups[date].push(report);
     });
-    
+
     // Sort dates in descending order (newest first)
     return Object.keys(groups)
       .sort((a, b) => {
@@ -956,9 +1007,10 @@ const ReportManagement = () => {
         rejectedCount: groups[date].filter(r => r['TRẠNG THÁI'] === 'Từ chối').length
       }));
   }, [filteredReports, viewMode]);
+
   return (
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
-      <div className=" mx-auto">
+      <div className="mx-auto">
         <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
           {/* Header Section */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
@@ -972,7 +1024,6 @@ const ReportManagement = () => {
                 {showFilters ? "Ẩn bộ lọc" : "Bộ lọc"}
               </button>
 
-              {/* Import button */}
               <button
                 onClick={() => setShowImportModal(true)}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 transition-colors shadow-sm"
@@ -999,6 +1050,7 @@ const ReportManagement = () => {
                   </button>
                 </>
               )}
+
               <button
                 onClick={() => handleOpen()}
                 className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm"
@@ -1006,30 +1058,44 @@ const ReportManagement = () => {
                 <Plus className="w-4 h-4" />
                 Thêm báo cáo
               </button>
-              {/* View toggle button */}
-<button
-  onClick={() => setViewMode(viewMode === 'list' ? 'grouped' : 'list')}
-  className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors shadow-sm"
->
-  {viewMode === 'list' ? (
-    <>
-      <Calendar className="w-4 h-4" />
-      Nhóm theo ngày
-    </>
-  ) : (
-    <>
-      <List className="w-4 h-4" />
-      Danh sách
-    </>
-  )}
-</button>
+
+              <button
+                onClick={() => setViewMode(viewMode === 'list' ? 'grouped' : 'list')}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors shadow-sm"
+              >
+                {viewMode === 'list' ? (
+                  <>
+                    <Calendar className="w-4 h-4" />
+                    Nhóm theo ngày
+                  </>
+                ) : (
+                  <>
+                    <List className="w-4 h-4" />
+                    Danh sách
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
           {/* Filter Section */}
           {showFilters && (
             <div className="mb-6 p-4 border rounded-lg bg-gray-50 animate-fadeIn">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tổ</label>
+                  <select
+                    value={filters.to}
+                    onChange={(e) => setFilters({ ...filters, to: e.target.value })}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                  >
+                    <option value="">Tất cả tổ</option>
+                    {teams.map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Công đoạn</label>
                   <select
@@ -1038,8 +1104,8 @@ const ReportManagement = () => {
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                   >
                     <option value="">Tất cả công đoạn</option>
-                    {Array.from(new Set(reports.map(r => r['CÔNG ĐOẠN']))).map(type => (
-                      <option key={type} value={type}>{type}</option>
+                    {Array.from(new Set(reports.map(r => r['CÔNG ĐOẠN']))).map(stage => (
+                      <option key={stage} value={stage}>{stage}</option>
                     ))}
                   </select>
                 </div>
@@ -1091,6 +1157,7 @@ const ReportManagement = () => {
                 <div className="flex items-end">
                   <button
                     onClick={() => setFilters({
+                      to: '',
                       congDoan: '',
                       trangThai: '',
                       startDate: null,
@@ -1111,7 +1178,7 @@ const ReportManagement = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo mã hoặc công đoạn..."
+                placeholder="Tìm kiếm theo mã, tổ hoặc công đoạn..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -1120,317 +1187,321 @@ const ReportManagement = () => {
           </div>
 
           {/* Table or Grouped View Section */}
-{viewMode === 'list' ? (
-  <div className="overflow-x-auto -mx-4 md:mx-0">
-            <div className="inline-block min-w-full align-middle">
-              <div className="overflow-hidden border border-gray-200 rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="p-4 text-left">
-                        <div className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={selectedReports.length === filteredReports.length && filteredReports.length > 0}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                // Only select non-approved reports
-                                setSelectedReports(filteredReports
-                                  .filter(r => r['TRẠNG THÁI'] !== 'Đã duyệt')
-                                  .map(r => r.ID)
-                                );
-                              } else {
-                                setSelectedReports([]);
-                              }
-                            }}
-                            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                        </div>
-                      </th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID</th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhân sự</th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Người nhập</th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trạng thái</th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Người duyệt</th>
-                      <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {currentItems.length > 0 ? (
-                      currentItems.map((report) => (
-                        <tr key={report.ID} className="hover:bg-gray-50 transition-colors">
-                          <td className="p-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <input
-                                type="checkbox"
-                                checked={selectedReports.includes(report.ID)}
-                                onChange={(e) => {
-                                  if (report['TRẠNG THÁI'] === 'Đã duyệt') {
-                                    toast.warning('Không thể chọn báo cáo đã duyệt');
-                                    return;
-                                  }
-                                  if (e.target.checked) {
-                                    setSelectedReports([...selectedReports, report.ID]);
-                                  } else {
-                                    setSelectedReports(selectedReports.filter(id => id !== report.ID));
-                                  }
-                                }}
-                                className={`w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 ${report['TRẠNG THÁI'] === 'Đã duyệt' ? 'opacity-50 cursor-not-allowed' : ''
-                                  }`}
-                                disabled={report['TRẠNG THÁI'] === 'Đã duyệt'}
-                              />
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{report.ID}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                            {new Date(report['NGÀY']).toLocaleDateString('vi-VN')}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{report['KHỐI LƯỢNG']}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['ĐƠN GIÁ']}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
-                            {report['TRẠNG THÁI'] === 'Đã duyệt' ? report['THÀNH TIỀN'] : '—'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-700">
-                            <div className="max-w-xs truncate" title={report['NHÂN SỰ THAM GIA']}>
-                              {report['NHÂN SỰ THAM GIA']}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI NHẬP']}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm">
-                            <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(report['TRẠNG THÁI'])}`}>
-                              {report['TRẠNG THÁI']}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI DUYỆT'] || '—'}</td>
-                          <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                            <div className="flex justify-end space-x-1">
-                              {report['TRẠNG THÁI'] === 'Chờ duyệt' && (
-                                <>
+          {viewMode === 'list' ? (
+            <div className="overflow-x-auto -mx-4 md:mx-0">
+              <div className="inline-block min-w-full align-middle">
+                <div className="overflow-hidden border border-gray-200 rounded-lg">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th scope="col" className="p-4 text-left">
+                          <div className="flex items-center">
+                            <input
+                              type="checkbox"
+                              checked={selectedReports.length === filteredReports.length && filteredReports.length > 0}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedReports(filteredReports
+                                    .filter(r => r['TRẠNG THÁI'] !== 'Đã duyệt')
+                                    .map(r => r.ID)
+                                  );
+                                } else {
+                                  setSelectedReports([]);
+                                }
+                              }}
+                              className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          </div>
+                        </th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhân sự</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Người nhập</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trạng thái</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Người duyệt</th>
+                        <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {currentItems.length > 0 ? (
+                        currentItems.map((report) => (
+                          <tr key={report.ID} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedReports.includes(report.ID)}
+                                  onChange={(e) => {
+                                    if (report['TRẠNG THÁI'] === 'Đã duyệt') {
+                                      toast.warning('Không thể chọn báo cáo đã duyệt');
+                                      return;
+                                    }
+                                    if (e.target.checked) {
+                                      setSelectedReports([...selectedReports, report.ID]);
+                                    } else {
+                                      setSelectedReports(selectedReports.filter(id => id !== report.ID));
+                                    }
+                                  }}
+                                  className={`w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 ${report['TRẠNG THÁI'] === 'Đã duyệt' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                  disabled={report['TRẠNG THÁI'] === 'Đã duyệt'}
+                                />
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{report.ID}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                              {new Date(report['NGÀY']).toLocaleDateString('vi-VN')}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{report['TỔ']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{report['KHỐI LƯỢNG']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                              {formatNumber(report['ĐƠN GIÁ'])}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
+                              {report['TRẠNG THÁI'] === 'Đã duyệt' ? formatCurrency(report['THÀNH TIỀN']) : '—'}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700">
+                              <div className="max-w-xs truncate" title={report['NHÂN SỰ THAM GIA']}>
+                                {report['NHÂN SỰ THAM GIA']}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI NHẬP']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(report['TRẠNG THÁI'])}`}>
+                                {report['TRẠNG THÁI']}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI DUYỆT'] || '—'}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                              <div className="flex justify-end space-x-1">
+                                {report['TRẠNG THÁI'] === 'Chờ duyệt' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleDirectApprove(report)}
+                                      className="text-green-600 hover:text-green-900 p-1.5 rounded-full hover:bg-green-50"
+                                      title="Duyệt trực tiếp"
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => openApprovalModal(report)}
+                                      className="text-amber-600 hover:text-amber-900 p-1.5 rounded-full hover:bg-amber-50"
+                                      title="Xem chi tiết và duyệt"
+                                    >
+                                      <AlertCircle className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleOpen(report)}
+                                      className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
+                                      title="Sửa báo cáo"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(report.ID)}
+                                      className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
+                                      title="Xóa báo cáo"
+                                    >
+                                      <Trash className="h-4 w-4" />
+                                    </button>
+                                  </>
+                                )}
+                                {report['TRẠNG THÁI'] === 'Đã duyệt' && (
                                   <button
-                                    onClick={() => handleDirectApprove(report)}
-                                    className="text-green-600 hover:text-green-900 p-1.5 rounded-full hover:bg-green-50"
-                                    title="Duyệt trực tiếp"
-                                  >
-                                    <Check className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => openApprovalModal(report)}
+                                    onClick={() => handleUnapprove(report)}
                                     className="text-amber-600 hover:text-amber-900 p-1.5 rounded-full hover:bg-amber-50"
-                                    title="Xem chi tiết và duyệt"
+                                    title="Hủy duyệt báo cáo"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                )}
+                                {report['LỊCH SỬ'] && (
+                                  <button
+                                    onClick={() => handleViewHistory(report)}
+                                    className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
+                                    title="Xem lịch sử"
                                   >
                                     <AlertCircle className="h-4 w-4" />
                                   </button>
-                                  <button
-                                    onClick={() => handleOpen(report)}
-                                    className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
-                                    title="Sửa báo cáo"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(report.ID)}
-                                    className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
-                                    title="Xóa báo cáo"
-                                  >
-                                    <Trash className="h-4 w-4" />
-                                  </button>
-                                </>
-                              )}
-                              {report['TRẠNG THÁI'] === 'Đã duyệt' && (
-                                <button
-                                  onClick={() => handleUnapprove(report)}
-                                  className="text-amber-600 hover:text-amber-900 p-1.5 rounded-full hover:bg-amber-50"
-                                  title="Hủy duyệt báo cáo"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              )}
-                              {report['LỊCH SỬ'] && (
-                                <button
-                                  onClick={() => handleViewHistory(report)}
-                                  className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
-                                  title="Xem lịch sử"
-                                >
-                                  <AlertCircle className="h-4 w-4" />
-                                </button>
-                              )}
-                            </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="13" className="px-4 py-6 text-center text-sm text-gray-500">
+                            Không tìm thấy báo cáo nào phù hợp với tiêu chí tìm kiếm
                           </td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="12" className="px-4 py-6 text-center text-sm text-gray-500">
-                          Không tìm thấy báo cáo nào phù hợp với tiêu chí tìm kiếm
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-) : (
-  <div className="space-y-6">
-    {groupedReports.map(group => (
-      <div key={group.date} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
-        <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
-          <div>
-            <h3 className="text-lg font-medium text-gray-800">
-              Ngày: {group.date}
-            </h3>
-            <div className="flex flex-wrap gap-2 mt-2">
-              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                Tổng: {group.totalReports}
-              </span>
-              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
-                Đã duyệt: {group.approvedCount}
-              </span>
-              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
-                Chờ duyệt: {group.pendingCount}
-              </span>
-              <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-red-100 text-red-800">
-                Từ chối: {group.rejectedCount}
-              </span>
-            </div>
-          </div>
-          <div>
-            <button
-              onClick={() => {
-                // Export reports for this date
-                const excelData = group.reports.map(item => ({
-                  ID: item.ID,
-                  'NGÀY': item['NGÀY'],
-                  'CÔNG ĐOẠN': item['CÔNG ĐOẠN'],
-                  'KHỐI LƯỢNG': item['KHỐI LƯỢNG'],
-                  'ĐƠN GIÁ': item['ĐƠN GIÁ'],
-                  'THÀNH TIỀN': item['THÀNH TIỀN'],
-                  'NHÂN SỰ THAM GIA': item['NHÂN SỰ THAM GIA'],
-                  'GHI CHÚ': item['GHI CHÚ'],
-                  'NGƯỜI NHẬP': item['NGƯỜI NHẬP'],
-                  'TRẠNG THÁI': item['TRẠNG THÁI'],
-                  'NGƯỜI DUYỆT': item['NGƯỜI DUYỆT'] || ''
-                }));
-                
-                const ws = XLSX.utils.json_to_sheet(excelData);
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
-                XLSX.writeFile(wb, `bao-cao-${group.date.replace(/\//g, '-')}.xlsx`);
-              }}
-              className="px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 flex items-center gap-1.5 text-sm transition-colors shadow-sm"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Xuất file
-            </button>
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID</th>
-                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
-                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
-                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
-                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
-                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trạng thái</th>
-                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {group.reports.map(report => (
-                <tr key={report.ID} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{report.ID}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{report['KHỐI LƯỢNG']}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['ĐƠN GIÁ']}</td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
-                    {report['TRẠNG THÁI'] === 'Đã duyệt' ? report['THÀNH TIỀN'] : '—'}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm">
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(report['TRẠNG THÁI'])}`}>
-                      {report['TRẠNG THÁI']}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                    <div className="flex justify-end space-x-1">
-                      {/* Same action buttons as in the list view */}
-                      {report['TRẠNG THÁI'] === 'Chờ duyệt' && (
-                        <>
-                          <button
-                            onClick={() => handleDirectApprove(report)}
-                            className="text-green-600 hover:text-green-900 p-1.5 rounded-full hover:bg-green-50"
-                            title="Duyệt trực tiếp"
-                          >
-                            <Check className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => openApprovalModal(report)}
-                            className="text-amber-600 hover:text-amber-900 p-1.5 rounded-full hover:bg-amber-50"
-                            title="Xem chi tiết và duyệt"
-                          >
-                            <AlertCircle className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleOpen(report)}
-                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
-                            title="Sửa báo cáo"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(report.ID)}
-                            className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
-                            title="Xóa báo cáo"
-                          >
-                            <Trash className="h-4 w-4" />
-                          </button>
-                        </>
-                      )}
-                      {report['TRẠNG THÁI'] === 'Đã duyệt' && (
-                        <button
-                          onClick={() => handleUnapprove(report)}
-                          className="text-amber-600 hover:text-amber-900 p-1.5 rounded-full hover:bg-amber-50"
-                          title="Hủy duyệt báo cáo"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                      {report['LỊCH SỬ'] && (
-                        <button
-                          onClick={() => handleViewHistory(report)}
-                          className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
-                          title="Xem lịch sử"
-                        >
-                          <AlertCircle className="h-4 w-4" />
-                        </button>
-                      )}
+          ) : (
+            <div className="space-y-6">
+              {groupedReports.map(group => (
+                <div key={group.date} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                  <div className="bg-gray-50 px-6 py-4 border-b flex justify-between items-center">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-800">
+                        Ngày: {group.date}
+                      </h3>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                          Tổng: {group.totalReports}
+                        </span>
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
+                          Đã duyệt: {group.approvedCount}
+                        </span>
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
+                          Chờ duyệt: {group.pendingCount}
+                        </span>
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-red-100 text-red-800">
+                          Từ chối: {group.rejectedCount}
+                        </span>
+                      </div>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    ))}
+                    <div>
+                      <button
+                        onClick={() => {
+                          const excelData = group.reports.map(item => ({
+                            ID: item.ID,
+                            'NGÀY': item['NGÀY'],
+                            'TỔ': item['TỔ'],
+                            'CÔNG ĐOẠN': item['CÔNG ĐOẠN'],
+                            'KHỐI LƯỢNG': item['KHỐI LƯỢNG'],
+                            'NHÂN SỰ THAM GIA': item['NHÂN SỰ THAM GIA'],
+                            'GHI CHÚ': item['GHI CHÚ'],
+                            'NGƯỜI NHẬP': item['NGƯỜI NHẬP'],
+                            'TRẠNG THÁI': item['TRẠNG THÁI'],
+                            'NGƯỜI DUYỆT': item['NGƯỜI DUYỆT'] || '',
+                            'ĐƠN GIÁ': item['ĐƠN GIÁ'],
+                            'THÀNH TIỀN': item['THÀNH TIỀN']
+                          }));
 
-    {groupedReports.length === 0 && (
-      <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-        <p className="text-gray-500">Không tìm thấy báo cáo nào phù hợp với tiêu chí tìm kiếm</p>
-      </div>
-    )}
-  </div>
-)}
+                          const ws = XLSX.utils.json_to_sheet(excelData);
+                          const wb = XLSX.utils.book_new();
+                          XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
+                          XLSX.writeFile(wb, `bao-cao-${group.date.replace(/\//g, '-')}.xlsx`);
+                        }}
+                        className="px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 flex items-center gap-1.5 text-sm transition-colors shadow-sm"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        Xuất file
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID</th>
+                          <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
+                          <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
+                          <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
+                          <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
+                          <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
+                          <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trạng thái</th>
+                          <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {group.reports.map(report => (
+                          <tr key={report.ID} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{report.ID}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{report['TỔ']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{report['KHỐI LƯỢNG']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['ĐƠN GIÁ']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
+                              {report['TRẠNG THÁI'] === 'Đã duyệt' ? report['THÀNH TIỀN'] : '—'}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm">
+                              <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${getStatusBadgeColor(report['TRẠNG THÁI'])}`}>
+                                {report['TRẠNG THÁI']}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                              <div className="flex justify-end space-x-1">
+                                {report['TRẠNG THÁI'] === 'Chờ duyệt' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleDirectApprove(report)}
+                                      className="text-green-600 hover:text-green-900 p-1.5 rounded-full hover:bg-green-50"
+                                      title="Duyệt trực tiếp"
+                                    >
+                                      <Check className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => openApprovalModal(report)}
+                                      className="text-amber-600 hover:text-amber-900 p-1.5 rounded-full hover:bg-amber-50"
+                                      title="Xem chi tiết và duyệt"
+                                    >
+                                      <AlertCircle className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleOpen(report)}
+                                      className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
+                                      title="Sửa báo cáo"
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => handleDelete(report.ID)}
+                                      className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
+                                      title="Xóa báo cáo"
+                                    >
+                                      <Trash className="h-4 w-4" />
+                                    </button>
+                                  </>
+                                )}
+                                {report['TRẠNG THÁI'] === 'Đã duyệt' && (
+                                  <button
+                                    onClick={() => handleUnapprove(report)}
+                                    className="text-amber-600 hover:text-amber-900 p-1.5 rounded-full hover:bg-amber-50"
+                                    title="Hủy duyệt báo cáo"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </button>
+                                )}
+                                {report['LỊCH SỬ'] && (
+                                  <button
+                                    onClick={() => handleViewHistory(report)}
+                                    className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
+                                    title="Xem lịch sử"
+                                  >
+                                    <AlertCircle className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+
+              {groupedReports.length === 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                  <p className="text-gray-500">Không tìm thấy báo cáo nào phù hợp với tiêu chí tìm kiếm</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Pagination */}
-          {currentItems.length > 0 && (
+          {viewMode === 'list' && currentItems.length > 0 && (
             <Pagination
               currentPage={currentPage}
               totalPages={totalPages}
@@ -1469,34 +1540,38 @@ const ReportManagement = () => {
                       value={formatDateToString(currentReport['NGÀY'])}
                       onChange={(e) => handleDateChange(new Date(e.target.value))}
                       className="pl-10 p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                    /></div>
+                    />
+                  </div>
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Công đoạn
-                    <button
-                      type="button"
-                      onClick={() => setShowAddCongDoanModal(true)}
-                      className="ml-2 text-xs text-indigo-600 hover:text-indigo-800"
-                    >
-                      + Thêm mới
-                    </button>
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tổ</label>
                   <select
                     className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                    value={currentReport['CÔNG ĐOẠN']}
-                    onChange={(e) => handleCongDoanChange(e.target.value)}
+                    value={currentReport['TỔ']}
+                    onChange={(e) => handleTeamChange(e.target.value)}
                     required
                   >
-                    <option value="">Chọn công đoạn</option>
-                    {congDoanList.map((congDoan, index) => (
-                      <option key={index} value={congDoan}>{congDoan}</option>
+                    <option value="">Chọn tổ</option>
+                    {teams.map((team, index) => (
+                      <option key={index} value={team}>{team}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Công đoạn</label>
+                  <input
+                    type="text"
+                    className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                    value={currentReport['CÔNG ĐOẠN']}
+                    readOnly
+                    placeholder="Chọn tổ để tự động điền công đoạn"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Khối lượng</label>
                   <input
@@ -1508,6 +1583,20 @@ const ReportManagement = () => {
                     required
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Đơn giá</label>
+                  <input
+                    type="text"
+                    placeholder="Đơn giá"
+                    className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                    value={currentReport['ĐƠN GIÁ'] ? formatNumber(currentReport['ĐƠN GIÁ']) : ''}
+                    readOnly
+                  />
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Người nhập</label>
                   <input
@@ -1521,29 +1610,17 @@ const ReportManagement = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {currentReport['TRẠNG THÁI'] === 'Đã duyệt' && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Đơn giá</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Thành tiền</label>
                   <input
                     type="text"
-                    placeholder="Đơn giá"
                     className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
-                    value={currentReport['ĐƠN GIÁ']}
+                    value={formatCurrency(currentReport['THÀNH TIỀN'])}
                     readOnly
                   />
                 </div>
-                {currentReport['TRẠNG THÁI'] === 'Đã duyệt' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Thành tiền</label>
-                    <input
-                      type="text"
-                      className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
-                      value={currentReport['THÀNH TIỀN']}
-                      readOnly
-                    />
-                  </div>
-                )}
-              </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Nhân sự tham gia</label>
@@ -1653,7 +1730,7 @@ const ReportManagement = () => {
             <div className="mb-5">
               <p className="text-sm text-gray-600 mb-3">
                 Tải lên file Excel (.xlsx, .xls) hoặc CSV có chứa dữ liệu báo cáo.
-                File cần có các cột: <span className="font-medium">NGÀY, CÔNG ĐOẠN, KHỐI LƯỢNG, NHÂN SỰ THAM GIA, NGƯỜI NHẬP</span>.
+                File cần có các cột: <span className="font-medium">NGÀY, TỔ, CÔNG ĐOẠN, KHỐI LƯỢNG, NGƯỜI NHẬP</span>.
               </p>
               <div className="flex gap-3">
                 <label className="flex items-center gap-2 cursor-pointer px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
@@ -1757,73 +1834,6 @@ const ReportManagement = () => {
         </div>
       )}
 
-      {/* Add Stage Modal */}
-      {showAddCongDoanModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-            <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
-              <h2 className="text-xl font-bold text-gray-800">Thêm công đoạn mới</h2>
-              <button
-                onClick={() => setShowAddCongDoanModal(false)}
-                className="text-gray-500 hover:text-gray-700 focus:outline-none"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Tên công đoạn</label>
-                <input
-                  type="text"
-                  value={newCongDoan.ten}
-                  onChange={(e) => setNewCongDoan({ ...newCongDoan, ten: e.target.value })}
-                  className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Nhập tên công đoạn mới"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Đơn giá</label>
-                <input
-                  type="text"
-                  value={newCongDoan.donGia}
-                  onChange={(e) => setNewCongDoan({ ...newCongDoan, donGia: e.target.value })}
-                  className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Nhập đơn giá"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Ghi chú</label>
-                <textarea
-                  value={newCongDoan.ghiChu}
-                  onChange={(e) => setNewCongDoan({ ...newCongDoan, ghiChu: e.target.value })}
-                  className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Nhập ghi chú (nếu có)"
-                  rows="2"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                <button
-                  onClick={() => setShowAddCongDoanModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleAddCongDoan}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                >
-                  Thêm
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Approval Modal */}
       {showApprovalModal && reportToApprove && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -1854,6 +1864,10 @@ const ReportManagement = () => {
                     <p className="font-medium">{new Date(reportToApprove['NGÀY']).toLocaleDateString('vi-VN')}</p>
                   </div>
                   <div>
+                    <p className="text-sm text-gray-500 mb-1">Tổ:</p>
+                    <p className="font-medium">{reportToApprove['TỔ']}</p>
+                  </div>
+                  <div>
                     <p className="text-sm text-gray-500 mb-1">Công đoạn:</p>
                     <p className="font-medium">{reportToApprove['CÔNG ĐOẠN']}</p>
                   </div>
@@ -1863,12 +1877,12 @@ const ReportManagement = () => {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Đơn giá:</p>
-                    <p className="font-medium">{reportToApprove['ĐƠN GIÁ']}</p>
+                    <p className="font-medium">{formatCurrency(reportToApprove['ĐƠN GIÁ'])}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500 mb-1">Thành tiền (sau khi duyệt):</p>
                     <p className="font-medium text-green-600">
-                      {parseFloat(reportToApprove['KHỐI LƯỢNG'] || 0) * parseFloat(reportToApprove['ĐƠN GIÁ'] || 0)} đồng
+                      {formatCurrency(parseFloat(reportToApprove['KHỐI LƯỢNG'] || 0) * parseFloat(reportToApprove['ĐƠN GIÁ'] || 0))}
                     </p>
                   </div>
                   <div className="col-span-2">
@@ -1933,7 +1947,6 @@ const ReportManagement = () => {
         </div>
       )}
 
-      {/* Confirmation Modal */}
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
