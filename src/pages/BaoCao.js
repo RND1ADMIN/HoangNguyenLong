@@ -8,12 +8,21 @@ import * as XLSX from 'xlsx';
 import Select from 'react-select';
 
 // Date formatting utilities
-const formatDateToString = (date) => {
-  if (!date) return '';
-  const d = new Date(date);
-  const day = String(d.getDate()).padStart(2, '0');
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const year = d.getFullYear();
+const formatDateForInput = (dateString) => {
+  if (!dateString) return '';
+
+  // Nếu đã là định dạng yyyy-mm-dd thì trả về luôn
+  if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    return dateString;
+  }
+
+  const date = new Date(dateString);
+  if (isNaN(date.getTime())) return '';
+
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+
   return `${year}-${month}-${day}`;
 };
 
@@ -1133,7 +1142,7 @@ const ReportManagement = () => {
                       </div>
                       <input
                         type="date"
-                        value={filters.startDate ? formatDateToString(filters.startDate) : ''}
+                        value={filters.startDate ? formatDateForInput(filters.startDate) : ''}
                         onChange={(e) => handleFilterDateChange('startDate', e.target.value)}
                         className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                         placeholder="Từ ngày"
@@ -1145,7 +1154,7 @@ const ReportManagement = () => {
                       </div>
                       <input
                         type="date"
-                        value={filters.endDate ? formatDateToString(filters.endDate) : ''}
+                        value={filters.endDate ? formatDateForInput(filters.endDate) : ''}
                         onChange={(e) => handleFilterDateChange('endDate', e.target.value)}
                         className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                         placeholder="Đến ngày"
@@ -1537,7 +1546,7 @@ const ReportManagement = () => {
                     </div>
                     <input
                       type="date"
-                      value={formatDateToString(currentReport['NGÀY'])}
+                      value={formatDateForInput(currentReport['NGÀY'])}
                       onChange={(e) => handleDateChange(new Date(e.target.value))}
                       className="pl-10 p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                     />

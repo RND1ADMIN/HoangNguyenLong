@@ -132,6 +132,11 @@ const PhanBoNhanSuManagement = () => {
     const formatDateForInput = (dateString) => {
         if (!dateString) return '';
 
+        // Nếu đã là định dạng yyyy-mm-dd thì trả về luôn
+        if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+            return dateString;
+        }
+
         const date = new Date(dateString);
         if (isNaN(date.getTime())) return '';
 
