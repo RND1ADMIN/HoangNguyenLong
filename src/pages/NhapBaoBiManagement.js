@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Check, Upload, X, Calendar, AlertCircle, List, Package, Eye } from 'lucide-react';
+import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Check, Upload, X, Calendar, AlertCircle, List, Package, Eye, Users } from 'lucide-react';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
 import * as XLSX from 'xlsx';
+import PhanBoBaoBi from './PhanBoBaoBi';
 
 // Utility function to generate unique ID
 const generateUniqueId = () => {
@@ -158,6 +159,9 @@ const NhapBaoBiManagement = () => {
     const [confirmTitle, setConfirmTitle] = useState("");
     const [isConfirmLoading, setIsConfirmLoading] = useState(false);
 
+    const [showPhanBoModal, setShowPhanBoModal] = useState(false);
+    const [selectedRecordForPhanBo, setSelectedRecordForPhanBo] = useState(null);
+
     // Default empty record
     const emptyRecord = {
         ID: '',
@@ -182,6 +186,14 @@ const NhapBaoBiManagement = () => {
     const getCurrentUserName = () => {
         const currentUser = authUtils.getUserData();
         return currentUser?.['Họ và Tên'] || 'Người dùng';
+    };
+
+    // Thêm nút phân bổ vào action buttons
+    const handlePhanBo = (record, event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        setSelectedRecordForPhanBo(record);
+        setShowPhanBoModal(true);
     };
 
     const handleFilterDateChange = (field, value) => {
@@ -992,6 +1004,13 @@ const NhapBaoBiManagement = () => {
                                                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                                             <div className="flex justify-end space-x-1">
                                                                 <button
+                                                                    onClick={(e) => handlePhanBo(record, e)}
+                                                                    className="text-green-600 hover:text-green-900 p-1.5 rounded-full hover:bg-green-50"
+                                                                    title="Phân bổ"
+                                                                >
+                                                                    <Users className="h-4 w-4" />
+                                                                </button>
+                                                                <button
                                                                     onClick={(e) => handleEdit(record, e)}
                                                                     className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
                                                                     title="Sửa thông tin"
@@ -1328,6 +1347,20 @@ const NhapBaoBiManagement = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {showPhanBoModal && selectedRecordForPhanBo && (
+                <PhanBoBaoBi
+                    record={selectedRecordForPhanBo}
+                    onClose={() => {
+                        setShowPhanBoModal(false);
+                        setSelectedRecordForPhanBo(null);
+                    }}
+                    onSuccess={() => {
+                        // Có thể refresh data hoặc show thông báo
+                        toast.success('Phân bổ thành công!');
+                    }}
+                />
             )}
 
             {/* Add/Edit Modal */}

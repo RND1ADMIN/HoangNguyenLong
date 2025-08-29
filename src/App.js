@@ -55,7 +55,6 @@ function App() {
                   <Route path="/tonkho" element={<TonKhoManager />} />
                   <Route path="/baocaoreport" element={<Baocaoreport />} />
                   <Route path="/nhapbaobi" element={<NhapBaoBiManagement />} />
-                  
                   {/* <Route path="/congdoan" element={<CongDoanManagement />} /> */}
                   <Route path="/congdoan_dongia" element={<CongDoanDonGiaManagement />} />
                   <Route path="/phanbonhansu" element={<PhanBoNhanSuManagement />} />
