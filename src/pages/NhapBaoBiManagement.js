@@ -948,9 +948,13 @@ const NhapBaoBiManagement = () => {
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bao bì Anh</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trừ Anh</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận Anh</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đã phân bổ Anh</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bãi Anh</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bao bì Em</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trừ Em</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận Em</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đã phân bổ Em</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bãi Em</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
                                             </tr>
                                         </thead>
@@ -992,6 +996,12 @@ const NhapBaoBiManagement = () => {
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-green-600">
                                                             {record['THỰC NHẬN ANH (TẤN)'] ? formatNumber(record['THỰC NHẬN ANH (TẤN)']) : '-'}
                                                         </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
+                                                            {record['ĐÃ PHÂN BỔ (ANH)'] ? formatNumber(record['ĐÃ PHÂN BỔ (ANH)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-yellow-600">
+                                                            {record['BÃI (ANH)'] ? formatNumber(record['BÃI (ANH)']) : '-'}
+                                                        </td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
                                                             {record['BAO BÌ EM (TẤN)'] ? formatNumber(record['BAO BÌ EM (TẤN)']) : '-'}
                                                         </td>
@@ -1000,6 +1010,12 @@ const NhapBaoBiManagement = () => {
                                                         </td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-teal-600">
                                                             {record['THỰC NHẬN EM (TẤN)'] ? formatNumber(record['THỰC NHẬN EM (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
+                                                            {record['ĐÃ PHÂN BỔ (EM)'] ? formatNumber(record['ĐÃ PHÂN BỔ (EM)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-yellow-600">
+                                                            {record['BÃI (EM)'] ? formatNumber(record['BÃI (EM)']) : '-'}
                                                         </td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                                             <div className="flex justify-end space-x-1">
@@ -1056,20 +1072,20 @@ const NhapBaoBiManagement = () => {
                                                 {group.totalBaoBiAnh > 0 && (
                                                     <>
                                                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
-                                                            Anh: {formatNumber(group.totalBaoBiAnh.toFixed(3))} tấn
+                                                            Anh: {formatNumber(group.totalBaoBiAnh.toFixed(2))} tấn
                                                         </span>
                                                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-200 text-green-900">
-                                                            Nhận Anh: {formatNumber(group.totalThucNhanAnh.toFixed(3))} tấn
+                                                            Nhận Anh: {formatNumber(group.totalThucNhanAnh.toFixed(2))} tấn
                                                         </span>
                                                     </>
                                                 )}
                                                 {group.totalBaoBiEm > 0 && (
                                                     <>
                                                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                                                            Em: {formatNumber(group.totalBaoBiEm.toFixed(3))} tấn
+                                                            Em: {formatNumber(group.totalBaoBiEm.toFixed(2))} tấn
                                                         </span>
                                                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-200 text-purple-900">
-                                                            Nhận Em: {formatNumber(group.totalThucNhanEm.toFixed(3))} tấn
+                                                            Nhận Em: {formatNumber(group.totalThucNhanEm.toFixed(2))} tấn
                                                         </span>
                                                     </>
                                                 )}
@@ -1309,7 +1325,7 @@ const NhapBaoBiManagement = () => {
                                         <div className="text-lg font-bold text-indigo-600">
                                             {formatNumber(
                                                 (parseFloat(selectedRecord['BAO BÌ ANH (TẤN)'] || 0) +
-                                                    parseFloat(selectedRecord['BAO BÌ EM (TẤN)'] || 0)).toFixed(3)
+                                                    parseFloat(selectedRecord['BAO BÌ EM (TẤN)'] || 0)).toFixed(2)
                                             )} tấn
                                         </div>
                                     </div>
@@ -1318,7 +1334,7 @@ const NhapBaoBiManagement = () => {
                                         <div className="text-lg font-bold text-green-600">
                                             {formatNumber(
                                                 (parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 0) +
-                                                    parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 0)).toFixed(3)
+                                                    parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 0)).toFixed(2)
                                             )} tấn
                                         </div>
                                     </div>
@@ -1356,8 +1372,8 @@ const NhapBaoBiManagement = () => {
                         setShowPhanBoModal(false);
                         setSelectedRecordForPhanBo(null);
                     }}
-                    onSuccess={() => {
-                        // Có thể refresh data hoặc show thông báo
+                    onSuccess={async () => {
+                        await fetchPackagingData(); // Refresh data để hiển thị cập nhật
                         toast.success('Phân bổ thành công!');
                     }}
                 />

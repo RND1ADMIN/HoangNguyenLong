@@ -19,20 +19,25 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
     const [teamData, setTeamData] = useState([]);
     const [allocations, setAllocations] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState('anh');
+    const [activeTab, setActiveTab] = useState(() => {
+        // Tự động chọn tab dựa trên dữ liệu có sẵn
+        const hasAnh = (record['THỰC NHẬN ANH (TẤN)'] || '') > 0;
+        const hasEm = (record['THỰC NHẬN EM (TẤN)'] || '') > 0;
+        return hasAnh ? 'anh' : (hasEm ? 'em' : 'anh');
+    });
 
     // Tính toán số lượng còn lại
     const remaining = useMemo(() => {
-        const totalAnh = parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0);
-        const totalEm = parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0);
-        
+        const totalAnh = (record['THỰC NHẬN ANH (TẤN)'] || '');
+        const totalEm = (record['THỰC NHẬN EM (TẤN)'] || '');
+
         const allocatedAnh = allocations
             .filter(a => a.type === 'anh')
-            .reduce((sum, a) => sum + parseFloat(a.totalQuantity || 0), 0);
-        
+            .reduce((sum, a) => sum + parseFloat(a.totalQuantity || ''), 0);
+
         const allocatedEm = allocations
             .filter(a => a.type === 'em')
-            .reduce((sum, a) => sum + parseFloat(a.totalQuantity || 0), 0);
+            .reduce((sum, a) => sum + parseFloat(a.totalQuantity || ''), 0);
 
         return {
             anh: totalAnh - allocatedAnh,
@@ -48,7 +53,7 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
         try {
             setLoading(true);
             const response = await authUtils.apiRequest('TO_PBNS', 'Find', {});
-            
+
             // Lọc theo ngày hiệu lực
             const currentDate = new Date(record['NGÀY THÁNG']);
             const validTeams = response.filter(team => {
@@ -72,7 +77,7 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
         data.forEach(item => {
             const teamId = item['TỔ'];
             const group = item['NHÓM'];
-            
+
             if (!grouped[teamId]) {
                 grouped[teamId] = {
                     teamName: teamId,
@@ -80,13 +85,16 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
                     em: []
                 };
             }
-            
-            const type = group === 'Bao bì anh' ? 'anh' : 'em';
-            if (type === 'anh' || type === 'em') {
-                grouped[teamId][type].push(item);
+
+            // Chỉ lọc đúng theo nhóm bao bì
+            if (group === 'Bao bì anh') {
+                grouped[teamId].anh.push(item);
+            } else if (group === 'Bao bì em') {
+                grouped[teamId].em.push(item);
             }
+            // Bỏ qua các nhóm khác như 'Bãi', 'Thợ - Mũi cưa', etc.
         });
-        
+
         return Object.values(grouped);
     };
 
@@ -113,15 +121,15 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
     };
 
     const updateAllocation = (allocationId, quantity) => {
-        const numQuantity = parseFloat(quantity || 0);
-        setAllocations(prev => 
+        const numQuantity = parseFloat(quantity || '');
+        setAllocations(prev =>
             prev.map(allocation => {
                 if (allocation.id === allocationId) {
                     const updatedProcesses = allocation.processes.map(process => ({
                         ...process,
                         quantity: numQuantity
                     }));
-                    
+
                     return {
                         ...allocation,
                         processes: updatedProcesses,
@@ -140,7 +148,7 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
     const handleSave = async () => {
         try {
             setLoading(true);
-            
+
             // Validate phân bổ
             if (remaining.anh < -0.001 || remaining.em < -0.001) {
                 toast.error('Số lượng phân bổ vượt quá số lượng có sẵn');
@@ -148,13 +156,23 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
             }
 
             const bc2Records = [];
-            
+
+            // Tính tổng đã phân bổ cho từng loại
+            const totalAllocatedAnh = allocations
+                .filter(a => a.type === 'anh')
+                .reduce((sum, a) => sum + parseFloat(a.totalQuantity || ''), 0);
+
+            const totalAllocatedEm = allocations
+                .filter(a => a.type === 'em')
+                .reduce((sum, a) => sum + parseFloat(a.totalQuantity || ''), 0);
+
+            // Tạo records cho BC2
             allocations.forEach(allocation => {
                 allocation.processes.forEach(process => {
                     if (process.quantity > 0) {
                         const donGia = parseFloat(process['ĐƠN GIÁ NĂNG SUẤT'] || 0);
                         const thanhTien = process.quantity * donGia;
-                        
+
                         bc2Records.push({
                             IDBC: generateUniqueId(),
                             NGÀY: record['NGÀY THÁNG'],
@@ -184,10 +202,31 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
                 return;
             }
 
-            // Lưu theo batch để tránh lỗi
+            // Cập nhật bảng NHAPBAOBI với thông tin phân bổ
+            const currentAllocatedAnh = (record['ĐÃ PHÂN BỔ (ANH)'] || '');
+            const currentAllocatedEm = (record['ĐÃ PHÂN BỔ (EM)'] || '');
+
+            const newAllocatedAnh = currentAllocatedAnh + totalAllocatedAnh;
+            const newAllocatedEm = currentAllocatedEm + totalAllocatedEm;
+
+            const thucNhanAnh = (record['THỰC NHẬN ANH (TẤN)'] || '');
+            const thucNhanEm = (record['THỰC NHẬN EM (TẤN)'] || '');
+
+            const baiAnh = thucNhanAnh - newAllocatedAnh;
+            const baiEm = thucNhanEm - newAllocatedEm;
+
+            const updatedRecord = {
+                ...record,
+                'ĐÃ PHÂN BỔ (ANH)': newAllocatedAnh,
+                'BÃI (ANH)': baiAnh,
+                'ĐÃ PHÂN BỔ (EM)': newAllocatedEm,
+                'BÃI (EM)': baiEm
+            };
+
+            // Lưu BC2 records theo batch
             const batchSize = 20;
             let successCount = 0;
-            
+
             for (let i = 0; i < bc2Records.length; i += batchSize) {
                 const batch = bc2Records.slice(i, i + batchSize);
                 try {
@@ -195,15 +234,19 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
                     successCount += batch.length;
                 } catch (error) {
                     console.error('Error saving batch:', error);
-                    toast.error(`Lỗi khi lưu batch ${Math.floor(i/batchSize) + 1}`);
+                    throw new Error(`Lỗi khi lưu batch ${Math.floor(i / batchSize) + 1}: ${error.message}`);
                 }
             }
 
-            if (successCount > 0) {
-                toast.success(`Đã lưu thành công ${successCount} bản ghi phân bổ`);
-                onSuccess?.();
-                onClose();
-            }
+            // Cập nhật bảng NHAPBAOBI
+            await authUtils.apiRequest('NHAPBAOBI', 'Edit', {
+                Rows: [updatedRecord]
+            });
+
+            toast.success(`Đã lưu thành công ${successCount} bản ghi phân bổ và cập nhật thông tin bao bì`);
+            onSuccess?.();
+            onClose();
+
         } catch (error) {
             console.error('Error saving allocation:', error);
             toast.error('Lỗi khi lưu phân bổ: ' + error.message);
@@ -213,7 +256,11 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
     };
 
     const currentTabAllocations = allocations.filter(a => a.type === activeTab);
-    const hasAnyData = parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0) > 0 || parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0) > 0;
+
+    // Kiểm tra có dữ liệu để phân bổ
+    const hasAnhData = parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0) > 0;
+    const hasEmData = parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0) > 0;
+    const hasAnyData = hasAnhData || hasEmData;
 
     if (!hasAnyData) {
         return (
@@ -262,35 +309,33 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
                         </button>
                     </div>
 
-                    {/* Tab Navigation */}
+                    {/* Tab Navigation - chỉ hiển thị tab có dữ liệu */}
                     <div className="flex space-x-1 mt-4">
-                        {parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0) > 0 && (
+                        {hasAnhData && (
                             <button
                                 onClick={() => setActiveTab('anh')}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                    activeTab === 'anh' 
-                                    ? 'bg-blue-100 text-blue-800 border border-blue-200' 
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'anh'
+                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
                                     : 'text-gray-600 hover:bg-gray-100'
-                                }`}
+                                    }`}
                             >
-                                Bao bì Anh ({parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0).toFixed(3)} tấn)
+                                Bao bì Anh ({parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0).toFixed(2)} tấn)
                                 <span className="ml-2 text-xs">
-                                    Còn: {remaining.anh.toFixed(3)} tấn
+                                    Còn: {remaining.anh.toFixed(2)} tấn
                                 </span>
                             </button>
                         )}
-                        {parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0) > 0 && (
+                        {hasEmData && (
                             <button
                                 onClick={() => setActiveTab('em')}
-                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                    activeTab === 'em' 
-                                    ? 'bg-purple-100 text-purple-800 border border-purple-200' 
+                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${activeTab === 'em'
+                                    ? 'bg-purple-100 text-purple-800 border border-purple-200'
                                     : 'text-gray-600 hover:bg-gray-100'
-                                }`}
+                                    }`}
                             >
-                                Bao bì Em ({parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0).toFixed(3)} tấn)
+                                Bao bì Em ({parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0).toFixed(2)} tấn)
                                 <span className="ml-2 text-xs">
-                                    Còn: {remaining.em.toFixed(3)} tấn
+                                    Còn: {remaining.em.toFixed(2)} tấn
                                 </span>
                             </button>
                         )}
@@ -312,31 +357,29 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
                                     Chọn tổ để phân bổ {activeTab === 'anh' ? 'bao bì anh' : 'bao bì em'}
                                 </h3>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {teamData.map(team => (
-                                        <div key={team.teamName} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <h4 className="font-medium text-gray-800">{team.teamName}</h4>
-                                                <button
-                                                    onClick={() => addAllocation(team, activeTab)}
-                                                    disabled={team[activeTab].length === 0}
-                                                    className="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-                                                    title={team[activeTab].length === 0 ? `Không có công đoạn ${activeTab === 'anh' ? 'bao bì anh' : 'bao bì em'}` : 'Thêm vào phân bổ'}
-                                                >
-                                                    <Plus className="w-3 h-3" />
-                                                    Chọn
-                                                </button>
-                                            </div>
-                                            <div className="text-sm text-gray-600">
-                                                {team[activeTab].length} công đoạn {activeTab === 'anh' ? 'bao bì anh' : 'bao bì em'}
-                                            </div>
-                                            {team[activeTab].length > 0 && (
+                                    {teamData
+                                        .filter(team => team[activeTab].length > 0) // Chỉ hiển thị tổ có công đoạn tương ứng
+                                        .map(team => (
+                                            <div key={team.teamName} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <h4 className="font-medium text-gray-800">{team.teamName}</h4>
+                                                    <button
+                                                        onClick={() => addAllocation(team, activeTab)}
+                                                        className="px-3 py-1 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700 flex items-center gap-1"
+                                                    >
+                                                        <Plus className="w-3 h-3" />
+                                                        Chọn
+                                                    </button>
+                                                </div>
+                                                <div className="text-sm text-gray-600">
+                                                    {team[activeTab].length} công đoạn {activeTab === 'anh' ? 'bao bì anh' : 'bao bì em'}
+                                                </div>
                                                 <div className="mt-2 text-xs text-gray-500">
                                                     {team[activeTab].slice(0, 3).map(p => p['TÊN CÔNG ĐOẠN']).join(', ')}
                                                     {team[activeTab].length > 3 && '...'}
                                                 </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                            </div>
+                                        ))}
                                 </div>
 
                                 {teamData.filter(team => team[activeTab].length > 0).length === 0 && (
@@ -363,7 +406,7 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
                                                 <div className="flex items-center gap-2">
                                                     <input
                                                         type="number"
-                                                        step="0.001"
+                                                        step="1"
                                                         min="0"
                                                         max={activeTab === 'anh' ? remaining.anh + allocation.totalQuantity : remaining.em + allocation.totalQuantity}
                                                         placeholder="Số lượng (tấn)"
@@ -380,7 +423,7 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
                                                     </button>
                                                 </div>
                                             </div>
-                                            
+
                                             {/* Process List */}
                                             <div className="bg-white rounded p-3 border">
                                                 <div className="text-sm font-medium mb-2 text-gray-700">Các công đoạn sẽ nhận:</div>
@@ -392,7 +435,7 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
                                                             <div key={idx} className="bg-gray-50 p-2 rounded border-l-2 border-indigo-200">
                                                                 <div className="font-medium text-gray-800">{process['TÊN CÔNG ĐOẠN']}</div>
                                                                 <div className="text-gray-600 mt-1">
-                                                                    {process.quantity.toFixed(3)} tấn × {donGia.toLocaleString()} = {thanhTien.toLocaleString()} VNĐ
+                                                                    {process.quantity.toFixed(2)} tấn × {donGia.toLocaleString()} = {thanhTien.toLocaleString()} VNĐ
                                                                 </div>
                                                                 <div className="text-gray-500 text-xs mt-1">
                                                                     Nhân sự: {process['SỐ LƯỢNG NHÂN SỰ'] || 'Chưa xác định'}
@@ -419,30 +462,38 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
                             <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg p-4 mb-6">
                                 <h3 className="text-lg font-medium text-indigo-800 mb-3">Tổng kết phân bổ</h3>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                                        <div className="text-sm text-gray-600">Tổng Anh</div>
-                                        <div className="text-lg font-bold text-blue-600">
-                                            {parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0).toFixed(3)} tấn
-                                        </div>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                                        <div className="text-sm text-gray-600">Còn lại Anh</div>
-                                        <div className={`text-lg font-bold ${remaining.anh >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {remaining.anh.toFixed(3)} tấn
-                                        </div>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                                        <div className="text-sm text-gray-600">Tổng Em</div>
-                                        <div className="text-lg font-bold text-purple-600">
-                                            {parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0).toFixed(3)} tấn
-                                        </div>
-                                    </div>
-                                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                                        <div className="text-sm text-gray-600">Còn lại Em</div>
-                                        <div className={`text-lg font-bold ${remaining.em >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {remaining.em.toFixed(3)} tấn
-                                        </div>
-                                    </div>
+                                    {hasAnhData && (
+                                        <>
+                                            <div className="bg-white p-3 rounded-lg shadow-sm">
+                                                <div className="text-sm text-gray-600">Tổng Anh</div>
+                                                <div className="text-lg font-bold text-blue-600">
+                                                    {parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0).toFixed(2)} tấn
+                                                </div>
+                                            </div>
+                                            <div className="bg-white p-3 rounded-lg shadow-sm">
+                                                <div className="text-sm text-gray-600">Còn lại Anh</div>
+                                                <div className={`text-lg font-bold ${remaining.anh >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {remaining.anh.toFixed(2)} tấn
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                    {hasEmData && (
+                                        <>
+                                            <div className="bg-white p-3 rounded-lg shadow-sm">
+                                                <div className="text-sm text-gray-600">Tổng Em</div>
+                                                <div className="text-lg font-bold text-purple-600">
+                                                    {parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0).toFixed(2)} tấn
+                                                </div>
+                                            </div>
+                                            <div className="bg-white p-3 rounded-lg shadow-sm">
+                                                <div className="text-sm text-gray-600">Còn lại Em</div>
+                                                <div className={`text-lg font-bold ${remaining.em >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                                    {remaining.em.toFixed(2)} tấn
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
                                 {(remaining.anh < -0.001 || remaining.em < -0.001) && (
@@ -490,5 +541,4 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
         </div>
     );
 };
-
 export default PhanBoBaoBi;
