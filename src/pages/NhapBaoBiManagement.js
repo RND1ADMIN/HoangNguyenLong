@@ -1200,9 +1200,10 @@ const NhapBaoBiManagement = () => {
             </div>
 
             {/* Detail View Modal */}
+            {/* Detail View Modal */}
             {showDetailModal && selectedRecord && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                    <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
                             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                 <Eye className="h-5 w-5 text-indigo-600" />
@@ -1241,14 +1242,14 @@ const NhapBaoBiManagement = () => {
                             </div>
 
                             {/* Bao bì Anh Information */}
-                            <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                            <div className="border border-blue-200 rounded-lg p-5 bg-blue-50">
                                 <h3 className="text-lg font-medium text-blue-800 mb-4 flex items-center gap-2">
                                     <Package className="w-5 h-5" />
                                     Thông tin Bao bì Anh
                                 </h3>
 
                                 {selectedRecord['BAO BÌ ANH (TẤN)'] && parseFloat(selectedRecord['BAO BÌ ANH (TẤN)']) > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                         <div className="bg-white p-4 rounded-lg shadow-sm">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">Nhập bao bì</label>
                                             <div className="text-lg font-bold text-blue-600">
@@ -1269,6 +1270,22 @@ const NhapBaoBiManagement = () => {
                                                 {formatNumber(selectedRecord['THỰC NHẬN ANH (TẤN)'])} tấn
                                             </div>
                                         </div>
+
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Đã phân bổ</label>
+                                            <div className="text-lg font-bold text-indigo-600">
+                                                {selectedRecord['ĐÃ PHÂN BỔ (ANH)'] ? formatNumber(selectedRecord['ĐÃ PHÂN BỔ (ANH)']) : '0.00'} tấn
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Còn lại (Bãi)</label>
+                                            <div className="text-lg font-bold text-yellow-600">
+                                                {selectedRecord['BÃI (ANH)'] ? formatNumber(selectedRecord['BÃI (ANH)']) :
+                                                    formatNumber((parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 0) -
+                                                        parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0)).toFixed(2))} tấn
+                                            </div>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="text-center py-6 text-gray-500">
@@ -1279,14 +1296,14 @@ const NhapBaoBiManagement = () => {
                             </div>
 
                             {/* Bao bì Em Information */}
-                            <div className="border border-purple-200 rounded-lg p-4 bg-purple-50">
+                            <div className="border border-purple-200 rounded-lg p-5 bg-purple-50">
                                 <h3 className="text-lg font-medium text-purple-800 mb-4 flex items-center gap-2">
                                     <Package className="w-5 h-5" />
                                     Thông tin Bao bì Em
                                 </h3>
 
                                 {selectedRecord['BAO BÌ EM (TẤN)'] && parseFloat(selectedRecord['BAO BÌ EM (TẤN)']) > 0 ? (
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                                         <div className="bg-white p-4 rounded-lg shadow-sm">
                                             <label className="block text-sm font-medium text-gray-700 mb-2">Nhập bao bì</label>
                                             <div className="text-lg font-bold text-purple-600">
@@ -1307,6 +1324,22 @@ const NhapBaoBiManagement = () => {
                                                 {formatNumber(selectedRecord['THỰC NHẬN EM (TẤN)'])} tấn
                                             </div>
                                         </div>
+
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Đã phân bổ</label>
+                                            <div className="text-lg font-bold text-indigo-600">
+                                                {selectedRecord['ĐÃ PHÂN BỔ (EM)'] ? formatNumber(selectedRecord['ĐÃ PHÂN BỔ (EM)']) : '0.00'} tấn
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Còn lại (Bãi)</label>
+                                            <div className="text-lg font-bold text-yellow-600">
+                                                {selectedRecord['BÃI (EM)'] ? formatNumber(selectedRecord['BÃI (EM)']) :
+                                                    formatNumber((parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 0) -
+                                                        parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0)).toFixed(2))} tấn
+                                            </div>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="text-center py-6 text-gray-500">
@@ -1316,11 +1349,11 @@ const NhapBaoBiManagement = () => {
                                 )}
                             </div>
 
-                            {/* Summary */}
-                            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg p-4">
-                                <h3 className="text-lg font-medium text-indigo-800 mb-3">Tổng kết</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div className="bg-white p-3 rounded-lg">
+                            {/* Status Summary */}
+                            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg p-5">
+                                <h3 className="text-lg font-medium text-indigo-800 mb-4">Tổng kết phân bổ</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="bg-white p-4 rounded-lg border border-gray-200">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Tổng nhập bao bì</label>
                                         <div className="text-lg font-bold text-indigo-600">
                                             {formatNumber(
@@ -1329,7 +1362,8 @@ const NhapBaoBiManagement = () => {
                                             )} tấn
                                         </div>
                                     </div>
-                                    <div className="bg-white p-3 rounded-lg">
+
+                                    <div className="bg-white p-4 rounded-lg border border-gray-200">
                                         <label className="block text-sm font-medium text-gray-700 mb-1">Tổng thực nhận</label>
                                         <div className="text-lg font-bold text-green-600">
                                             {formatNumber(
@@ -1338,11 +1372,182 @@ const NhapBaoBiManagement = () => {
                                             )} tấn
                                         </div>
                                     </div>
+
+                                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tổng đã phân bổ</label>
+                                        <div className="text-lg font-bold text-blue-600">
+                                            {formatNumber(
+                                                (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) +
+                                                    parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0)).toFixed(2)
+                                            )} tấn
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tổng còn lại</label>
+                                        <div className="text-lg font-bold text-yellow-600">
+                                            {formatNumber(
+                                                (parseFloat(selectedRecord['BÃI (ANH)'] || 0) +
+                                                    parseFloat(selectedRecord['BÃI (EM)'] || 0)).toFixed(2)
+                                            )} tấn
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Progress bars */}
+                                <div className="mt-4 space-y-3">
+                                    {/* Progress for Anh */}
+                                    {selectedRecord['BAO BÌ ANH (TẤN)'] && parseFloat(selectedRecord['BAO BÌ ANH (TẤN)']) > 0 && (
+                                        <div>
+                                            <div className="flex justify-between text-sm font-medium text-gray-700 mb-1">
+                                                <span>Tiến độ phân bổ Anh</span>
+                                                <span>
+                                                    {Math.round((parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) /
+                                                        parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) * 100)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                                    style={{
+                                                        width: `${Math.min(100, (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) /
+                                                            parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) * 100)}%`
+                                                    }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Progress for Em */}
+                                    {selectedRecord['BAO BÌ EM (TẤN)'] && parseFloat(selectedRecord['BAO BÌ EM (TẤN)']) > 0 && (
+                                        <div>
+                                            <div className="flex justify-between text-sm font-medium text-gray-700 mb-1">
+                                                <span>Tiến độ phân bổ Em</span>
+                                                <span>
+                                                    {Math.round((parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) /
+                                                        parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) * 100)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                                                    style={{
+                                                        width: `${Math.min(100, (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) /
+                                                            parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) * 100)}%`
+                                                    }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Detailed breakdown table */}
+                            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                    <h3 className="text-lg font-medium text-gray-800">Chi tiết phân bổ</h3>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loại bao bì</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nhập</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trừ bao bì</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thực nhận</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Đã phân bổ</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Còn lại (Bãi)</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% Phân bổ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {/* Row for Anh */}
+                                            {selectedRecord['BAO BÌ ANH (TẤN)'] && parseFloat(selectedRecord['BAO BÌ ANH (TẤN)']) > 0 && (
+                                                <tr className="hover:bg-blue-50">
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-800">Bao bì Anh</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-600 font-medium">
+                                                        {formatNumber(selectedRecord['BAO BÌ ANH (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600">
+                                                        -{formatNumber(selectedRecord['TRỪ BAO BÌ ANH (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600 font-medium">
+                                                        {formatNumber(selectedRecord['THỰC NHẬN ANH (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-indigo-600 font-medium">
+                                                        {selectedRecord['ĐÃ PHÂN BỔ (ANH)'] ? formatNumber(selectedRecord['ĐÃ PHÂN BỔ (ANH)']) : '0.00'} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-yellow-600 font-medium">
+                                                        {selectedRecord['BÃI (ANH)'] ? formatNumber(selectedRecord['BÃI (ANH)']) :
+                                                            formatNumber((parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 0) -
+                                                                parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0)).toFixed(2))} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                                        <span className={`px-2 py-1 rounded-full text-xs ${(parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) >= 0.8
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) >= 0.5
+                                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                                    : 'bg-red-100 text-red-800'
+                                                            }`}>
+                                                            {Math.round((parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) /
+                                                                parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) * 100)}%
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            )}
+
+                                            {/* Row for Em */}
+                                            {selectedRecord['BAO BÌ EM (TẤN)'] && parseFloat(selectedRecord['BAO BÌ EM (TẤN)']) > 0 && (
+                                                <tr className="hover:bg-purple-50">
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-purple-800">Bao bì Em</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-purple-600 font-medium">
+                                                        {formatNumber(selectedRecord['BAO BÌ EM (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-orange-600">
+                                                        -{formatNumber(selectedRecord['TRỪ BAO BÌ EM (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-teal-600 font-medium">
+                                                        {formatNumber(selectedRecord['THỰC NHẬN EM (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-indigo-600 font-medium">
+                                                        {selectedRecord['ĐÃ PHÂN BỔ (EM)'] ? formatNumber(selectedRecord['ĐÃ PHÂN BỔ (EM)']) : '0.00'} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-yellow-600 font-medium">
+                                                        {selectedRecord['BÃI (EM)'] ? formatNumber(selectedRecord['BÃI (EM)']) :
+                                                            formatNumber((parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 0) -
+                                                                parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0)).toFixed(2))} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                                        <span className={`px-2 py-1 rounded-full text-xs ${(parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) >= 0.8
+                                                                ? 'bg-green-100 text-green-800'
+                                                                : (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) >= 0.5
+                                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                                    : 'bg-red-100 text-red-800'
+                                                            }`}>
+                                                            {Math.round((parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) /
+                                                                parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) * 100)}%
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
 
                             {/* Action buttons */}
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                                <button
+                                    onClick={() => {
+                                        handleCloseDetail();
+                                        setSelectedRecordForPhanBo(selectedRecord);
+                                        setShowPhanBoModal(true);
+                                    }}
+                                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors shadow-sm"
+                                >
+                                    <Users className="w-4 h-4" />
+                                    Phân bổ
+                                </button>
                                 <button
                                     onClick={() => {
                                         handleCloseDetail();

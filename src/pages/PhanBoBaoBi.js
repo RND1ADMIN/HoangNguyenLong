@@ -21,23 +21,23 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [activeTab, setActiveTab] = useState(() => {
         // Tự động chọn tab dựa trên dữ liệu có sẵn
-        const hasAnh = (record['THỰC NHẬN ANH (TẤN)'] || '') > 0;
-        const hasEm = (record['THỰC NHẬN EM (TẤN)'] || '') > 0;
+        const hasAnh = parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0) > 0;
+        const hasEm = parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0) > 0;
         return hasAnh ? 'anh' : (hasEm ? 'em' : 'anh');
     });
 
     // Tính toán số lượng còn lại
     const remaining = useMemo(() => {
-        const totalAnh = (record['THỰC NHẬN ANH (TẤN)'] || '');
-        const totalEm = (record['THỰC NHẬN EM (TẤN)'] || '');
+        const totalAnh = parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0);
+        const totalEm = parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0);
 
         const allocatedAnh = allocations
             .filter(a => a.type === 'anh')
-            .reduce((sum, a) => sum + parseFloat(a.totalQuantity || ''), 0);
+            .reduce((sum, a) => sum + parseFloat(a.totalQuantity || 0), 0);
 
         const allocatedEm = allocations
             .filter(a => a.type === 'em')
-            .reduce((sum, a) => sum + parseFloat(a.totalQuantity || ''), 0);
+            .reduce((sum, a) => sum + parseFloat(a.totalQuantity || 0), 0);
 
         return {
             anh: totalAnh - allocatedAnh,
@@ -121,7 +121,7 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
     };
 
     const updateAllocation = (allocationId, quantity) => {
-        const numQuantity = parseFloat(quantity || '');
+        const numQuantity = parseFloat(quantity || 0);
         setAllocations(prev =>
             prev.map(allocation => {
                 if (allocation.id === allocationId) {
@@ -160,11 +160,11 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
             // Tính tổng đã phân bổ cho từng loại
             const totalAllocatedAnh = allocations
                 .filter(a => a.type === 'anh')
-                .reduce((sum, a) => sum + parseFloat(a.totalQuantity || ''), 0);
+                .reduce((sum, a) => sum + parseFloat(a.totalQuantity || 0), 0);
 
             const totalAllocatedEm = allocations
                 .filter(a => a.type === 'em')
-                .reduce((sum, a) => sum + parseFloat(a.totalQuantity || ''), 0);
+                .reduce((sum, a) => sum + parseFloat(a.totalQuantity || 0), 0);
 
             // Tạo records cho BC2
             allocations.forEach(allocation => {
@@ -187,8 +187,6 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
                             'SỐ DÂY': '',
                             'GHI CHÚ': `Phân bổ từ ${record['SỐ XE']} - ${record['KHÁCH HÀNG']}`,
                             'NGƯỜI NHẬP': authUtils.getUserData()?.['Họ và Tên'] || 'Hệ thống',
-                            'TRẠNG THÁI': 'Chờ duyệt',
-                            'NGƯỜI DUYỆT': '',
                             'ĐƠN GIÁ': donGia,
                             'THÀNH TIỀN': thanhTien,
                             'LỊCH SỬ': `[${new Date().toLocaleString('vi-VN')}] Tạo từ phân bổ bao bì`
@@ -203,24 +201,24 @@ const PhanBoBaoBi = ({ record, onClose, onSuccess }) => {
             }
 
             // Cập nhật bảng NHAPBAOBI với thông tin phân bổ
-            const currentAllocatedAnh = (record['ĐÃ PHÂN BỔ (ANH)'] || '');
-            const currentAllocatedEm = (record['ĐÃ PHÂN BỔ (EM)'] || '');
+            const currentAllocatedAnh = parseFloat(record['ĐÃ PHÂN BỔ (ANH)'] || 0);
+            const currentAllocatedEm = parseFloat(record['ĐÃ PHÂN BỔ (EM)'] || 0);
 
             const newAllocatedAnh = currentAllocatedAnh + totalAllocatedAnh;
             const newAllocatedEm = currentAllocatedEm + totalAllocatedEm;
 
-            const thucNhanAnh = (record['THỰC NHẬN ANH (TẤN)'] || '');
-            const thucNhanEm = (record['THỰC NHẬN EM (TẤN)'] || '');
+            const thucNhanAnh = parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0);
+            const thucNhanEm = parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0);
 
             const baiAnh = thucNhanAnh - newAllocatedAnh;
             const baiEm = thucNhanEm - newAllocatedEm;
 
             const updatedRecord = {
                 ...record,
-                'ĐÃ PHÂN BỔ (ANH)': newAllocatedAnh,
-                'BÃI (ANH)': baiAnh,
-                'ĐÃ PHÂN BỔ (EM)': newAllocatedEm,
-                'BÃI (EM)': baiEm
+                'ĐÃ PHÂN BỔ (ANH)': newAllocatedAnh.toFixed(2),
+                'BÃI (ANH)': baiAnh.toFixed(2),
+                'ĐÃ PHÂN BỔ (EM)': newAllocatedEm.toFixed(2),
+                'BÃI (EM)': baiEm.toFixed(2)
             };
 
             // Lưu BC2 records theo batch
