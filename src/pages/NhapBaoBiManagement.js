@@ -937,7 +937,6 @@ const NhapBaoBiManagement = () => {
                                                         />
                                                     </div>
                                                 </th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày tháng</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số xe</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khách hàng</th>
@@ -974,7 +973,6 @@ const NhapBaoBiManagement = () => {
                                                                 />
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 font-mono text-xs">{record.ID}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                                                             {new Date(record['NGÀY THÁNG']).toLocaleDateString('vi-VN')}
                                                         </td>
