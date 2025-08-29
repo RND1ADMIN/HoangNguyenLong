@@ -1096,7 +1096,6 @@ const NhapBaoBiManagement = () => {
                                         <table className="min-w-full divide-y divide-gray-200">
                                             <thead className="bg-gray-50">
                                                 <tr>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số xe</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khách hàng</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bao bì Anh</th>
@@ -1113,7 +1112,6 @@ const NhapBaoBiManagement = () => {
                                                         className="hover:bg-gray-50 transition-colors cursor-pointer"
                                                         onClick={() => handleViewDetail(record)}
                                                     >
-                                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 font-mono text-xs">{record.ID}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{record['SỐ XE']}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record['KHÁCH HÀNG']}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-blue-600">
