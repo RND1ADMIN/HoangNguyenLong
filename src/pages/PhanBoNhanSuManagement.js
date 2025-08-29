@@ -36,7 +36,11 @@ const PhanBoNhanSuManagement = () => {
     const [dateFilter, setDateFilter] = useState('');
     const [toFilter, setToFilter] = useState('');
     const [selectedNhanSu, setSelectedNhanSu] = useState([]);
-    const [expandedGroups, setExpandedGroups] = useState(new Set());
+    // Cập nhật state để quản lý expand/collapse cho cả nhóm và tổ
+    const [expandedNhoms, setExpandedNhoms] = useState(new Set());
+    const [expandedTos, setExpandedTos] = useState(new Set());
+    // Thêm state để quản lý tìm kiếm nhân sự
+    const [searchNhanSu, setSearchNhanSu] = useState('');
 
     // Fetch data functions (giữ nguyên)
     const fetchPhanBoNhanSus = async () => {
@@ -86,15 +90,27 @@ const PhanBoNhanSuManagement = () => {
         return `${to} ${maCongDoan}`;
     };
 
-    // Toggle expand/collapse group
-    const toggleGroup = (groupName) => {
-        const newExpandedGroups = new Set(expandedGroups);
-        if (newExpandedGroups.has(groupName)) {
-            newExpandedGroups.delete(groupName);
+    // Hàm toggle cho nhóm
+    const toggleNhom = (nhomName) => {
+        const newExpanded = new Set(expandedNhoms);
+        if (newExpanded.has(nhomName)) {
+            newExpanded.delete(nhomName);
         } else {
-            newExpandedGroups.add(groupName);
+            newExpanded.add(nhomName);
         }
-        setExpandedGroups(newExpandedGroups);
+        setExpandedNhoms(newExpanded);
+    };
+
+    // Hàm toggle cho tổ
+    const toggleTo = (nhomName, toName) => {
+        const key = `${nhomName}-${toName}`;
+        const newExpanded = new Set(expandedTos);
+        if (newExpanded.has(key)) {
+            newExpanded.delete(key);
+        } else {
+            newExpanded.add(key);
+        }
+        setExpandedTos(newExpanded);
     };
 
     // SẮPXẾP và LỌC DỮ LIỆU TRƯỚC - để có filteredItems
@@ -139,6 +155,11 @@ const PhanBoNhanSuManagement = () => {
         return sortableItems;
     }, [phanBoNhanSus, sortConfig]);
 
+    // Lọc danh sách nhân viên theo từ khóa tìm kiếm
+    const filteredNhanVien = danhSachNhanVien.filter(nv =>
+        nv['Họ và Tên'].toLowerCase().includes(searchNhanSu.toLowerCase())
+    );
+
     // Filtering - TẠO filteredItems TRƯỚC
     const filteredItems = getSortedItems().filter(item => {
         const matchesSearch = (
@@ -165,20 +186,30 @@ const PhanBoNhanSuManagement = () => {
 
         filteredItems.forEach(item => {
             const nhom = item['NHÓM'] || 'Chưa phân nhóm';
+            const to = item['TỔ'] || 'Chưa có tổ';
+
+            // Tạo nhóm nếu chưa có
             if (!grouped[nhom]) {
-                grouped[nhom] = [];
+                grouped[nhom] = {};
             }
-            grouped[nhom].push(item);
+
+            // Tạo tổ trong nhóm nếu chưa có
+            if (!grouped[nhom][to]) {
+                grouped[nhom][to] = [];
+            }
+
+            grouped[nhom][to].push(item);
         });
 
-        // Sort groups alphabetically and sort items within each group
+        // Sort groups và tổ alphabetically
         const sortedGroups = {};
-        Object.keys(grouped).sort().forEach(key => {
-            sortedGroups[key] = grouped[key].sort((a, b) => {
-                if (a['TỔ'] !== b['TỔ']) {
-                    return a['TỔ'].localeCompare(b['TỔ']);
-                }
-                return a['TÊN CÔNG ĐOẠN'].localeCompare(b['TÊN CÔNG ĐOẠN']);
+        Object.keys(grouped).sort().forEach(nhomKey => {
+            sortedGroups[nhomKey] = {};
+            Object.keys(grouped[nhomKey]).sort().forEach(toKey => {
+                // Sort items trong mỗi tổ theo tên công đoạn
+                sortedGroups[nhomKey][toKey] = grouped[nhomKey][toKey].sort((a, b) =>
+                    a['TÊN CÔNG ĐOẠN'].localeCompare(b['TÊN CÔNG ĐOẠN'])
+                );
             });
         });
 
@@ -238,6 +269,7 @@ const PhanBoNhanSuManagement = () => {
         setShowModal(false);
         setIsEditMode(false);
         setSelectedNhanSu([]);
+        setSearchNhanSu(''); // Thêm dòng này
         setCurrentPhanBoNhanSu({
             'ID TỔ CÔNG ĐOẠN': '',
             'NGÀY CÀI ĐẶT': '',
@@ -435,13 +467,26 @@ const PhanBoNhanSuManagement = () => {
                                 {showFilters ? "Ẩn bộ lọc" : "Bộ lọc"}
                             </button>
                             <button
-                                onClick={() => setExpandedGroups(new Set(Object.keys(groupedData)))}
+                                onClick={() => {
+                                    setExpandedNhoms(new Set(Object.keys(groupedData)));
+                                    // Mở tất cả tổ
+                                    const allToKeys = [];
+                                    Object.entries(groupedData).forEach(([nhom, tosData]) => {
+                                        Object.keys(tosData).forEach(to => {
+                                            allToKeys.push(`${nhom}-${to}`);
+                                        });
+                                    });
+                                    setExpandedTos(new Set(allToKeys));
+                                }}
                                 className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
                             >
                                 Mở tất cả
                             </button>
                             <button
-                                onClick={() => setExpandedGroups(new Set())}
+                                onClick={() => {
+                                    setExpandedNhoms(new Set());
+                                    setExpandedTos(new Set());
+                                }}
                                 className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
                             >
                                 Đóng tất cả
@@ -541,16 +586,16 @@ const PhanBoNhanSuManagement = () => {
                     {/* Grouped Table Section */}
                     <div className="overflow-x-auto">
                         {Object.keys(groupedData).length > 0 ? (
-                            Object.entries(groupedData).map(([nhom, items]) => (
+                            Object.entries(groupedData).map(([nhom, tosData]) => (
                                 <div key={nhom} className="mb-6">
-                                    {/* Group Header */}
+                                    {/* Nhóm Header */}
                                     <div
                                         className="bg-indigo-50 border border-indigo-200 rounded-t-lg p-4 cursor-pointer hover:bg-indigo-100 transition-colors"
-                                        onClick={() => toggleGroup(nhom)}
+                                        onClick={() => toggleNhom(nhom)}
                                     >
                                         <div className="flex items-center justify-between">
                                             <div className="flex items-center gap-3">
-                                                {expandedGroups.has(nhom) ? (
+                                                {expandedNhoms.has(nhom) ? (
                                                     <ChevronDown className="w-5 h-5 text-indigo-600" />
                                                 ) : (
                                                     <ChevronRight className="w-5 h-5 text-indigo-600" />
@@ -559,106 +604,130 @@ const PhanBoNhanSuManagement = () => {
                                                     Nhóm: {nhom}
                                                 </h3>
                                                 <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-sm font-medium">
-                                                    {items.length} phân bổ
+                                                    {Object.keys(tosData).length} tổ
                                                 </span>
                                             </div>
                                             <div className="text-sm text-indigo-600">
-                                                Tổng nhân sự: {items.reduce((sum, item) => sum + (parseInt(item['SỐ LƯỢNG NHÂN SỰ']) || 0), 0)} người
+                                                Tổng nhân sự: {Object.values(tosData).flat().reduce((sum, item) => sum + (parseInt(item['SỐ LƯỢNG NHÂN SỰ']) || 0), 0)} người
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Group Content */}
-                                    {expandedGroups.has(nhom) && (
+                                    {/* Nhóm Content - hiển thị các tổ */}
+                                    {expandedNhoms.has(nhom) && (
                                         <div className="border border-t-0 border-indigo-200 rounded-b-lg">
-                                            <table className="min-w-full divide-y divide-gray-200">
-                                                <thead className="bg-gray-50">
-                                                    <tr>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Tổ
-                                                        </th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Công đoạn
-                                                        </th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Nhân sự
-                                                        </th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            SL
-                                                        </th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Phụ cấp
-                                                        </th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Hiệu lực
-                                                        </th>
-                                                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
-                                                            Thao tác
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="bg-white divide-y divide-gray-200">
-                                                    {items.map((item, index) => (
-                                                        <tr key={`${item['ID TỔ CÔNG ĐOẠN']}-${index}`} className="hover:bg-gray-50 transition-colors">
-                                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                                    {item['TỔ']}
+                                            {Object.entries(tosData).map(([to, items]) => (
+                                                <div key={`${nhom}-${to}`} className="border-b border-gray-100 last:border-b-0">
+                                                    {/* Tổ Header */}
+                                                    <div
+                                                        className="bg-blue-50 border-b border-blue-100 p-3 cursor-pointer hover:bg-blue-100 transition-colors"
+                                                        onClick={() => toggleTo(nhom, to)}
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                {expandedTos.has(`${nhom}-${to}`) ? (
+                                                                    <ChevronDown className="w-4 h-4 text-blue-600" />
+                                                                ) : (
+                                                                    <ChevronRight className="w-4 h-4 text-blue-600" />
+                                                                )}
+                                                                <h4 className="text-md font-semibold text-blue-800">
+                                                                    Tổ: {to}
+                                                                </h4>
+                                                                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                                                                    {items.length} công đoạn
                                                                 </span>
-                                                            </td>
-                                                            <td className="px-4 py-4 text-sm text-gray-900">
-                                                                <div className="max-w-xs">
-                                                                    <div className="font-medium">{item['TÊN CÔNG ĐOẠN']}</div>
-                                                                    <div className="text-xs text-gray-500">{item['MÃ CÔNG ĐOẠN']}</div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-4 text-sm text-gray-700">
-                                                                <div className="max-w-xs">
-                                                                    <div className="truncate" title={Array.isArray(item['NHÂN SỰ']) ? item['NHÂN SỰ'].join(', ') : item['NHÂN SỰ']}>
-                                                                        {Array.isArray(item['NHÂN SỰ']) ? item['NHÂN SỰ'].join(', ') : item['NHÂN SỰ']}
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                                                                    <Users className="w-3 h-3 mr-1" />
-                                                                    {item['SỐ LƯỢNG NHÂN SỰ']}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                                                {parseFloat(item['ĐƠN GIÁ PHỤ CẤP TN/THÁNG']).toLocaleString('vi-VN')}
-                                                            </td>
-                                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                                <div>
-                                                                    <div>{new Date(item['HIỆU LỰC TỪ']).toLocaleDateString('vi-VN')}</div>
-                                                                    {item['HIỆU LỰC ĐẾN'] && new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN') !== '1970-01-01' ? (
-                                                                        <div className="text-xs text-gray-500">đến {new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN')}</div>
-                                                                    ) : (
-                                                                        <div className="text-xs text-gray-500">—</div>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                                                                <div className="flex justify-center space-x-2">
-                                                                    <button
-                                                                        onClick={() => handleOpenModal(item)}
-                                                                        className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
-                                                                        title="Sửa phân bổ"
-                                                                    >
-                                                                        <Edit className="h-4 w-4" />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleOpenDeleteConfirmation(item)}
-                                                                        className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
-                                                                        title="Xóa phân bổ"
-                                                                    >
-                                                                        <Trash className="h-4 w-4" />
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                                            </div>
+                                                            <div className="text-xs text-blue-600">
+                                                                {items.reduce((sum, item) => sum + (parseInt(item['SỐ LƯỢNG NHÂN SỰ']) || 0), 0)} người
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Tổ Content - hiển thị bảng công đoạn */}
+                                                    {expandedTos.has(`${nhom}-${to}`) && (
+                                                        <table className="min-w-full divide-y divide-gray-200">
+                                                            <thead className="bg-gray-50">
+                                                                <tr>
+                                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                        Công đoạn
+                                                                    </th>
+                                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                        Nhân sự
+                                                                    </th>
+                                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                        SL
+                                                                    </th>
+                                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                        Phụ cấp
+                                                                    </th>
+                                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                        Hiệu lực
+                                                                    </th>
+                                                                    <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
+                                                                        Thao tác
+                                                                    </th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody className="bg-white divide-y divide-gray-200">
+                                                                {items.map((item, index) => (
+                                                                    <tr key={`${item['ID TỔ CÔNG ĐOẠN']}-${index}`} className="hover:bg-gray-50 transition-colors">
+                                                                        <td className="px-4 py-4 text-sm text-gray-900">
+                                                                            <div className="max-w-xs">
+                                                                                <div className="font-medium">{item['TÊN CÔNG ĐOẠN']}</div>
+                                                                                <div className="text-xs text-gray-500">{item['MÃ CÔNG ĐOẠN']}</div>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-4 text-sm text-gray-700">
+                                                                            <div className="max-w-xs">
+                                                                                <div className="truncate" title={Array.isArray(item['NHÂN SỰ']) ? item['NHÂN SỰ'].join(', ') : item['NHÂN SỰ']}>
+                                                                                    {Array.isArray(item['NHÂN SỰ']) ? item['NHÂN SỰ'].join(', ') : item['NHÂN SỰ']}
+                                                                                </div>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                                                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                                                                                <Users className="w-3 h-3 mr-1" />
+                                                                                {item['SỐ LƯỢNG NHÂN SỰ']}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                                                            {parseFloat(item['ĐƠN GIÁ PHỤ CẤP TN/THÁNG']).toLocaleString('vi-VN')}
+                                                                        </td>
+                                                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                                            <div>
+                                                                                <div>{new Date(item['HIỆU LỰC TỪ']).toLocaleDateString('vi-VN')}</div>
+                                                                                {item['HIỆU LỰC ĐẾN'] && new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN') !== '1970-01-01' ? (
+                                                                                    <div className="text-xs text-gray-500">đến {new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN')}</div>
+                                                                                ) : (
+                                                                                    <div className="text-xs text-gray-500">—</div>
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                                                                            <div className="flex justify-center space-x-2">
+                                                                                <button
+                                                                                    onClick={() => handleOpenModal(item)}
+                                                                                    className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
+                                                                                    title="Sửa phân bổ"
+                                                                                >
+                                                                                    <Edit className="h-4 w-4" />
+                                                                                </button>
+                                                                                <button
+                                                                                    onClick={() => handleOpenDeleteConfirmation(item)}
+                                                                                    className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
+                                                                                    title="Xóa phân bổ"
+                                                                                >
+                                                                                    <Trash className="h-4 w-4" />
+                                                                                </button>
+                                                                            </div>
+                                                                        </td>
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
                                     )}
                                 </div>
@@ -875,32 +944,78 @@ const PhanBoNhanSuManagement = () => {
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Chọn nhân sự <span className="text-red-500">*</span>
                                     </label>
+
+                                    {/* Search input */}
+                                    <div className="relative mb-2">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Tìm kiếm nhân viên..."
+                                            value={searchNhanSu}
+                                            onChange={(e) => setSearchNhanSu(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        />
+                                    </div>
+
+                                    {/* Scrollable list */}
                                     <div className="border border-gray-300 rounded-lg p-3 max-h-60 overflow-y-auto">
                                         <div className="space-y-2">
-                                            {danhSachNhanVien.map(nv => (
-                                                <div key={nv['Họ và Tên']} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
-                                                    <span className="text-sm">{nv['Họ và Tên']}</span>
-                                                    {selectedNhanSu.includes(nv['Họ và Tên']) ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeNhanSu(nv['Họ và Tên'])}
-                                                            className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50"
-                                                        >
-                                                            <UserMinus className="w-5 h-5" />
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => addNhanSu(nv['Họ và Tên'])}
-                                                            className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50"
-                                                        >
-                                                            <UserPlus className="w-5 h-5" />
-                                                        </button>
-                                                    )}
+                                            {filteredNhanVien.length > 0 ? (
+                                                filteredNhanVien.map(nv => (
+                                                    <div key={nv['Họ và Tên']} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                                                        <span className="text-sm">{nv['Họ và Tên']}</span>
+                                                        {selectedNhanSu.includes(nv['Họ và Tên']) ? (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeNhanSu(nv['Họ và Tên'])}
+                                                                className="text-red-600 hover:text-red-800 p-1 rounded-full hover:bg-red-50"
+                                                                title="Xóa khỏi danh sách"
+                                                            >
+                                                                <UserMinus className="w-5 h-5" />
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => addNhanSu(nv['Họ và Tên'])}
+                                                                className="text-green-600 hover:text-green-800 p-1 rounded-full hover:bg-green-50"
+                                                                title="Thêm vào danh sách"
+                                                            >
+                                                                <UserPlus className="w-5 h-5" />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-center py-4 text-gray-500">
+                                                    {searchNhanSu ? 'Không tìm thấy nhân viên nào' : 'Không có nhân viên'}
                                                 </div>
-                                            ))}
+                                            )}
                                         </div>
                                     </div>
+
+                                    {/* Quick actions */}
+                                    {searchNhanSu && filteredNhanVien.length > 0 && (
+                                        <div className="mt-2 flex gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    // Thêm tất cả nhân viên được tìm thấy
+                                                    const newList = [...new Set([...selectedNhanSu, ...filteredNhanVien.map(nv => nv['Họ và Tên'])])];
+                                                    handleNhanSuChange(newList);
+                                                }}
+                                                className="px-3 py-1 text-xs bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors"
+                                            >
+                                                Thêm tất cả ({filteredNhanVien.filter(nv => !selectedNhanSu.includes(nv['Họ và Tên'])).length})
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setSearchNhanSu('')}
+                                                className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
+                                            >
+                                                Xóa tìm kiếm
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Selected staff display */}

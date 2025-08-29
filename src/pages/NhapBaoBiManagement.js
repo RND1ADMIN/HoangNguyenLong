@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Check, Upload, X, Calendar, AlertCircle, List, Package } from 'lucide-react';
+import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Check, Upload, X, Calendar, AlertCircle, List, Package, Eye } from 'lucide-react';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -107,7 +107,7 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => (
     </div>
 );
 
-const PackagingManagement = () => {
+const NhapBaoBiManagement = () => {
     // State Management - core data
     const [packagingData, setPackagingData] = useState([]);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'grouped'
@@ -133,6 +133,10 @@ const PackagingManagement = () => {
     const [importFile, setImportFile] = useState(null);
     const [importPreview, setImportPreview] = useState([]);
     const [isImporting, setIsImporting] = useState(false);
+
+    // State - detail modal
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedRecord, setSelectedRecord] = useState(null);
 
     // State - confirm modal
     const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -182,6 +186,15 @@ const PackagingManagement = () => {
         }
     };
 
+    // Close confirm modal and reset states
+    const handleCloseConfirmModal = () => {
+        setShowConfirmModal(false);
+        setConfirmAction(null);
+        setConfirmMessage("");
+        setConfirmTitle("");
+        setIsConfirmLoading(false);
+    };
+
     // Data fetching
     useEffect(() => {
         fetchPackagingData();
@@ -195,6 +208,17 @@ const PackagingManagement = () => {
             console.error('Error fetching packaging data:', error);
             toast.error('Lỗi khi tải danh sách nhập bao bì');
         }
+    };
+
+    // Detail modal functions
+    const handleViewDetail = (record) => {
+        setSelectedRecord(record);
+        setShowDetailModal(true);
+    };
+
+    const handleCloseDetail = () => {
+        setShowDetailModal(false);
+        setSelectedRecord(null);
     };
 
     // Modal functions
@@ -323,11 +347,14 @@ const PackagingManagement = () => {
         }
     };
 
-    // Delete record
-    const handleDelete = (STT) => {
+    // Delete record with proper event handling
+    const handleDelete = (STT, event) => {
+        event.stopPropagation(); // Ngăn event lan truyền
+        event.preventDefault();
+
         setConfirmTitle("Xóa thông tin nhập bao bì");
         setConfirmMessage("Bạn có chắc chắn muốn xóa thông tin này?");
-        setConfirmAction(async () => {
+        setConfirmAction(() => async () => { // Wrap trong function để tránh immediate execution
             try {
                 await authUtils.apiRequest('NHAPBAOBI', 'Delete', {
                     "Rows": [{ "STT": STT }]
@@ -342,6 +369,13 @@ const PackagingManagement = () => {
         setShowConfirmModal(true);
     };
 
+    // Edit with proper event handling
+    const handleEdit = (record, event) => {
+        event.stopPropagation();
+        event.preventDefault();
+        handleOpen(record);
+    };
+
     // Bulk actions
     const handleBulkDelete = () => {
         if (selectedRecords.length === 0) {
@@ -351,7 +385,7 @@ const PackagingManagement = () => {
 
         setConfirmTitle("Xóa nhiều thông tin");
         setConfirmMessage(`Bạn có chắc chắn muốn xóa ${selectedRecords.length} thông tin đã chọn?`);
-        setConfirmAction(async () => {
+        setConfirmAction(() => async () => {
             try {
                 await Promise.all(
                     selectedRecords.map(stt =>
@@ -876,8 +910,12 @@ const PackagingManagement = () => {
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {currentItems.length > 0 ? (
                                                 currentItems.map((record) => (
-                                                    <tr key={record.STT} className="hover:bg-gray-50 transition-colors">
-                                                        <td className="p-4 whitespace-nowrap">
+                                                    <tr
+                                                        key={record.STT}
+                                                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                                        onClick={() => handleViewDetail(record)}
+                                                    >
+                                                        <td className="p-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                                                             <div className="flex items-center">
                                                                 <input
                                                                     type="checkbox"
@@ -917,17 +955,17 @@ const PackagingManagement = () => {
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-teal-600">
                                                             {record['THỰC NHẬN EM (TẤN)'] ? formatNumber(record['THỰC NHẬN EM (TẤN)']) : '-'}
                                                         </td>
-                                                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                                             <div className="flex justify-end space-x-1">
                                                                 <button
-                                                                    onClick={() => handleOpen(record)}
+                                                                    onClick={(e) => handleEdit(record, e)}
                                                                     className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
                                                                     title="Sửa thông tin"
                                                                 >
                                                                     <Edit className="h-4 w-4" />
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleDelete(record.STT)}
+                                                                    onClick={(e) => handleDelete(record.STT, e)}
                                                                     className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
                                                                     title="Xóa thông tin"
                                                                 >
@@ -1029,7 +1067,11 @@ const PackagingManagement = () => {
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
                                                 {group.records.map(record => (
-                                                    <tr key={record.STT} className="hover:bg-gray-50 transition-colors">
+                                                    <tr
+                                                        key={record.STT}
+                                                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                                        onClick={() => handleViewDetail(record)}
+                                                    >
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{record.STT}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{record['SỐ XE']}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record['KHÁCH HÀNG']}</td>
@@ -1045,17 +1087,17 @@ const PackagingManagement = () => {
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-teal-600">
                                                             {record['THỰC NHẬN EM (TẤN)'] ? formatNumber(record['THỰC NHẬN EM (TẤN)']) : '-'}
                                                         </td>
-                                                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
                                                             <div className="flex justify-end space-x-1">
                                                                 <button
-                                                                    onClick={() => handleOpen(record)}
+                                                                    onClick={(e) => handleEdit(record, e)}
                                                                     className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
                                                                     title="Sửa thông tin"
                                                                 >
                                                                     <Edit className="h-4 w-4" />
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleDelete(record.STT)}
+                                                                    onClick={(e) => handleDelete(record.STT, e)}
                                                                     className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
                                                                     title="Xóa thông tin"
                                                                 >
@@ -1089,6 +1131,172 @@ const PackagingManagement = () => {
                     )}
                 </div>
             </div>
+
+            {/* Detail View Modal */}
+            {showDetailModal && selectedRecord && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
+                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                <Eye className="h-5 w-5 text-indigo-600" />
+                                Chi tiết thông tin nhập bao bì - STT: {selectedRecord.STT}
+                            </h2>
+                            <button
+                                onClick={handleCloseDetail}
+                                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            {/* Basic Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Ngày tháng</label>
+                                    <div className="flex items-center gap-2">
+                                        <Calendar className="h-4 w-4 text-gray-500" />
+                                        <span className="text-sm text-gray-900">
+                                            {new Date(selectedRecord['NGÀY THÁNG']).toLocaleDateString('vi-VN')}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Số xe</label>
+                                    <span className="text-sm text-gray-900 font-medium">{selectedRecord['SỐ XE']}</span>
+                                </div>
+
+                                <div className="bg-gray-50 p-4 rounded-lg">
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">Khách hàng</label>
+                                    <span className="text-sm text-gray-900">{selectedRecord['KHÁCH HÀNG']}</span>
+                                </div>
+                            </div>
+
+                            {/* Bao bì Anh Information */}
+                            <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                                <h3 className="text-lg font-medium text-blue-800 mb-4 flex items-center gap-2">
+                                    <Package className="w-5 h-5" />
+                                    Thông tin Bao bì Anh
+                                </h3>
+
+                                {selectedRecord['BAO BÌ ANH (TẤN)'] && parseFloat(selectedRecord['BAO BÌ ANH (TẤN)']) > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Nhập bao bì</label>
+                                            <div className="text-lg font-bold text-blue-600">
+                                                {formatNumber(selectedRecord['BAO BÌ ANH (TẤN)'])} tấn
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Trừ bao bì (3%)</label>
+                                            <div className="text-lg font-bold text-red-600">
+                                                -{formatNumber(selectedRecord['TRỪ BAO BÌ ANH (TẤN)'])} tấn
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Thực nhận</label>
+                                            <div className="text-lg font-bold text-green-600">
+                                                {formatNumber(selectedRecord['THỰC NHẬN ANH (TẤN)'])} tấn
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-6 text-gray-500">
+                                        <Package className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                                        <p>Không có dữ liệu bao bì Anh</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Bao bì Em Information */}
+                            <div className="border border-purple-200 rounded-lg p-4 bg-purple-50">
+                                <h3 className="text-lg font-medium text-purple-800 mb-4 flex items-center gap-2">
+                                    <Package className="w-5 h-5" />
+                                    Thông tin Bao bì Em
+                                </h3>
+
+                                {selectedRecord['BAO BÌ EM (TẤN)'] && parseFloat(selectedRecord['BAO BÌ EM (TẤN)']) > 0 ? (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Nhập bao bì</label>
+                                            <div className="text-lg font-bold text-purple-600">
+                                                {formatNumber(selectedRecord['BAO BÌ EM (TẤN)'])} tấn
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Trừ bao bì (3%)</label>
+                                            <div className="text-lg font-bold text-orange-600">
+                                                -{formatNumber(selectedRecord['TRỪ BAO BÌ EM (TẤN)'])} tấn
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Thực nhận</label>
+                                            <div className="text-lg font-bold text-teal-600">
+                                                {formatNumber(selectedRecord['THỰC NHẬN EM (TẤN)'])} tấn
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-6 text-gray-500">
+                                        <Package className="h-8 w-8 mx-auto mb-2 text-gray-400" />
+                                        <p>Không có dữ liệu bao bì Em</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Summary */}
+                            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg p-4">
+                                <h3 className="text-lg font-medium text-indigo-800 mb-3">Tổng kết</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div className="bg-white p-3 rounded-lg">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tổng nhập bao bì</label>
+                                        <div className="text-lg font-bold text-indigo-600">
+                                            {formatNumber(
+                                                (parseFloat(selectedRecord['BAO BÌ ANH (TẤN)'] || 0) +
+                                                    parseFloat(selectedRecord['BAO BÌ EM (TẤN)'] || 0)).toFixed(3)
+                                            )} tấn
+                                        </div>
+                                    </div>
+                                    <div className="bg-white p-3 rounded-lg">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tổng thực nhận</label>
+                                        <div className="text-lg font-bold text-green-600">
+                                            {formatNumber(
+                                                (parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 0) +
+                                                    parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 0)).toFixed(3)
+                                            )} tấn
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Action buttons */}
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                                <button
+                                    onClick={() => {
+                                        handleCloseDetail();
+                                        handleOpen(selectedRecord);
+                                    }}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 transition-colors shadow-sm"
+                                >
+                                    <Edit className="w-4 h-4" />
+                                    Chỉnh sửa
+                                </button>
+                                <button
+                                    onClick={handleCloseDetail}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+                                >
+                                    Đóng
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Add/Edit Modal */}
             {open && (
@@ -1410,7 +1618,7 @@ const PackagingManagement = () => {
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
                             <h2 className="text-xl font-bold text-gray-800">{confirmTitle}</h2>
                             <button
-                                onClick={() => setShowConfirmModal(false)}
+                                onClick={handleCloseConfirmModal}
                                 className="text-gray-500 hover:text-gray-700 focus:outline-none"
                                 disabled={isConfirmLoading}
                             >
@@ -1422,7 +1630,7 @@ const PackagingManagement = () => {
                             <p className="text-gray-600">{confirmMessage}</p>
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                                 <button
-                                    onClick={() => setShowConfirmModal(false)}
+                                    onClick={handleCloseConfirmModal}
                                     className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
                                     disabled={isConfirmLoading}
                                 >
@@ -1439,11 +1647,10 @@ const PackagingManagement = () => {
                                                 toast.error("Có lỗi xảy ra khi thực hiện thao tác");
                                             } finally {
                                                 setIsConfirmLoading(false);
-                                                setShowConfirmModal(false);
+                                                handleCloseConfirmModal();
                                             }
                                         } else {
-                                            console.error("Confirmation action is not a function", confirmAction);
-                                            setShowConfirmModal(false);
+                                            handleCloseConfirmModal();
                                         }
                                     }}
                                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2"
@@ -1484,4 +1691,4 @@ const PackagingManagement = () => {
     );
 };
 
-export default PackagingManagement;
+export default NhapBaoBiManagement;
