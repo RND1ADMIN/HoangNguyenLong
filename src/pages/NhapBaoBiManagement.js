@@ -9,18 +9,14 @@ import * as XLSX from 'xlsx';
 // Date formatting utilities
 const formatDateForInput = (dateString) => {
     if (!dateString) return '';
-
     if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
         return dateString;
     }
-
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return '';
-
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
-
     return `${year}-${month}-${day}`;
 };
 
@@ -998,7 +994,7 @@ const NhapBaoBiManagement = () => {
                                             </h3>
                                             <div className="flex flex-wrap gap-2 mt-2">
                                                 <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                                                    Tổng: {group.totalRecords} lượt
+                                                    Tổng: {group.totalRecords} xe
                                                 </span>
                                                 {group.totalBaoBiAnh > 0 && (
                                                     <>
@@ -1325,7 +1321,7 @@ const NhapBaoBiManagement = () => {
                                         <input
                                             type="date"
                                             value={formatDateForInput(currentRecord['NGÀY THÁNG'])}
-                                            onChange={(e) => handleDateChange(new Date(e.target.value))}
+                                            onChange={(e) => handleInputChange('NGÀY THÁNG', e.target.value)}
                                             className="pl-10 p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                                             required
                                         />
