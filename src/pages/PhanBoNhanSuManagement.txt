@@ -1,23 +1,21 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, Check, X, Filter, Users, UserPlus, UserMinus, ChevronDown, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash, Search, Check, X, Filter, Users, UserPlus, UserMinus } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
 
 const PhanBoNhanSuManagement = () => {
-    // State Management (giữ nguyên)
+    // State Management
     const [phanBoNhanSus, setPhanBoNhanSus] = useState([]);
     const [congDoanDonGias, setCongDoanDonGias] = useState([]);
     const [danhSachNhanVien, setDanhSachNhanVien] = useState([]);
     const [currentPhanBoNhanSu, setCurrentPhanBoNhanSu] = useState({
-        'ID TỔ CÔNG ĐOẠN': '',
         'NGÀY CÀI ĐẶT': '',
         'HIỆU LỰC TỪ': '',
         'HIỆU LỰC ĐẾN': '',
         'TỔ': '',
         'MÃ CÔNG ĐOẠN': '',
         'TÊN CÔNG ĐOẠN': '',
-        'NHÓM': '',
         'ĐƠN VỊ TÍNH': '',
         'PP TÍNH NĂNG SUẤT': '',
         'ĐƠN GIÁ NĂNG SUẤT': '',
@@ -36,12 +34,12 @@ const PhanBoNhanSuManagement = () => {
     const [dateFilter, setDateFilter] = useState('');
     const [toFilter, setToFilter] = useState('');
     const [selectedNhanSu, setSelectedNhanSu] = useState([]);
-    const [expandedGroups, setExpandedGroups] = useState(new Set());
 
-    // Fetch data functions (giữ nguyên)
+    // Fetch data
     const fetchPhanBoNhanSus = async () => {
         try {
-            const response = await authUtils.apiRequest('TO_PBNS', 'Find', {});
+            const response = await authUtils.apiRequest('PHANBONHANSU', 'Find', {});
+            // Parse NHÂN SỰ field if it's stored as string
             const processedData = response.map(item => ({
                 ...item,
                 'NHÂN SỰ': typeof item['NHÂN SỰ'] === 'string' ?
@@ -81,23 +79,229 @@ const PhanBoNhanSuManagement = () => {
         fetchDanhSachNhanVien();
     }, []);
 
-    // Tạo ID TỔ CÔNG ĐOẠN từ TỔ và MÃ CÔNG ĐOẠN
-    const generateIdToCongDoan = (to, maCongDoan) => {
-        return `${to} ${maCongDoan}`;
-    };
-
-    // Toggle expand/collapse group
-    const toggleGroup = (groupName) => {
-        const newExpandedGroups = new Set(expandedGroups);
-        if (newExpandedGroups.has(groupName)) {
-            newExpandedGroups.delete(groupName);
+    // Modal handlers
+    const handleOpenModal = (item = null) => {
+        if (item) {
+            setIsEditMode(true);
+            setCurrentPhanBoNhanSu({
+                'NGÀY CÀI ĐẶT': item['NGÀY CÀI ĐẶT'] || '',
+                'HIỆU LỰC TỪ': item['HIỆU LỰC TỪ'] || '',
+                'HIỆU LỰC ĐẾN': item['HIỆU LỰC ĐẾN'] || '',
+                'TỔ': item['TỔ'] || '',
+                'MÃ CÔNG ĐOẠN': item['MÃ CÔNG ĐOẠN'] || '',
+                'TÊN CÔNG ĐOẠN': item['TÊN CÔNG ĐOẠN'] || '',
+                'ĐƠN VỊ TÍNH': item['ĐƠN VỊ TÍNH'] || '',
+                'PP TÍNH NĂNG SUẤT': item['PP TÍNH NĂNG SUẤT'] || '',
+                'ĐƠN GIÁ NĂNG SUẤT': item['ĐƠN GIÁ NĂNG SUẤT'] || '',
+                'NHÂN SỰ': item['NHÂN SỰ'] || [],
+                'SỐ LƯỢNG NHÂN SỰ': item['SỐ LƯỢNG NHÂN SỰ'] || 0,
+                'ĐƠN GIÁ PHỤ CẤP TN/THÁNG': item['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'] || ''
+            });
+            setSelectedNhanSu(item['NHÂN SỰ'] || []);
         } else {
-            newExpandedGroups.add(groupName);
+            setIsEditMode(false);
+            const today = new Date().toISOString().split('T')[0];
+            setCurrentPhanBoNhanSu({
+                'NGÀY CÀI ĐẶT': today,
+                'HIỆU LỰC TỪ': today,
+                'HIỆU LỰC ĐẾN': '',
+                'TỔ': '',
+                'MÃ CÔNG ĐOẠN': '',
+                'TÊN CÔNG ĐOẠN': '',
+                'ĐƠN VỊ TÍNH': '',
+                'PP TÍNH NĂNG SUẤT': '',
+                'ĐƠN GIÁ NĂNG SUẤT': '',
+                'NHÂN SỰ': [],
+                'SỐ LƯỢNG NHÂN SỰ': 0,
+                'ĐƠN GIÁ PHỤ CẤP TN/THÁNG': ''
+            });
+            setSelectedNhanSu([]);
         }
-        setExpandedGroups(newExpandedGroups);
+        setShowModal(true);
     };
 
-    // SẮPXẾP và LỌC DỮ LIỆU TRƯỚC - để có filteredItems
+    const handleCloseModal = () => {
+        setShowModal(false);
+        setIsEditMode(false);
+        setSelectedNhanSu([]);
+        setCurrentPhanBoNhanSu({
+            'NGÀY CÀI ĐẶT': '',
+            'HIỆU LỰC TỪ': '',
+            'HIỆU LỰC ĐẾN': '',
+            'TỔ': '',
+            'MÃ CÔNG ĐOẠN': '',
+            'TÊN CÔNG ĐOẠN': '',
+            'ĐƠN VỊ TÍNH': '',
+            'PP TÍNH NĂNG SUẤT': '',
+            'ĐƠN GIÁ NĂNG SUẤT': '',
+            'NHÂN SỰ': [],
+            'SỐ LƯỢNG NHÂN SỰ': 0,
+            'ĐƠN GIÁ PHỤ CẤP TN/THÁNG': ''
+        });
+    };
+
+    // Format date cho input type="date" (yyyy-mm-dd)
+    const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+
+        // Nếu đã là định dạng yyyy-mm-dd thì trả về luôn
+        if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+            return dateString;
+        }
+
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '';
+
+        const year = date.getFullYear();
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+
+        return `${year}-${month}-${day}`;
+    };
+
+    // Handle công đoạn selection
+    const handleCongDoanChange = (tenCongDoan) => {
+        const selectedCongDoan = congDoanDonGias.find(cd => cd['TÊN CÔNG ĐOẠN'] === tenCongDoan);
+        setCurrentPhanBoNhanSu(prev => ({
+            ...prev,
+            'TÊN CÔNG ĐOẠN': tenCongDoan,
+            'MÃ CÔNG ĐOẠN': selectedCongDoan ? selectedCongDoan['MÃ CÔNG ĐOẠN'] : '',
+            'ĐƠN VỊ TÍNH': selectedCongDoan ? selectedCongDoan['ĐƠN VỊ TÍNH'] : '',
+            'PP TÍNH NĂNG SUẤT': selectedCongDoan ? selectedCongDoan['PP TÍNH NĂNG SUẤT'] : '',
+            'ĐƠN GIÁ NĂNG SUẤT': selectedCongDoan ? selectedCongDoan['ĐƠN GIÁ NĂNG SUẤT'] : ''
+        }));
+    };
+
+    // Handle nhân sự selection
+    const handleNhanSuChange = (nhanSuList) => {
+        setSelectedNhanSu(nhanSuList);
+        setCurrentPhanBoNhanSu(prev => ({
+            ...prev,
+            'NHÂN SỰ': nhanSuList,
+            'SỐ LƯỢNG NHÂN SỰ': nhanSuList.length
+        }));
+    };
+
+    const addNhanSu = (tenNhanVien) => {
+        if (!selectedNhanSu.includes(tenNhanVien)) {
+            const newList = [...selectedNhanSu, tenNhanVien];
+            handleNhanSuChange(newList);
+        }
+    };
+
+    const removeNhanSu = (tenNhanVien) => {
+        const newList = selectedNhanSu.filter(ns => ns !== tenNhanVien);
+        handleNhanSuChange(newList);
+    };
+
+    // Form handlers
+    const handleInputChange = (field, value) => {
+        setCurrentPhanBoNhanSu(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    };
+
+    const validatePhanBoNhanSu = (item) => {
+        const errors = [];
+        if (!item['NGÀY CÀI ĐẶT']) errors.push('Ngày cài đặt không được để trống');
+        if (!item['HIỆU LỰC TỪ']) errors.push('Hiệu lực từ không được để trống');
+        if (!item['TỔ']) errors.push('Tổ không được để trống');
+        if (!item['TÊN CÔNG ĐOẠN']) errors.push('Tên công đoạn không được để trống');
+        if (!item['NHÂN SỰ'] || item['NHÂN SỰ'].length === 0) errors.push('Phải chọn ít nhất một nhân sự');
+        if (!item['ĐƠN GIÁ PHỤ CẤP TN/THÁNG']) errors.push('Đơn giá phụ cấp không được để trống');
+
+        // Validate dates
+        if (item['HIỆU LỰC ĐẾN'] && item['HIỆU LỰC TỪ']) {
+            if (new Date(item['HIỆU LỰC ĐẾN']) < new Date(item['HIỆU LỰC TỪ'])) {
+                errors.push('Hiệu lực đến phải sau hiệu lực từ');
+            }
+        }
+
+        return errors;
+    };
+
+    // Save phân bổ nhân sự
+    const handleSave = async () => {
+        if (isSubmitting) return;
+
+        try {
+            setIsSubmitting(true);
+            const errors = validatePhanBoNhanSu(currentPhanBoNhanSu);
+            if (errors.length > 0) {
+                toast.error(errors.join('\n'));
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Prepare data for API (convert array to string if needed)
+            const dataToSave = {
+                ...currentPhanBoNhanSu,
+                'NHÂN SỰ': currentPhanBoNhanSu['NHÂN SỰ'].join(', ')
+            };
+
+            if (isEditMode) {
+                await authUtils.apiRequest('PHANBONHANSU', 'Edit', {
+                    "Rows": [dataToSave]
+                });
+                toast.success('Cập nhật phân bổ nhân sự thành công!');
+            } else {
+                await authUtils.apiRequest('PHANBONHANSU', 'Add', {
+                    "Rows": [dataToSave]
+                });
+                toast.success('Thêm phân bổ nhân sự mới thành công!');
+            }
+
+            await fetchPhanBoNhanSus();
+            handleCloseModal();
+        } catch (error) {
+            console.error('Error saving phan bo nhan su:', error);
+            toast.error('Có lỗi xảy ra: ' + (error.message || 'Không thể lưu phân bổ nhân sự'));
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Delete handlers
+    const handleOpenDeleteConfirmation = (item) => {
+        setItemToDelete(item);
+        setShowDeleteConfirmation(true);
+    };
+
+    const handleCloseDeleteConfirmation = () => {
+        setShowDeleteConfirmation(false);
+        setItemToDelete(null);
+    };
+
+    const handleDelete = async () => {
+        if (!itemToDelete) return;
+
+        try {
+            await authUtils.apiRequest('PHANBONHANSU', 'Delete', {
+                "Rows": [{
+                    "TỔ": itemToDelete['TỔ'],
+                    "MÃ CÔNG ĐOẠN": itemToDelete['MÃ CÔNG ĐOẠN'],
+                    "NGÀY CÀI ĐẶT": itemToDelete['NGÀY CÀI ĐẶT']
+                }]
+            });
+            toast.success('Xóa phân bổ nhân sự thành công!');
+            await fetchPhanBoNhanSus();
+            handleCloseDeleteConfirmation();
+        } catch (error) {
+            console.error('Error deleting phan bo nhan su:', error);
+            toast.error('Có lỗi xảy ra khi xóa phân bổ nhân sự');
+        }
+    };
+
+    // Sorting
+    const requestSort = (key) => {
+        let direction = 'ascending';
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
+            direction = 'descending';
+        }
+        setSortConfig({ key, direction });
+    };
+
     const getSortedItems = useCallback(() => {
         const sortableItems = [...phanBoNhanSus];
         if (sortConfig.key) {
@@ -139,13 +343,12 @@ const PhanBoNhanSuManagement = () => {
         return sortableItems;
     }, [phanBoNhanSus, sortConfig]);
 
-    // Filtering - TẠO filteredItems TRƯỚC
+    // Filtering
     const filteredItems = getSortedItems().filter(item => {
         const matchesSearch = (
             item['TỔ']?.toLowerCase().includes(search.toLowerCase()) ||
             item['TÊN CÔNG ĐOẠN']?.toLowerCase().includes(search.toLowerCase()) ||
             item['MÃ CÔNG ĐOẠN']?.toLowerCase().includes(search.toLowerCase()) ||
-            item['NHÓM']?.toLowerCase().includes(search.toLowerCase()) ||
             (Array.isArray(item['NHÂN SỰ']) ? item['NHÂN SỰ'].join(', ') : item['NHÂN SỰ'] || '').toLowerCase().includes(search.toLowerCase())
         );
 
@@ -159,268 +362,19 @@ const PhanBoNhanSuManagement = () => {
         return matchesSearch && matchesDateFilter && matchesToFilter;
     });
 
-    // SAU ĐÓ MỚI GROUP DỮ LIỆU - sử dụng filteredItems
-    const groupDataByNhom = useCallback(() => {
-        const grouped = {};
+    // Get sort direction icon
+    const getSortIcon = (key) => {
+        if (sortConfig.key !== key) {
+            return null;
+        }
+        return sortConfig.direction === 'ascending' ? '↑' : '↓';
+    };
 
-        filteredItems.forEach(item => {
-            const nhom = item['NHÓM'] || 'Chưa phân nhóm';
-            if (!grouped[nhom]) {
-                grouped[nhom] = [];
-            }
-            grouped[nhom].push(item);
-        });
-
-        // Sort groups alphabetically and sort items within each group
-        const sortedGroups = {};
-        Object.keys(grouped).sort().forEach(key => {
-            sortedGroups[key] = grouped[key].sort((a, b) => {
-                if (a['TỔ'] !== b['TỔ']) {
-                    return a['TỔ'].localeCompare(b['TỔ']);
-                }
-                return a['TÊN CÔNG ĐOẠN'].localeCompare(b['TÊN CÔNG ĐOẠN']);
-            });
-        });
-
-        return sortedGroups;
-    }, [filteredItems]);
-
-    // Get unique values for filters và grouped data
+    // Get unique values for filters
     const uniqueTos = [...new Set(phanBoNhanSus.map(item => item['TỔ']).filter(Boolean))];
-    const groupedData = groupDataByNhom();
 
-    // Tất cả các function khác giữ nguyên (modal handlers, form handlers, etc.)
-    const handleOpenModal = (item = null) => {
-        if (item) {
-            setIsEditMode(true);
-            setCurrentPhanBoNhanSu({
-                'ID TỔ CÔNG ĐOẠN': item['ID TỔ CÔNG ĐOẠN'] || '',
-                'NGÀY CÀI ĐẶT': item['NGÀY CÀI ĐẶT'] || '',
-                'HIỆU LỰC TỪ': item['HIỆU LỰC TỪ'] || '',
-                'HIỆU LỰC ĐẾN': item['HIỆU LỰC ĐẾN'] || '',
-                'TỔ': item['TỔ'] || '',
-                'MÃ CÔNG ĐOẠN': item['MÃ CÔNG ĐOẠN'] || '',
-                'TÊN CÔNG ĐOẠN': item['TÊN CÔNG ĐOẠN'] || '',
-                'NHÓM': item['NHÓM'] || '',
-                'ĐƠN VỊ TÍNH': item['ĐƠN VỊ TÍNH'] || '',
-                'PP TÍNH NĂNG SUẤT': item['PP TÍNH NĂNG SUẤT'] || '',
-                'ĐƠN GIÁ NĂNG SUẤT': item['ĐƠN GIÁ NĂNG SUẤT'] || '',
-                'NHÂN SỰ': item['NHÂN SỰ'] || [],
-                'SỐ LƯỢNG NHÂN SỰ': item['SỐ LƯỢNG NHÂN SỰ'] || 0,
-                'ĐƠN GIÁ PHỤ CẤP TN/THÁNG': item['ĐƠN GIÁ PHỤ CẤP TN/THÁNG'] || ''
-            });
-            setSelectedNhanSu(item['NHÂN SỰ'] || []);
-        } else {
-            setIsEditMode(false);
-            const today = new Date().toISOString().split('T')[0];
-            setCurrentPhanBoNhanSu({
-                'ID TỔ CÔNG ĐOẠN': '',
-                'NGÀY CÀI ĐẶT': today,
-                'HIỆU LỰC TỪ': today,
-                'HIỆU LỰC ĐẾN': '',
-                'TỔ': '',
-                'MÃ CÔNG ĐOẠN': '',
-                'TÊN CÔNG ĐOẠN': '',
-                'NHÓM': '',
-                'ĐƠN VỊ TÍNH': '',
-                'PP TÍNH NĂNG SUẤT': '',
-                'ĐƠN GIÁ NĂNG SUẤT': '',
-                'NHÂN SỰ': [],
-                'SỐ LƯỢNG NHÂN SỰ': 0,
-                'ĐƠN GIÁ PHỤ CẤP TN/THÁNG': ''
-            });
-            setSelectedNhanSu([]);
-        }
-        setShowModal(true);
-    };
-
-    const handleCloseModal = () => {
-        setShowModal(false);
-        setIsEditMode(false);
-        setSelectedNhanSu([]);
-        setCurrentPhanBoNhanSu({
-            'ID TỔ CÔNG ĐOẠN': '',
-            'NGÀY CÀI ĐẶT': '',
-            'HIỆU LỰC TỪ': '',
-            'HIỆU LỰC ĐẾN': '',
-            'TỔ': '',
-            'MÃ CÔNG ĐOẠN': '',
-            'TÊN CÔNG ĐOẠN': '',
-            'NHÓM': '',
-            'ĐƠN VỊ TÍNH': '',
-            'PP TÍNH NĂNG SUẤT': '',
-            'ĐƠN GIÁ NĂNG SUẤT': '',
-            'NHÂN SỰ': [],
-            'SỐ LƯỢNG NHÂN SỰ': 0,
-            'ĐƠN GIÁ PHỤ CẤP TN/THÁNG': ''
-        });
-    };
-
-    // Format date cho input type="date" (yyyy-mm-dd)
-    const formatDateForInput = (dateString) => {
-        if (!dateString) return '';
-        if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-            return dateString;
-        }
-        const date = new Date(dateString);
-        if (isNaN(date.getTime())) return '';
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const day = date.getDate().toString().padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
-    // Handle công đoạn selection - lấy cả NHÓM từ CONGDOAN_DONGIA
-    const handleCongDoanChange = (tenCongDoan) => {
-        const selectedCongDoan = congDoanDonGias.find(cd => cd['TÊN CÔNG ĐOẠN'] === tenCongDoan);
-        const updatedData = {
-            ...currentPhanBoNhanSu,
-            'TÊN CÔNG ĐOẠN': tenCongDoan,
-            'MÃ CÔNG ĐOẠN': selectedCongDoan ? selectedCongDoan['MÃ CÔNG ĐOẠN'] : '',
-            'NHÓM': selectedCongDoan ? selectedCongDoan['NHÓM'] : '',
-            'ĐƠN VỊ TÍNH': selectedCongDoan ? selectedCongDoan['ĐƠN VỊ TÍNH'] : '',
-            'PP TÍNH NĂNG SUẤT': selectedCongDoan ? selectedCongDoan['PP TÍNH NĂNG SUẤT'] : '',
-            'ĐƠN GIÁ NĂNG SUẤT': selectedCongDoan ? selectedCongDoan['ĐƠN GIÁ NĂNG SUẤT'] : ''
-        };
-
-        if (updatedData['TỔ'] && updatedData['MÃ CÔNG ĐOẠN']) {
-            updatedData['ID TỔ CÔNG ĐOẠN'] = generateIdToCongDoan(updatedData['TỔ'], updatedData['MÃ CÔNG ĐOẠN']);
-        }
-
-        setCurrentPhanBoNhanSu(updatedData);
-    };
-
-    const handleToChange = (to) => {
-        const updatedData = {
-            ...currentPhanBoNhanSu,
-            'TỔ': to
-        };
-
-        if (to && updatedData['MÃ CÔNG ĐOẠN']) {
-            updatedData['ID TỔ CÔNG ĐOẠN'] = generateIdToCongDoan(to, updatedData['MÃ CÔNG ĐOẠN']);
-        }
-
-        setCurrentPhanBoNhanSu(updatedData);
-    };
-
-    // Các function khác giữ nguyên (handleNhanSuChange, addNhanSu, removeNhanSu, validation, save, delete handlers)
-    const handleNhanSuChange = (nhanSuList) => {
-        setSelectedNhanSu(nhanSuList);
-        setCurrentPhanBoNhanSu(prev => ({
-            ...prev,
-            'NHÂN SỰ': nhanSuList,
-            'SỐ LƯỢNG NHÂN SỰ': nhanSuList.length
-        }));
-    };
-
-    const addNhanSu = (tenNhanVien) => {
-        if (!selectedNhanSu.includes(tenNhanVien)) {
-            const newList = [...selectedNhanSu, tenNhanVien];
-            handleNhanSuChange(newList);
-        }
-    };
-
-    const removeNhanSu = (tenNhanVien) => {
-        const newList = selectedNhanSu.filter(ns => ns !== tenNhanVien);
-        handleNhanSuChange(newList);
-    };
-
-    const handleInputChange = (field, value) => {
-        setCurrentPhanBoNhanSu(prev => ({
-            ...prev,
-            [field]: value
-        }));
-    };
-
-    const validatePhanBoNhanSu = (item) => {
-        const errors = [];
-        if (!item['NGÀY CÀI ĐẶT']) errors.push('Ngày cài đặt không được để trống');
-        if (!item['HIỆU LỰC TỪ']) errors.push('Hiệu lực từ không được để trống');
-        if (!item['TỔ']) errors.push('Tổ không được để trống');
-        if (!item['TÊN CÔNG ĐOẠN']) errors.push('Tên công đoạn không được để trống');
-        if (!item['NHÂN SỰ'] || item['NHÂN SỰ'].length === 0) errors.push('Phải chọn ít nhất một nhân sự');
-        if (!item['ĐƠN GIÁ PHỤ CẤP TN/THÁNG']) errors.push('Đơn giá phụ cấp không được để trống');
-
-        if (item['HIỆU LỰC ĐẾN'] && item['HIỆU LỰC TỪ']) {
-            if (new Date(item['HIỆU LỰC ĐẾN']) < new Date(item['HIỆU LỰC TỪ'])) {
-                errors.push('Hiệu lực đến phải sau hiệu lực từ');
-            }
-        }
-
-        return errors;
-    };
-
-    const handleSave = async () => {
-        if (isSubmitting) return;
-
-        try {
-            setIsSubmitting(true);
-            const errors = validatePhanBoNhanSu(currentPhanBoNhanSu);
-            if (errors.length > 0) {
-                toast.error(errors.join('\n'));
-                setIsSubmitting(false);
-                return;
-            }
-
-            const dataToSave = {
-                ...currentPhanBoNhanSu,
-                'NHÂN SỰ': currentPhanBoNhanSu['NHÂN SỰ'].join(', ')
-            };
-
-            if (isEditMode) {
-                await authUtils.apiRequest('TO_PBNS', 'Edit', {
-                    "Rows": [dataToSave]
-                });
-                toast.success('Cập nhật phân bổ nhân sự thành công!');
-            } else {
-                await authUtils.apiRequest('TO_PBNS', 'Add', {
-                    "Rows": [dataToSave]
-                });
-                toast.success('Thêm phân bổ nhân sự mới thành công!');
-            }
-
-            await fetchPhanBoNhanSus();
-            handleCloseModal();
-        } catch (error) {
-            console.error('Error saving phan bo nhan su:', error);
-            toast.error('Có lỗi xảy ra: ' + (error.message || 'Không thể lưu phân bổ nhân sự'));
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    const handleOpenDeleteConfirmation = (item) => {
-        setItemToDelete(item);
-        setShowDeleteConfirmation(true);
-    };
-
-    const handleCloseDeleteConfirmation = () => {
-        setShowDeleteConfirmation(false);
-        setItemToDelete(null);
-    };
-
-    const handleDelete = async () => {
-        if (!itemToDelete) return;
-
-        try {
-            await authUtils.apiRequest('TO_PBNS', 'Delete', {
-                "Rows": [{
-                    "ID TỔ CÔNG ĐOẠN": itemToDelete['ID TỔ CÔNG ĐOẠN']
-                }]
-            });
-            toast.success('Xóa phân bổ nhân sự thành công!');
-            await fetchPhanBoNhanSus();
-            handleCloseDeleteConfirmation();
-        } catch (error) {
-            console.error('Error deleting phan bo nhan su:', error);
-            toast.error('Có lỗi xảy ra khi xóa phân bổ nhân sự');
-        }
-    };
-
-    // PHẦN JSX GIỮ NGUYÊN HOÀN TOÀN
     return (
         <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
-            {/* Phần JSX render giữ nguyên 100% như code gốc của bạn */}
             <div className="mx-auto">
                 <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
                     {/* Header Section */}
@@ -433,18 +387,6 @@ const PhanBoNhanSuManagement = () => {
                             >
                                 <Filter className="w-4 h-4" />
                                 {showFilters ? "Ẩn bộ lọc" : "Bộ lọc"}
-                            </button>
-                            <button
-                                onClick={() => setExpandedGroups(new Set(Object.keys(groupedData)))}
-                                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-                            >
-                                Mở tất cả
-                            </button>
-                            <button
-                                onClick={() => setExpandedGroups(new Set())}
-                                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
-                            >
-                                Đóng tất cả
                             </button>
                             <button
                                 onClick={() => handleOpenModal()}
@@ -462,7 +404,7 @@ const PhanBoNhanSuManagement = () => {
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Tìm kiếm theo nhóm, tổ, công đoạn, nhân sự..."
+                                placeholder="Tìm kiếm theo tổ, công đoạn, nhân sự..."
                                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
@@ -517,8 +459,8 @@ const PhanBoNhanSuManagement = () => {
                         </div>
 
                         <div className="bg-green-50 border border-green-100 rounded-lg p-4">
-                            <h3 className="text-sm text-green-700 mb-1">Số nhóm</h3>
-                            <p className="text-2xl font-bold text-green-800">{Object.keys(groupedData).length}</p>
+                            <h3 className="text-sm text-green-700 mb-1">Số tổ</h3>
+                            <p className="text-2xl font-bold text-green-800">{uniqueTos.length}</p>
                         </div>
 
                         <div className="bg-purple-50 border border-purple-100 rounded-lg p-4">
@@ -538,142 +480,118 @@ const PhanBoNhanSuManagement = () => {
                         </div>
                     </div>
 
-                    {/* Grouped Table Section */}
+                    {/* Table Section */}
                     <div className="overflow-x-auto">
-                        {Object.keys(groupedData).length > 0 ? (
-                            Object.entries(groupedData).map(([nhom, items]) => (
-                                <div key={nhom} className="mb-6">
-                                    {/* Group Header */}
-                                    <div
-                                        className="bg-indigo-50 border border-indigo-200 rounded-t-lg p-4 cursor-pointer hover:bg-indigo-100 transition-colors"
-                                        onClick={() => toggleGroup(nhom)}
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                {expandedGroups.has(nhom) ? (
-                                                    <ChevronDown className="w-5 h-5 text-indigo-600" />
-                                                ) : (
-                                                    <ChevronRight className="w-5 h-5 text-indigo-600" />
-                                                )}
-                                                <h3 className="text-lg font-semibold text-indigo-800">
-                                                    Nhóm: {nhom}
-                                                </h3>
-                                                <span className="bg-indigo-100 text-indigo-800 px-2 py-1 rounded-full text-sm font-medium">
-                                                    {items.length} phân bổ
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th scope="col"
+                                        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                                        onClick={() => requestSort('TỔ')}>
+                                        Tổ {getSortIcon('TỔ')}
+                                    </th>
+                                    <th scope="col"
+                                        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                                        onClick={() => requestSort('TÊN CÔNG ĐOẠN')}>
+                                        Công đoạn {getSortIcon('TÊN CÔNG ĐOẠN')}
+                                    </th>
+                                    <th scope="col" className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Nhân sự
+                                    </th>
+                                    <th scope="col"
+                                        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                                        onClick={() => requestSort('SỐ LƯỢNG NHÂN SỰ')}>
+                                        SL {getSortIcon('SỐ LƯỢNG NHÂN SỰ')}
+                                    </th>
+                                    <th scope="col"
+                                        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                                        onClick={() => requestSort('ĐƠN GIÁ PHỤ CẤP TN/THÁNG')}>
+                                        Phụ cấp {getSortIcon('ĐƠN GIÁ PHỤ CẤP TN/THÁNG')}
+                                    </th>
+                                    <th scope="col"
+                                        className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
+                                        onClick={() => requestSort('HIỆU LỰC TỪ')}>
+                                        Hiệu lực {getSortIcon('HIỆU LỰC TỪ')}
+                                    </th>
+                                    <th scope="col" className="px-3 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
+                                        Thao tác
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {filteredItems.length > 0 ? (
+                                    filteredItems.map((item, index) => (
+                                        <tr key={`${item['TỔ']}-${item['MÃ CÔNG ĐOẠN']}-${index}`} className="hover:bg-gray-50 transition-colors">
+                                            <td className="px-3 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                                    {item['TỔ']}
                                                 </span>
-                                            </div>
-                                            <div className="text-sm text-indigo-600">
-                                                Tổng nhân sự: {items.reduce((sum, item) => sum + (parseInt(item['SỐ LƯỢNG NHÂN SỰ']) || 0), 0)} người
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Group Content */}
-                                    {expandedGroups.has(nhom) && (
-                                        <div className="border border-t-0 border-indigo-200 rounded-b-lg">
-                                            <table className="min-w-full divide-y divide-gray-200">
-                                                <thead className="bg-gray-50">
-                                                    <tr>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Tổ
-                                                        </th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Công đoạn
-                                                        </th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Nhân sự
-                                                        </th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            SL
-                                                        </th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Phụ cấp
-                                                        </th>
-                                                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                                            Hiệu lực
-                                                        </th>
-                                                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-center">
-                                                            Thao tác
-                                                        </th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="bg-white divide-y divide-gray-200">
-                                                    {items.map((item, index) => (
-                                                        <tr key={`${item['ID TỔ CÔNG ĐOẠN']}-${index}`} className="hover:bg-gray-50 transition-colors">
-                                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                                                                    {item['TỔ']}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-4 text-sm text-gray-900">
-                                                                <div className="max-w-xs">
-                                                                    <div className="font-medium">{item['TÊN CÔNG ĐOẠN']}</div>
-                                                                    <div className="text-xs text-gray-500">{item['MÃ CÔNG ĐOẠN']}</div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-4 text-sm text-gray-700">
-                                                                <div className="max-w-xs">
-                                                                    <div className="truncate" title={Array.isArray(item['NHÂN SỰ']) ? item['NHÂN SỰ'].join(', ') : item['NHÂN SỰ']}>
-                                                                        {Array.isArray(item['NHÂN SỰ']) ? item['NHÂN SỰ'].join(', ') : item['NHÂN SỰ']}
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                                                                    <Users className="w-3 h-3 mr-1" />
-                                                                    {item['SỐ LƯỢNG NHÂN SỰ']}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                                                                {parseFloat(item['ĐƠN GIÁ PHỤ CẤP TN/THÁNG']).toLocaleString('vi-VN')}
-                                                            </td>
-                                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-700">
-                                                                <div>
-                                                                    <div>{new Date(item['HIỆU LỰC TỪ']).toLocaleDateString('vi-VN')}</div>
-                                                                    {item['HIỆU LỰC ĐẾN'] && new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN') !== '1970-01-01' ? (
-                                                                        <div className="text-xs text-gray-500">đến {new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN')}</div>
-                                                                    ) : (
-                                                                        <div className="text-xs text-gray-500">—</div>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                                                                <div className="flex justify-center space-x-2">
-                                                                    <button
-                                                                        onClick={() => handleOpenModal(item)}
-                                                                        className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
-                                                                        title="Sửa phân bổ"
-                                                                    >
-                                                                        <Edit className="h-4 w-4" />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => handleOpenDeleteConfirmation(item)}
-                                                                        className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
-                                                                        title="Xóa phân bổ"
-                                                                    >
-                                                                        <Trash className="h-4 w-4" />
-                                                                    </button>
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    )}
-                                </div>
-                            ))
-                        ) : (
-                            <div className="text-center py-12 bg-white rounded-lg border">
-                                <div className="text-gray-500 text-lg mb-2">Không tìm thấy dữ liệu</div>
-                                <div className="text-sm text-gray-400">Không có phân bổ nhân sự nào phù hợp với tiêu chí tìm kiếm</div>
-                            </div>
-                        )}
+                                            </td>
+                                            <td className="px-3 py-4 text-sm text-gray-900">
+                                                <div className="max-w-xs">
+                                                    <div className="font-medium">{item['TÊN CÔNG ĐOẠN']}</div>
+                                                    <div className="text-xs text-gray-500">{item['MÃ CÔNG ĐOẠN']}</div>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-4 text-sm text-gray-700">
+                                                <div className="max-w-xs">
+                                                    <div className="truncate" title={Array.isArray(item['NHÂN SỰ']) ? item['NHÂN SỰ'].join(', ') : item['NHÂN SỰ']}>
+                                                        {Array.isArray(item['NHÂN SỰ']) ? item['NHÂN SỰ'].join(', ') : item['NHÂN SỰ']}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                                                    <Users className="w-3 h-3 mr-1" />
+                                                    {item['SỐ LƯỢNG NHÂN SỰ']}
+                                                </span>
+                                            </td>
+                                            <td className="px-3 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                                {parseFloat(item['ĐƠN GIÁ PHỤ CẤP TN/THÁNG']).toLocaleString('vi-VN')}
+                                            </td>
+                                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
+                                                <div>
+                                                    <div>{new Date(item['HIỆU LỰC TỪ']).toLocaleDateString('vi-VN')}</div>
+                                                    {new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN') !== '1970-01-01' ? (
+                                                        <div className="text-xs text-gray-500">đến {new Date(item['HIỆU LỰC ĐẾN']).toLocaleDateString('vi-VN')}</div>
+                                                    ) : (
+                                                        <div className="text-xs text-gray-500">—</div>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                                                <div className="flex justify-center space-x-2">
+                                                    <button
+                                                        onClick={() => handleOpenModal(item)}
+                                                        className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
+                                                        title="Sửa phân bổ"
+                                                    >
+                                                        <Edit className="h-4 w-4" />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleOpenDeleteConfirmation(item)}
+                                                        className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
+                                                        title="Xóa phân bổ">
+                                                        <Trash className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td colSpan="7" className="px-3 py-6 text-center text-sm text-gray-500">
+                                            Không tìm thấy phân bổ nhân sự nào phù hợp với tiêu chí tìm kiếm
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
 
-            {/* Add/Edit Modal - giữ nguyên toàn bộ modal */}
+            {/* Add/Edit Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
                     <div className="bg-white rounded-xl shadow-xl max-w-6xl w-full p-6 max-h-[90vh] overflow-y-auto">
@@ -739,7 +657,7 @@ const PhanBoNhanSuManagement = () => {
                                     <input
                                         type="text"
                                         value={currentPhanBoNhanSu['TỔ']}
-                                        onChange={(e) => handleToChange(e.target.value)}
+                                        onChange={(e) => handleInputChange('TỔ', e.target.value)}
                                         className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                                         placeholder="Nhập tên tổ"
                                         required
@@ -763,30 +681,6 @@ const PhanBoNhanSuManagement = () => {
                                             </option>
                                         ))}
                                     </select>
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        ID Tổ Công Đoạn (tự tạo)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={currentPhanBoNhanSu['ID TỔ CÔNG ĐOẠN']}
-                                        className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100"
-                                        readOnly
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                                        Nhóm (từ công đoạn)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={currentPhanBoNhanSu['NHÓM']}
-                                        className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100"
-                                        readOnly
-                                    />
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-2">
@@ -859,7 +753,6 @@ const PhanBoNhanSuManagement = () => {
                                         required
                                     />
                                 </div>
-
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">
                                         Số lượng nhân sự (tự động đếm)
@@ -966,7 +859,7 @@ const PhanBoNhanSuManagement = () => {
                 </div>
             )}
 
-            {/* Delete Confirmation Modal - giữ nguyên */}
+            {/* Delete Confirmation Modal */}
             {showDeleteConfirmation && itemToDelete && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
@@ -986,8 +879,6 @@ const PhanBoNhanSuManagement = () => {
                                     Bạn có chắc chắn muốn xóa phân bổ nhân sự này?
                                 </p>
                                 <div className="mt-3 text-sm text-red-600">
-                                    <p><strong>ID:</strong> {itemToDelete['ID TỔ CÔNG ĐOẠN']}</p>
-                                    <p><strong>Nhóm:</strong> {itemToDelete['NHÓM']}</p>
                                     <p><strong>Tổ:</strong> {itemToDelete['TỔ']}</p>
                                     <p><strong>Công đoạn:</strong> {itemToDelete['TÊN CÔNG ĐOẠN']}</p>
                                     <p><strong>Số nhân sự:</strong> {itemToDelete['SỐ LƯỢNG NHÂN SỰ']} người</p>
