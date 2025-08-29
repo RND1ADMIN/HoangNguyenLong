@@ -658,6 +658,9 @@ const PhanBoNhanSuManagement = () => {
                                                                         SL
                                                                     </th>
                                                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                        ĐƠN GIÁ NĂNG XUẤT
+                                                                    </th>
+                                                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                                                         Phụ cấp
                                                                     </th>
                                                                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -689,6 +692,9 @@ const PhanBoNhanSuManagement = () => {
                                                                                 <Users className="w-3 h-3 mr-1" />
                                                                                 {item['SỐ LƯỢNG NHÂN SỰ']}
                                                                             </span>
+                                                                        </td>
+                                                                        <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                                                                            {parseFloat(item['ĐƠN GIÁ NĂNG SUẤT']).toLocaleString('vi-VN')}
                                                                         </td>
                                                                         <td className="px-4 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
                                                                             {parseFloat(item['ĐƠN GIÁ PHỤ CẤP TN/THÁNG']).toLocaleString('vi-VN')}
