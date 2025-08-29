@@ -833,7 +833,7 @@ const ReportManagement = () => {
         <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
           {/* Header Section */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h1 className="text-2xl font-bold text-gray-800">Quản lý Báo Cáo Chi Tiết Sản Xuất</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Tổng hợp năng suất</h1>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -1000,7 +1000,7 @@ const ReportManagement = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo ID lô, khách hàng, tổ, công đoạn, tên hàng..."
+                placeholder="Tìm kiếm theo khách hàng, tổ, công đoạn, tên hàng..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -1053,27 +1053,27 @@ const ReportManagement = () => {
                         {/* Batch Details - Compact Grid */}
                         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm bg-white p-2 rounded-lg border border-gray-100">
                           <div className="text-center border-r border-gray-200 pr-4">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Bao bì anh</div>
+                            <div className="text-xs text-gray-500 mb-1 font-medium">Nhập BB anh</div>
                             <div className="text-lg font-bold text-blue-600">{formatNumber(group.batchInfo['BAO BÌ ANH (TẤN)']) || '0'}T</div>
                           </div>
                           <div className="text-center border-r border-gray-200 pr-4">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Thực nhận anh</div>
+                            <div className="text-xs text-gray-500 mb-1 font-medium">Thực nhận BB anh</div>
                             <div className="text-lg font-bold text-green-600">{formatNumber(group.batchInfo['THỰC NHẬN ANH (TẤN)']) || '0'}T</div>
                           </div>
                           <div className="text-center border-r border-gray-200 pr-4">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Bao bì em</div>
+                            <div className="text-xs text-gray-500 mb-1 font-medium">Đã phân bổ BB anh</div>
+                            <div className="text-lg font-bold text-purple-600">{formatNumber(group.batchInfo['ĐÃ PHÂN BỔ (ANH)']) || '0'}T</div>
+                          </div>
+                          <div className="text-center border-r border-gray-200 pr-4">
+                            <div className="text-xs text-gray-500 mb-1 font-medium">Nhập BB em</div>
                             <div className="text-lg font-bold text-blue-600">{formatNumber(group.batchInfo['BAO BÌ EM (TẤN)']) || '0'}T</div>
                           </div>
                           <div className="text-center border-r border-gray-200 pr-4">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Thực nhận em</div>
+                            <div className="text-xs text-gray-500 mb-1 font-medium">Nhập BB em</div>
                             <div className="text-lg font-bold text-green-600">{formatNumber(group.batchInfo['THỰC NHẬN EM (TẤN)']) || '0'}T</div>
                           </div>
-                          <div className="text-center border-r border-gray-200 pr-4">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Đã phân bổ anh</div>
-                            <div className="text-lg font-bold text-purple-600">{formatNumber(group.batchInfo['ĐÃ PHÂN BỔ (ANH)']) || '0'}T</div>
-                          </div>
                           <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Đã phân bổ em</div>
+                            <div className="text-xs text-gray-500 mb-1 font-medium">Đã phân bổ BB em</div>
                             <div className="text-lg font-bold text-purple-600">{formatNumber(group.batchInfo['ĐÃ PHÂN BỔ (EM)']) || '0'}T</div>
                           </div>
                         </div>
@@ -1102,7 +1102,6 @@ const ReportManagement = () => {
                                     className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                   />
                                 </th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">ID BC</th>
                                 <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Tên hàng</th>
                                 <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Tổ</th>
                                 <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Công đoạn</th>
@@ -1132,7 +1131,6 @@ const ReportManagement = () => {
                                       className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                     />
                                   </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{report.IDBC}</td>
                                   <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
                                   <td className="px-4 py-3 whitespace-nowrap">
                                     <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
@@ -1219,8 +1217,6 @@ const ReportManagement = () => {
                             className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                           />
                         </th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID BC</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID Lô</th>
                         <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
                         <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khách hàng</th>
                         <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
@@ -1270,8 +1266,6 @@ const ReportManagement = () => {
                                   className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                 />
                               </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{report.IDBC}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-600 font-medium">{report['ID_NHAPBAOBI']}</td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                                 {batchInfo['NGÀY THÁNG'] ? new Date(batchInfo['NGÀY THÁNG']).toLocaleDateString('vi-VN') : 'N/A'}
                               </td>

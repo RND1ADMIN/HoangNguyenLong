@@ -945,16 +945,16 @@ const NhapBaoBiManagement = () => {
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày tháng</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số xe</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khách hàng</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bao bì Anh</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trừ Anh</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận Anh</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đã phân bổ Anh</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bãi Anh</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bao bì Em</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trừ Em</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận Em</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đã phân bổ Em</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bãi Em</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhập BB anh</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trừ BB anh</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận BB anh</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đã phân bổ BB anh</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bãi BB anh</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhập BB em</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trừ BB em</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận BB em</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đã phân bổ BB em</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bãi BB em</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
                                             </tr>
                                         </thead>
@@ -1072,20 +1072,20 @@ const NhapBaoBiManagement = () => {
                                                 {group.totalBaoBiAnh > 0 && (
                                                     <>
                                                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
-                                                            Anh: {formatNumber(group.totalBaoBiAnh.toFixed(2))} tấn
+                                                            Nhập BB anh: {formatNumber(group.totalBaoBiAnh.toFixed(2))} tấn
                                                         </span>
                                                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-200 text-green-900">
-                                                            Nhận Anh: {formatNumber(group.totalThucNhanAnh.toFixed(2))} tấn
+                                                            Thực nhận BB anh: {formatNumber(group.totalThucNhanAnh.toFixed(2))} tấn
                                                         </span>
                                                     </>
                                                 )}
                                                 {group.totalBaoBiEm > 0 && (
                                                     <>
                                                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                                                            Em: {formatNumber(group.totalBaoBiEm.toFixed(2))} tấn
+                                                            Nhập BB em: {formatNumber(group.totalBaoBiEm.toFixed(2))} tấn
                                                         </span>
                                                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-200 text-purple-900">
-                                                            Nhận Em: {formatNumber(group.totalThucNhanEm.toFixed(2))} tấn
+                                                            Thực nhận BB em: {formatNumber(group.totalThucNhanEm.toFixed(2))} tấn
                                                         </span>
                                                     </>
                                                 )}
@@ -1126,10 +1126,10 @@ const NhapBaoBiManagement = () => {
                                                 <tr>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số xe</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khách hàng</th>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bao bì Anh</th>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận Anh</th>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bao bì Em</th>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận Em</th>
+                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhập BB anh</th>
+                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận BB anh</th>
+                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhập BB em</th>
+                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận BB em</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
                                                 </tr>
                                             </thead>
