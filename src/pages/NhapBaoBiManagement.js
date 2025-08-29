@@ -265,7 +265,7 @@ const NhapBaoBiManagement = () => {
         setCurrentRecord(prev => {
             const updatedRecord = {
                 ...prev,
-                [field]: value
+                [field]: field === 'NGÀY THÁNG' ? new Date(value) : value // Chuyển string thành Date
             };
 
             // Nếu thay đổi BAO BÌ ANH, tự động tính TRỪ BAO BÌ ANH và THỰC NHẬN ANH
@@ -284,13 +284,6 @@ const NhapBaoBiManagement = () => {
 
             return updatedRecord;
         });
-    }, []);
-
-    const handleDateChange = useCallback((date) => {
-        setCurrentRecord(prev => ({
-            ...prev,
-            'NGÀY THÁNG': date
-        }));
     }, []);
 
     // Record validation
