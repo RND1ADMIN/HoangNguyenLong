@@ -1200,14 +1200,13 @@ const NhapBaoBiManagement = () => {
             </div>
 
             {/* Detail View Modal */}
-            {/* Detail View Modal */}
             {showDetailModal && selectedRecord && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
                     <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
                             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                 <Eye className="h-5 w-5 text-indigo-600" />
-                                Chi tiết thông tin nhập bao bì - ID: {selectedRecord.ID}
+                                Chi tiết thông tin nhập bao bì
                             </h2>
                             <button
                                 onClick={handleCloseDetail}
