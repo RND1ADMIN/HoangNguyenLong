@@ -6,6 +6,23 @@ import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
 import * as XLSX from 'xlsx';
 
+// Utility function to generate unique ID
+const generateUniqueId = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+
+    // Add timestamp-based prefix (4 chars)
+    const timeBase = Date.now().toString(36).toUpperCase().slice(-4);
+    result += timeBase.padStart(4, chars.charAt(Math.floor(Math.random() * chars.length)));
+
+    // Add random suffix (4 chars)
+    for (let i = 0; i < 4; i++) {
+        result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    return result;
+};
+
 // Date formatting utilities
 const formatDateForInput = (dateString) => {
     if (!dateString) return '';
@@ -143,7 +160,7 @@ const NhapBaoBiManagement = () => {
 
     // Default empty record
     const emptyRecord = {
-        STT: '',
+        ID: '',
         'NGÀY THÁNG': new Date(),
         'SỐ XE': '',
         'KHÁCH HÀNG': '',
@@ -221,7 +238,7 @@ const NhapBaoBiManagement = () => {
     const handleOpen = useCallback((record = null) => {
         if (record) {
             setCurrentRecord({
-                STT: record.STT || '',
+                ID: record.ID || '',
                 'NGÀY THÁNG': record['NGÀY THÁNG'] ? new Date(record['NGÀY THÁNG']) : new Date(),
                 'SỐ XE': record['SỐ XE'] || '',
                 'KHÁCH HÀNG': record['KHÁCH HÀNG'] || '',
@@ -311,21 +328,15 @@ const NhapBaoBiManagement = () => {
                 'NGÀY THÁNG': currentRecord['NGÀY THÁNG'].toISOString().split('T')[0]
             };
 
-            if (recordData.STT) {
+            if (recordData.ID) {
                 // Edit existing record
                 await authUtils.apiRequest('NHAPBAOBI', 'Edit', {
                     "Rows": [recordData]
                 });
                 toast.success('Cập nhật thông tin nhập bao bì thành công!');
             } else {
-                // Create new record
-                const existingRecords = await authUtils.apiRequest('NHAPBAOBI', 'Find', {});
-                const maxSTT = existingRecords.reduce((max, record) => {
-                    const stt = parseInt(record.STT) || 0;
-                    return stt > max ? stt : max;
-                }, 0);
-
-                recordData.STT = (maxSTT + 1).toString();
+                // Create new record with unique ID
+                recordData.ID = generateUniqueId();
 
                 await authUtils.apiRequest('NHAPBAOBI', 'Add', {
                     "Rows": [recordData]
@@ -344,16 +355,16 @@ const NhapBaoBiManagement = () => {
     };
 
     // Delete record with proper event handling
-    const handleDelete = (STT, event) => {
+    const handleDelete = (ID, event) => {
         event.stopPropagation(); // Ngăn event lan truyền
         event.preventDefault();
 
         setConfirmTitle("Xóa thông tin nhập bao bì");
         setConfirmMessage("Bạn có chắc chắn muốn xóa thông tin này?");
-        setConfirmAction(() => async () => { // Wrap trong function để tránh immediate execution
+        setConfirmAction(() => async () => {
             try {
                 await authUtils.apiRequest('NHAPBAOBI', 'Delete', {
-                    "Rows": [{ "STT": STT }]
+                    "Rows": [{ "ID": ID }]
                 });
                 toast.success('Xóa thông tin thành công!');
                 await fetchPackagingData();
@@ -384,9 +395,9 @@ const NhapBaoBiManagement = () => {
         setConfirmAction(() => async () => {
             try {
                 await Promise.all(
-                    selectedRecords.map(stt =>
+                    selectedRecords.map(id =>
                         authUtils.apiRequest('NHAPBAOBI', 'Delete', {
-                            "Rows": [{ "STT": stt }]
+                            "Rows": [{ "ID": id }]
                         })
                     )
                 );
@@ -407,9 +418,9 @@ const NhapBaoBiManagement = () => {
             return;
         }
 
-        const selectedItems = packagingData.filter(r => selectedRecords.includes(r.STT));
+        const selectedItems = packagingData.filter(r => selectedRecords.includes(r.ID));
         const excelData = selectedItems.map(item => ({
-            STT: item.STT,
+            ID: item.ID,
             'NGÀY THÁNG': item['NGÀY THÁNG'],
             'SỐ XE': item['SỐ XE'],
             'KHÁCH HÀNG': item['KHÁCH HÀNG'],
@@ -500,6 +511,48 @@ const NhapBaoBiManagement = () => {
         reader.readAsBinaryString(file);
     };
 
+    // Thêm utility function để chuyển đổi định dạng ngày
+    const convertDateFormat = (dateStr) => {
+        if (!dateStr) return '';
+
+        // Nếu đã là format YYYY-MM-DD thì trả về luôn
+        if (typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            return dateStr;
+        }
+
+        // Nếu là DD/MM/YYYY format
+        if (typeof dateStr === 'string' && /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(dateStr)) {
+            const [day, month, year] = dateStr.split('/');
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+
+        // Nếu là Excel serial number (số)
+        if (typeof dateStr === 'number') {
+            const excelEpoch = new Date(1900, 0, 1);
+            const date = new Date(excelEpoch.getTime() + (dateStr - 2) * 24 * 60 * 60 * 1000);
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        // Thử parse như Date object
+        try {
+            const date = new Date(dateStr);
+            if (!isNaN(date.getTime())) {
+                const year = date.getFullYear();
+                const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                const day = date.getDate().toString().padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+        } catch (error) {
+            console.warn('Cannot parse date:', dateStr);
+        }
+
+        return '';
+    };
+
+    // Sửa lại function handleImportData
     const handleImportData = async () => {
         if (!importFile) return;
 
@@ -517,21 +570,17 @@ const NhapBaoBiManagement = () => {
 
                     const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-                    const existingRecords = await authUtils.apiRequest('NHAPBAOBI', 'Find', {});
-                    const maxSTT = existingRecords.reduce((max, record) => {
-                        const stt = parseInt(record.STT) || 0;
-                        return stt > max ? stt : max;
-                    }, 0);
-
-                    let newSttCounter = maxSTT + 1;
                     const invalidRows = [];
                     const validatedData = [];
 
                     for (let i = 0; i < jsonData.length; i++) {
                         const row = jsonData[i];
 
+                        // Chuyển đổi định dạng ngày
+                        const convertedDate = convertDateFormat(row['NGÀY THÁNG']);
+
                         // Kiểm tra các trường bắt buộc
-                        if (!row['SỐ XE'] || !row['KHÁCH HÀNG'] || !row['NGÀY THÁNG']) {
+                        if (!row['SỐ XE'] || !row['KHÁCH HÀNG'] || !convertedDate) {
                             invalidRows.push(i + 2);
                             continue;
                         }
@@ -546,20 +595,20 @@ const NhapBaoBiManagement = () => {
                         }
 
                         // Tính toán cho bao bì anh
-                        let calculatedAnh = { truBaoBi: '0.00', thucNhan: '0.00' };
+                        let calculatedAnh = { truBaoBi: '', thucNhan: '' };
                         if (hasBaoBiAnh) {
                             calculatedAnh = calculateThucNhan(row['BAO BÌ ANH (TẤN)']);
                         }
 
                         // Tính toán cho bao bì em
-                        let calculatedEm = { truBaoBi: '0.00', thucNhan: '0.00' };
+                        let calculatedEm = { truBaoBi: '', thucNhan: '' };
                         if (hasBaoBiEm) {
                             calculatedEm = calculateThucNhan(row['BAO BÌ EM (TẤN)']);
                         }
 
                         const record = {
-                            STT: row.STT || newSttCounter.toString(),
-                            'NGÀY THÁNG': row['NGÀY THÁNG'],
+                            ID: generateUniqueId(),
+                            'NGÀY THÁNG': convertedDate, // Sử dụng date đã convert
                             'SỐ XE': row['SỐ XE'],
                             'KHÁCH HÀNG': row['KHÁCH HÀNG'],
                             'BAO BÌ ANH (TẤN)': row['BAO BÌ ANH (TẤN)'] || '',
@@ -571,15 +620,14 @@ const NhapBaoBiManagement = () => {
                         };
 
                         validatedData.push(record);
-                        newSttCounter++;
                     }
 
                     if (invalidRows.length > 0) {
-                        toast.warning(`Có ${invalidRows.length} dòng dữ liệu không hợp lệ: ${invalidRows.join(', ')}`);
+                        toast.warning(`Có ${invalidRows.length} dòng dữ liệu không hợp lệ (dòng Excel ${invalidRows.join(', ')}). Kiểm tra định dạng ngày DD/MM/YYYY và các trường bắt buộc.`);
                     }
 
                     if (validatedData.length === 0) {
-                        toast.error('Không có dữ liệu hợp lệ để nhập');
+                        toast.error('Không có dữ liệu hợp lệ để nhập. Kiểm tra định dạng ngày phải là DD/MM/YYYY');
                         return;
                     }
 
@@ -627,9 +675,9 @@ const NhapBaoBiManagement = () => {
     const handleDownloadTemplate = () => {
         const templateData = [
             ['NGÀY THÁNG', 'SỐ XE', 'KHÁCH HÀNG', 'BAO BÌ ANH (TẤN)', 'BAO BÌ EM (TẤN)'],
-            ['2025-03-22', '29A-12345', 'Công ty ABC', '10.5', ''],
-            ['2025-03-22', '30B-67890', 'Công ty XYZ', '', '8.2'],
-            ['2025-03-22', '31C-11111', 'Công ty DEF', '5.0', '3.0']
+            ['22/03/2025', '29A-12345', 'Công ty ABC', '10.5', ''],
+            ['23/03/2025', '30B-67890', 'Công ty XYZ', '', '8.2'],
+            ['24/03/2025', '31C-11111', 'Công ty DEF', '5.0', '3.0']
         ];
 
         const ws = XLSX.utils.aoa_to_sheet(templateData);
@@ -644,7 +692,7 @@ const NhapBaoBiManagement = () => {
             const matchesSearch =
                 record['SỐ XE']?.toLowerCase().includes(search.toLowerCase()) ||
                 record['KHÁCH HÀNG']?.toLowerCase().includes(search.toLowerCase()) ||
-                record.STT?.toLowerCase().includes(search.toLowerCase());
+                record.ID?.toLowerCase().includes(search.toLowerCase());
 
             const matchesSoXe = !filters.soXe || record['SỐ XE']?.includes(filters.soXe);
             const matchesKhachHang = !filters.khachHang || record['KHÁCH HÀNG']?.includes(filters.khachHang);
@@ -679,7 +727,6 @@ const NhapBaoBiManagement = () => {
     // Grouped records for date view
     const groupedRecords = useMemo(() => {
         if (viewMode !== 'grouped') return null;
-
         const groups = {};
         filteredData.forEach(record => {
             const date = new Date(record['NGÀY THÁNG']).toLocaleDateString('vi-VN');
@@ -858,7 +905,7 @@ const NhapBaoBiManagement = () => {
                             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                                 type="text"
-                                placeholder="Tìm kiếm theo STT, số xe hoặc khách hàng..."
+                                placeholder="Tìm kiếm theo ID, số xe hoặc khách hàng..."
                                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                                 value={search}
                                 onChange={(e) => setSearch(e.target.value)}
@@ -881,7 +928,7 @@ const NhapBaoBiManagement = () => {
                                                             checked={selectedRecords.length === filteredData.length && filteredData.length > 0}
                                                             onChange={(e) => {
                                                                 if (e.target.checked) {
-                                                                    setSelectedRecords(filteredData.map(r => r.STT));
+                                                                    setSelectedRecords(filteredData.map(r => r.ID));
                                                                 } else {
                                                                     setSelectedRecords([]);
                                                                 }
@@ -890,7 +937,7 @@ const NhapBaoBiManagement = () => {
                                                         />
                                                     </div>
                                                 </th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">STT</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày tháng</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số xe</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khách hàng</th>
@@ -907,7 +954,7 @@ const NhapBaoBiManagement = () => {
                                             {currentItems.length > 0 ? (
                                                 currentItems.map((record) => (
                                                     <tr
-                                                        key={record.STT}
+                                                        key={record.ID}
                                                         className="hover:bg-gray-50 transition-colors cursor-pointer"
                                                         onClick={() => handleViewDetail(record)}
                                                     >
@@ -915,19 +962,19 @@ const NhapBaoBiManagement = () => {
                                                             <div className="flex items-center">
                                                                 <input
                                                                     type="checkbox"
-                                                                    checked={selectedRecords.includes(record.STT)}
+                                                                    checked={selectedRecords.includes(record.ID)}
                                                                     onChange={(e) => {
                                                                         if (e.target.checked) {
-                                                                            setSelectedRecords([...selectedRecords, record.STT]);
+                                                                            setSelectedRecords([...selectedRecords, record.ID]);
                                                                         } else {
-                                                                            setSelectedRecords(selectedRecords.filter(stt => stt !== record.STT));
+                                                                            setSelectedRecords(selectedRecords.filter(id => id !== record.ID));
                                                                         }
                                                                     }}
                                                                     className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                                                                 />
                                                             </div>
                                                         </td>
-                                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{record.STT}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 font-mono text-xs">{record.ID}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                                                             {new Date(record['NGÀY THÁNG']).toLocaleDateString('vi-VN')}
                                                         </td>
@@ -961,7 +1008,7 @@ const NhapBaoBiManagement = () => {
                                                                     <Edit className="h-4 w-4" />
                                                                 </button>
                                                                 <button
-                                                                    onClick={(e) => handleDelete(record.STT, e)}
+                                                                    onClick={(e) => handleDelete(record.ID, e)}
                                                                     className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
                                                                     title="Xóa thông tin"
                                                                 >
@@ -1022,7 +1069,7 @@ const NhapBaoBiManagement = () => {
                                             <button
                                                 onClick={() => {
                                                     const excelData = group.records.map(item => ({
-                                                        STT: item.STT,
+                                                        ID: item.ID,
                                                         'NGÀY THÁNG': item['NGÀY THÁNG'],
                                                         'SỐ XE': item['SỐ XE'],
                                                         'KHÁCH HÀNG': item['KHÁCH HÀNG'],
@@ -1051,7 +1098,7 @@ const NhapBaoBiManagement = () => {
                                         <table className="min-w-full divide-y divide-gray-200">
                                             <thead className="bg-gray-50">
                                                 <tr>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">STT</th>
+                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số xe</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khách hàng</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bao bì Anh</th>
@@ -1064,11 +1111,11 @@ const NhapBaoBiManagement = () => {
                                             <tbody className="bg-white divide-y divide-gray-200">
                                                 {group.records.map(record => (
                                                     <tr
-                                                        key={record.STT}
+                                                        key={record.ID}
                                                         className="hover:bg-gray-50 transition-colors cursor-pointer"
                                                         onClick={() => handleViewDetail(record)}
                                                     >
-                                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{record.STT}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 font-mono text-xs">{record.ID}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{record['SỐ XE']}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record['KHÁCH HÀNG']}</td>
                                                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-blue-600">
@@ -1093,7 +1140,7 @@ const NhapBaoBiManagement = () => {
                                                                     <Edit className="h-4 w-4" />
                                                                 </button>
                                                                 <button
-                                                                    onClick={(e) => handleDelete(record.STT, e)}
+                                                                    onClick={(e) => handleDelete(record.ID, e)}
                                                                     className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
                                                                     title="Xóa thông tin"
                                                                 >
@@ -1135,7 +1182,7 @@ const NhapBaoBiManagement = () => {
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
                             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                 <Eye className="h-5 w-5 text-indigo-600" />
-                                Chi tiết thông tin nhập bao bì - STT: {selectedRecord.STT}
+                                Chi tiết thông tin nhập bao bì - ID: {selectedRecord.ID}
                             </h2>
                             <button
                                 onClick={handleCloseDetail}
@@ -1300,7 +1347,7 @@ const NhapBaoBiManagement = () => {
                     <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
                             <h2 className="text-xl font-bold text-gray-800">
-                                {currentRecord.STT ? 'Cập nhật thông tin nhập bao bì' : 'Thêm thông tin nhập bao bì'}
+                                {currentRecord.ID ? 'Cập nhật thông tin nhập bao bì' : 'Thêm thông tin nhập bao bì'}
                             </h2>
                             <button
                                 onClick={handleClose}
@@ -1607,64 +1654,134 @@ const NhapBaoBiManagement = () => {
                 </div>
             )}
 
-            {/* Confirmation Modal */}
-            {showConfirmModal && (
+            {/* Import Excel Modal */}
+            {showImportModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full p-6">
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
-                            <h2 className="text-xl font-bold text-gray-800">{confirmTitle}</h2>
+                            <h2 className="text-xl font-bold text-gray-800">Nhập dữ liệu từ Excel</h2>
                             <button
-                                onClick={handleCloseConfirmModal}
+                                onClick={() => {
+                                    setShowImportModal(false);
+                                    setImportFile(null);
+                                    setImportPreview([]);
+                                }}
                                 className="text-gray-500 hover:text-gray-700 focus:outline-none"
-                                disabled={isConfirmLoading}
                             >
                                 <X className="h-5 w-5" />
                             </button>
                         </div>
 
-                        <div className="space-y-5">
-                            <p className="text-gray-600">{confirmMessage}</p>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                        <div className="mb-5">
+                            <p className="text-sm text-gray-600 mb-3">
+                                Tải lên file Excel (.xlsx, .xls) hoặc CSV có chứa dữ liệu nhập bao bì.
+                                File cần có các cột: <span className="font-medium">NGÀY THÁNG, SỐ XE, KHÁCH HÀNG</span> và ít nhất một trong hai cột:
+                                <span className="font-medium"> BAO BÌ ANH (TẤN), BAO BÌ EM (TẤN)</span>.
+                            </p>
+
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                                <div className="flex items-start">
+                                    <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                                    <div className="text-sm text-yellow-800">
+                                        <p className="font-medium">Lưu ý định dạng ngày:</p>
+                                        <p>Nhập ngày theo định dạng DD/MM/YYYY (ví dụ: 22/03/2025, 01/01/2025)</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-3">
+                                <label className="flex items-center gap-2 cursor-pointer px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                                    <input
+                                        type="file"
+                                        accept=".xlsx,.xls,.csv"
+                                        className="hidden"
+                                        onChange={handleImportFileChange}
+                                    />
+                                    <Upload className="h-4 w-4" />
+                                    <span>Chọn file</span>
+                                </label>
                                 <button
-                                    onClick={handleCloseConfirmModal}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-                                    disabled={isConfirmLoading}
+                                    onClick={handleDownloadTemplate}
+                                    className="px-4 py-2 text-indigo-600 border border-indigo-300 bg-indigo-50 rounded-lg hover:bg-indigo-100 flex items-center gap-2 transition-colors shadow-sm"
                                 >
-                                    Hủy
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        if (confirmAction && typeof confirmAction === 'function') {
-                                            setIsConfirmLoading(true);
-                                            try {
-                                                await confirmAction();
-                                            } catch (error) {
-                                                console.error("Error executing confirmation action:", error);
-                                                toast.error("Có lỗi xảy ra khi thực hiện thao tác");
-                                            } finally {
-                                                setIsConfirmLoading(false);
-                                                handleCloseConfirmModal();
-                                            }
-                                        } else {
-                                            handleCloseConfirmModal();
-                                        }
-                                    }}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2"
-                                    disabled={isConfirmLoading}
-                                >
-                                    {isConfirmLoading ? (
-                                        <>
-                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            Đang xử lý...
-                                        </>
-                                    ) : (
-                                        'Xác nhận'
-                                    )}
+                                    <Download className="h-4 w-4" />
+                                    Tải mẫu nhập
                                 </button>
                             </div>
+
+                            {importFile && (
+                                <div className="mt-3 p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm text-indigo-700 flex items-center">
+                                    <div className="mr-2 flex-shrink-0">
+                                        <Package className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <div className="font-medium">Đã chọn: {importFile.name}</div>
+                                        <div className="text-xs text-indigo-600 mt-1">Kích thước: {(importFile.size / 1024).toFixed(2)} KB</div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {importPreview.length > 0 && (
+                            <div className="mb-5">
+                                <h3 className="font-medium mb-2">Xem trước dữ liệu (5 dòng đầu tiên):</h3>
+                                <div className="overflow-x-auto border rounded-lg">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                {Object.keys(importPreview[0]).map((header, index) => (
+                                                    <th key={index} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        {header}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {importPreview.map((row, rowIndex) => (
+                                                <tr key={rowIndex}>
+                                                    {Object.values(row).map((cell, cellIndex) => (
+                                                        <td key={cellIndex} className="px-3 py-2 text-sm text-gray-500 truncate">
+                                                            {cell}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                            <button
+                                onClick={() => {
+                                    setShowImportModal(false);
+                                    setImportFile(null);
+                                    setImportPreview([]);
+                                }}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+                                disabled={isImporting}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleImportData}
+                                disabled={!importFile || isImporting}
+                                className={`px-4 py-2 bg-indigo-600 text-white rounded-lg ${(!importFile || isImporting)
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'hover:bg-indigo-700'
+                                    } flex items-center gap-2 transition-colors shadow-sm`}
+                            >
+                                {isImporting ? (
+                                    <>
+                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Đang nhập...
+                                    </>
+                                ) : 'Nhập dữ liệu'}
+                            </button>
                         </div>
                     </div>
                 </div>
