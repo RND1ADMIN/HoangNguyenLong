@@ -32,7 +32,7 @@ class AuthUtils {
     getAndClearReturnUrl() {
         const returnUrl = localStorage.getItem('returnUrl');
         localStorage.removeItem('returnUrl');
-        return returnUrl || config.ROUTES.DASHBOARD;
+        return returnUrl || config.ROUTES.HOME;
     }
     saveAuthData(userData) {
         const now = new Date();

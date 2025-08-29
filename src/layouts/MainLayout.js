@@ -6,16 +6,21 @@ import {
     Table,
     Receipt,
     User,
-    FileBox ,
-    Gauge,ChartArea ,
-    LayoutList ,
+    FileBox,
+    Gauge, ChartArea,
+    LayoutList,
     Wallet,
     ChevronLeft,
-    ChartPie ,
+    ChartPie,
     NotebookPen,
     LogOut,
     Menu as MenuIcon,
-    X
+    X,
+    Package,
+    TrendingUp,
+    Settings,
+    ChevronDown,
+    ChevronRight
 } from 'lucide-react';
 import authUtils from '../utils/authUtils';
 
@@ -31,6 +36,13 @@ const MainLayout = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobileDevice());
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(isMobileDevice());
+    
+    // State để quản lý việc mở/đóng các nhóm menu - MẶC ĐỊNH TẤT CẢ ĐÓNG
+    const [expandedGroups, setExpandedGroups] = useState({
+        warehouse: false,
+        productivity: false,
+        other: false
+    });
 
     // State để lưu các nút chức năng đặc biệt từ trang con
     const [pageActions, setPageActions] = useState([]);
@@ -55,8 +67,23 @@ const MainLayout = ({ children }) => {
         return () => window.removeEventListener('resize', handleResize);
     }, [isSidebarOpen]);
 
+    // Tự động mở nhóm chứa trang hiện tại
+    useEffect(() => {
+        const currentPath = location.pathname;
+        
+        // Tìm nhóm chứa trang hiện tại và mở nó
+        menuGroups.forEach(group => {
+            const hasActivePage = group.items.some(item => item.path === currentPath);
+            if (hasActivePage) {
+                setExpandedGroups(prev => ({
+                    ...prev,
+                    [group.id]: true
+                }));
+            }
+        });
+    }, [location.pathname]);
+
     // Tạo phương thức để các trang con có thể đăng ký nút
-    // Đính kèm phương thức này vào window để các component con có thể truy cập
     useEffect(() => {
         window.registerPageActions = (actions) => {
             setPageActions(actions);
@@ -84,19 +111,52 @@ const MainLayout = ({ children }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isProfileMenuOpen]);
 
-    const menuItems = [
-        { text: 'Tổng quan', icon: Gauge, path: '/dashboard' },
-        { text: 'Quản lý xuất nhập kho', icon: Table, path: '/xuatnhapkho' },
-        { text: 'Quản lý hàng hóa', icon: FileBox, path: '/dmhh' },
-        // { text: 'Danh sách công đoạn', icon: LayoutList, path: '/congdoan' },
-        { text: 'Công đoạn - Đơn giá', icon: LayoutList, path: '/congdoan_dongia' },
-        { text: 'Phân bố nhân sự', icon: LayoutList, path: '/phanbonhansu' },
-        { text: 'Nhập bao bì', icon: NotebookPen, path: '/nhapbaobi' },
-        { text: 'Nhập sản lượng', icon: NotebookPen, path: '/report' },
-        { text: 'Báo cáo kho', icon: ChartArea, path: '/tonkho' },
-        { text: 'Báo cáo sản xuất', icon: ChartPie, path: '/baocaoreport' },
-        { text: 'Quản lý người dùng', icon: User, path: '/users' },
-        { text: 'Đăng xuất', icon: LogOut, path: '/', isLogout: true }
+    // Nhóm menu items theo categories
+    const menuGroups = [
+        {
+            id: 'home',
+            title: 'Trang chủ',
+            icon: LayoutDashboard,
+            color: 'text-gray-600',
+            items: [
+                { text: 'Trang chủ', icon: LayoutDashboard, path: '/home' }
+            ],
+            alwaysExpanded: true
+        },
+        {
+            id: 'warehouse',
+            title: 'Quản lý kho',
+            icon: Package,
+            color: 'text-blue-600',
+            items: [
+                { text: 'Quản lý hàng hóa', icon: FileBox, path: '/dmhh' },
+                { text: 'Quản lý xuất nhập kho', icon: Table, path: '/xuatnhapkho' },
+                { text: 'Báo cáo kho', icon: ChartArea, path: '/tonkho' }
+            ]
+        },
+        {
+            id: 'productivity',
+            title: 'Quản lý năng suất',
+            icon: TrendingUp,
+            color: 'text-green-600',
+            items: [
+                { text: 'Công đoạn - Đơn giá', icon: LayoutList, path: '/congdoan_dongia' },
+                { text: 'Phân bố nhân sự', icon: LayoutList, path: '/phanbonhansu' },
+                { text: 'Nhập bao bì', icon: NotebookPen, path: '/nhapbaobi' },
+                { text: 'Tổng hợp năng suất', icon: NotebookPen, path: '/report' }
+            ]
+        },
+        {
+            id: 'other',
+            title: 'Chức năng khác',
+            icon: Settings,
+            color: 'text-gray-600',
+            items: [
+                { text: 'Tổng quan', icon: Gauge, path: '/dashboard' },
+                { text: 'Báo cáo sản xuất', icon: ChartPie, path: '/baocaoreport' },
+                { text: 'Quản lý người dùng', icon: User, path: '/users' }
+            ]
+        }
     ];
 
     const handleLogout = () => {
@@ -106,6 +166,13 @@ const MainLayout = ({ children }) => {
 
     const toggleSidebar = () => {
         setIsSidebarOpen(!isSidebarOpen);
+    };
+
+    const toggleGroup = (groupId) => {
+        setExpandedGroups(prev => ({
+            ...prev,
+            [groupId]: !prev[groupId]
+        }));
     };
 
     const userInitial = userData?.username?.[0]?.toUpperCase() || '?';
@@ -118,12 +185,6 @@ const MainLayout = ({ children }) => {
                 <h1 className="text-xl font-semibold text-gray-800">
                     Hoàng Nguyên Long
                 </h1>
-                <button
-                    className="text-gray-500 hover:text-gray-700"
-                    onClick={toggleSidebar}
-                >
-                   
-                </button>
             </div>
 
             {/* User Info */}
@@ -151,38 +212,72 @@ const MainLayout = ({ children }) => {
 
             {/* Navigation */}
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-                {menuItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = location.pathname === item.path;
+                {menuGroups.map((group) => {
+                    const GroupIcon = group.icon;
+                    const isExpanded = expandedGroups[group.id];
+                    
                     return (
-                        <button
-                            key={item.text}
-                            onClick={() => {
-                                if (item.isLogout) {
-                                    handleLogout();
-                                }
-                                else if (item.isExternal) {
-                                    if (item.requiresUserParam && userData) {
-                                        const finalUrl = `${item.path}`;
-                                        window.location.href = finalUrl;
-                                    } else {
-                                        window.open(item.path, '_blank');
-                                    }
-                                } else {
-                                    navigate(item.path);
-                                }
-                                isMobile && setIsSidebarOpen(false);
-                            }}
-                            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${isActive ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
-                                }`}
-                        >
-                            <Icon className={`h-5 w-5 ${isActive ? 'text-blue-500' : 'text-gray-500'}`} />
-                            <span className={`font-medium ${isActive ? 'text-blue-600' : 'text-gray-700'}`}>
-                                {item.text}
-                            </span>
-                        </button>
+                        <div key={group.id} className="mb-1">
+                            {/* Group Header */}
+                            {!group.alwaysExpanded ? (
+                                <button
+                                    onClick={() => toggleGroup(group.id)}
+                                    className="w-full flex items-center justify-between px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
+                                >
+                                    <div className="flex items-center space-x-3">
+                                        <GroupIcon className={`h-5 w-5 ${group.color}`} />
+                                        <span>{group.title}</span>
+                                    </div>
+                                    {isExpanded ? (
+                                        <ChevronDown className="h-4 w-4 text-gray-400 transition-transform" />
+                                    ) : (
+                                        <ChevronRight className="h-4 w-4 text-gray-400 transition-transform" />
+                                    )}
+                                </button>
+                            ) : null}
+
+                            {/* Group Items */}
+                            {(isExpanded || group.alwaysExpanded) && (
+                                <div className={`space-y-1 ${!group.alwaysExpanded ? 'ml-6 mt-1' : ''} transition-all duration-200`}>
+                                    {group.items.map((item) => {
+                                        const Icon = item.icon;
+                                        const isActive = location.pathname === item.path;
+                                        return (
+                                            <button
+                                                key={item.text}
+                                                onClick={() => {
+                                                    navigate(item.path);
+                                                    isMobile && setIsSidebarOpen(false);
+                                                }}
+                                                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm ${
+                                                    isActive 
+                                                        ? 'bg-blue-50 text-blue-600 border-l-2 border-blue-500' 
+                                                        : 'text-gray-600 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                <Icon className={`h-4 w-4 ${isActive ? 'text-blue-500' : 'text-gray-500'}`} />
+                                                <span className={`font-medium ${isActive ? 'text-blue-600' : 'text-gray-700'}`}>
+                                                    {item.text}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
                     );
                 })}
+
+                {/* Logout Button */}
+                <div className="border-t pt-2 mt-4">
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm text-gray-600 hover:bg-gray-50"
+                    >
+                        <LogOut className="h-4 w-4 text-gray-500" />
+                        <span className="font-medium text-gray-700">Đăng xuất</span>
+                    </button>
+                </div>
             </nav>
         </div>
     );
@@ -223,7 +318,13 @@ const MainLayout = ({ children }) => {
 
                             {/* Page title based on current route */}
                             <h2 className="text-lg font-medium hidden md:block">
-                                {menuItems.find(item => item.path === location.pathname)?.text || 'Trang chủ'}
+                                {(() => {
+                                    for (const group of menuGroups) {
+                                        const foundItem = group.items.find(item => item.path === location.pathname);
+                                        if (foundItem) return foundItem.text;
+                                    }
+                                    return 'Trang chủ';
+                                })()}
                             </h2>
                         </div>
 

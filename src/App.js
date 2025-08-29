@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import LoginPage from './pages/LoginPage';
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import MainLayout from './layouts/MainLayout';
 import authUtils from './utils/authUtils';
@@ -10,7 +11,7 @@ import Profile from './pages/Profile';
 import Users from './pages/UserManagement';
 import ReportManagement from './pages/BaoCao';
 import XuatNhapKhoForm from './pages/XuatNhapKhoForm';
-import DMHHManagement  from './pages/DMHHManagement';
+import DMHHManagement from './pages/DMHHManagement';
 import XuatNhapKhoManager from './pages/XuatNhapKhoManager';
 import CongDoanManagement from './pages/CongDoan';
 import CongDoanDonGiaManagement from './pages/CongDoanDonGiaManagement';
@@ -45,6 +46,7 @@ function App() {
             <ProtectedRoute>
               <MainLayout>
                 <Routes>
+                  <Route path="/home" element={<Home />} />
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/users" element={<Users />} />
@@ -63,7 +65,7 @@ function App() {
 
 
 
-                  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                  <Route path="/" element={<Navigate to="/home" replace />} />
                 </Routes>
               </MainLayout>
             </ProtectedRoute>

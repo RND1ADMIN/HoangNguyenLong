@@ -11,6 +11,7 @@ const config = {
     
     ROUTES: {
         LOGIN: '/',
+        HOME: '/home',
         DASHBOARD: '/dashboard',
         PROFILE: '/profile',
         PRODUCTS: '/products',
