@@ -36,6 +36,7 @@ const MainLayout = ({ children }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobileDevice());
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(isMobileDevice());
+    const [isCollapsed, setIsCollapsed] = useState(false); // Thêm state cho collapsed
     
     // State để quản lý việc mở/đóng các nhóm menu - MẶC ĐỊNH TẤT CẢ ĐÓNG
     const [expandedGroups, setExpandedGroups] = useState({
@@ -58,6 +59,7 @@ const MainLayout = ({ children }) => {
             // Automatically close sidebar on mobile when resizing
             if (mobile && isSidebarOpen) {
                 setIsSidebarOpen(false);
+                setIsCollapsed(false);
             } else if (!mobile && !isSidebarOpen) {
                 setIsSidebarOpen(true);
             }
@@ -67,21 +69,23 @@ const MainLayout = ({ children }) => {
         return () => window.removeEventListener('resize', handleResize);
     }, [isSidebarOpen]);
 
-    // Tự động mở nhóm chứa trang hiện tại
+    // Tự động mở nhóm chứa trang hiện tại (chỉ khi không collapsed)
     useEffect(() => {
-        const currentPath = location.pathname;
-        
-        // Tìm nhóm chứa trang hiện tại và mở nó
-        menuGroups.forEach(group => {
-            const hasActivePage = group.items.some(item => item.path === currentPath);
-            if (hasActivePage) {
-                setExpandedGroups(prev => ({
-                    ...prev,
-                    [group.id]: true
-                }));
-            }
-        });
-    }, [location.pathname]);
+        if (!isCollapsed) {
+            const currentPath = location.pathname;
+            
+            // Tìm nhóm chứa trang hiện tại và mở nó
+            menuGroups.forEach(group => {
+                const hasActivePage = group.items.some(item => item.path === currentPath);
+                if (hasActivePage) {
+                    setExpandedGroups(prev => ({
+                        ...prev,
+                        [group.id]: true
+                    }));
+                }
+            });
+        }
+    }, [location.pathname, isCollapsed]);
 
     // Tạo phương thức để các trang con có thể đăng ký nút
     useEffect(() => {
@@ -165,48 +169,66 @@ const MainLayout = ({ children }) => {
     };
 
     const toggleSidebar = () => {
-        setIsSidebarOpen(!isSidebarOpen);
+        if (isMobile) {
+            setIsSidebarOpen(!isSidebarOpen);
+        } else {
+            // Desktop: toggle collapsed state
+            if (isSidebarOpen) {
+                setIsCollapsed(!isCollapsed);
+            } else {
+                setIsSidebarOpen(true);
+                setIsCollapsed(false);
+            }
+        }
     };
 
     const toggleGroup = (groupId) => {
-        setExpandedGroups(prev => ({
-            ...prev,
-            [groupId]: !prev[groupId]
-        }));
+        if (!isCollapsed) {
+            setExpandedGroups(prev => ({
+                ...prev,
+                [groupId]: !prev[groupId]
+            }));
+        }
     };
 
     const userInitial = userData?.username?.[0]?.toUpperCase() || '?';
+    const sidebarWidth = isCollapsed ? '4rem' : '18rem';
 
     const Sidebar = () => (
         <div className="flex flex-col h-full bg-white">
             {/* Logo & Brand */}
-            <div className="flex items-center justify-between px-6 py-4 border-b">
-                <img src="/logo1.png" alt="Logo" className="h-8" />
-                <h1 className="text-xl font-semibold text-gray-800">
-                    Hoàng Nguyên Long
-                </h1>
+            <div className={`flex items-center px-4 py-4 border-b ${isCollapsed ? 'justify-center px-2' : 'gap-2'}`}>
+                <img src="/logo1.png" alt="Logo" className={`h-8 ${isCollapsed ? 'mx-auto' : ''}`} />
+                {!isCollapsed && (
+                    <h1 className="text-xl font-semibold text-gray-800">
+                        Hoàng Nguyên Long
+                    </h1>
+                )}
             </div>
 
             {/* User Info */}
-            <div className="px-6 py-4 border-b">
+            <div className={`px-1 py-4 border-b ${isCollapsed ? 'px-2' : ''}`}>
                 <div
-                    className="flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg"
+                    className={`flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg ${isCollapsed ? 'justify-center space-x-0' : ''}`}
                     onClick={() => {
                         navigate('/profile');
                         isMobile && setIsSidebarOpen(false);
                     }}
+                    title={isCollapsed ? (userData?.['Họ và Tên'] || userData?.username) : ''}
                 >
                     <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold">
                         {userInitial}
                     </div>
-                    <div>
-                        <p className="font-medium text-gray-800">
-                            {userData?.['Họ và Tên'] || userData?.username}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                            {userData?.['Chức vụ'] || 'Nhân viên'}
-                        </p>
-                    </div>
+                    {!isCollapsed && (
+                        <div>
+                            <p className="font-medium text-gray-800">
+                                {userData?.['Họ và Tên'] || userData?.username}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                                {userData?.['Chức vụ'] || 'Nhân viên'}
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -219,7 +241,7 @@ const MainLayout = ({ children }) => {
                     return (
                         <div key={group.id} className="mb-1">
                             {/* Group Header */}
-                            {!group.alwaysExpanded ? (
+                            {!group.alwaysExpanded && !isCollapsed ? (
                                 <button
                                     onClick={() => toggleGroup(group.id)}
                                     className="w-full flex items-center justify-between px-3 py-2 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg transition-colors"
@@ -237,8 +259,8 @@ const MainLayout = ({ children }) => {
                             ) : null}
 
                             {/* Group Items */}
-                            {(isExpanded || group.alwaysExpanded) && (
-                                <div className={`space-y-1 ${!group.alwaysExpanded ? 'ml-6 mt-1' : ''} transition-all duration-200`}>
+                            {((isExpanded || group.alwaysExpanded) && !isCollapsed) || isCollapsed ? (
+                                <div className={`space-y-1 ${!group.alwaysExpanded && !isCollapsed ? 'ml-6 mt-1' : ''} transition-all duration-200`}>
                                     {group.items.map((item) => {
                                         const Icon = item.icon;
                                         const isActive = location.pathname === item.path;
@@ -249,21 +271,24 @@ const MainLayout = ({ children }) => {
                                                     navigate(item.path);
                                                     isMobile && setIsSidebarOpen(false);
                                                 }}
-                                                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm ${
+                                                className={`w-full flex items-center ${isCollapsed ? 'justify-center px-3' : 'space-x-3 px-3'} py-2 rounded-lg transition-colors text-sm ${
                                                     isActive 
                                                         ? 'bg-blue-50 text-blue-600 border-l-2 border-blue-500' 
                                                         : 'text-gray-600 hover:bg-gray-50'
                                                 }`}
+                                                title={isCollapsed ? item.text : ''}
                                             >
                                                 <Icon className={`h-4 w-4 ${isActive ? 'text-blue-500' : 'text-gray-500'}`} />
-                                                <span className={`font-medium ${isActive ? 'text-blue-600' : 'text-gray-700'}`}>
-                                                    {item.text}
-                                                </span>
+                                                {!isCollapsed && (
+                                                    <span className={`font-medium ${isActive ? 'text-blue-600' : 'text-gray-700'}`}>
+                                                        {item.text}
+                                                    </span>
+                                                )}
                                             </button>
                                         );
                                     })}
                                 </div>
-                            )}
+                            ) : null}
                         </div>
                     );
                 })}
@@ -272,10 +297,13 @@ const MainLayout = ({ children }) => {
                 <div className="border-t pt-2 mt-4">
                     <button
                         onClick={handleLogout}
-                        className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors text-sm text-gray-600 hover:bg-gray-50"
+                        className={`w-full flex items-center ${isCollapsed ? 'justify-center px-3' : 'space-x-3 px-3'} py-2 rounded-lg transition-colors text-sm text-gray-600 hover:bg-gray-50`}
+                        title={isCollapsed ? 'Đăng xuất' : ''}
                     >
                         <LogOut className="h-4 w-4 text-gray-500" />
-                        <span className="font-medium text-gray-700">Đăng xuất</span>
+                        {!isCollapsed && (
+                            <span className="font-medium text-gray-700">Đăng xuất</span>
+                        )}
                     </button>
                 </div>
             </nav>
@@ -294,24 +322,26 @@ const MainLayout = ({ children }) => {
 
             {/* Sidebar */}
             <aside
-                className={`fixed top-0 left-0 h-full transform transition-transform duration-200 ease-in-out z-50 
+                className={`fixed top-0 left-0 h-full transform transition-all duration-200 ease-in-out z-50 
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} shadow-lg`}
-                style={{ width: '18rem' }}
+                style={{ width: isMobile ? '18rem' : sidebarWidth }}
             >
                 <Sidebar />
             </aside>
 
             {/* Main Content */}
-            <div className={`transition-all duration-200 ${isSidebarOpen ? 'lg:pl-72' : 'pl-0'}`}>
+            <div className={`transition-all duration-200 ${isSidebarOpen ? (isMobile ? 'lg:pl-72' : `lg:pl-${isCollapsed ? '16' : '72'}`) : 'pl-0'}`}
+                 style={{ paddingLeft: isSidebarOpen && !isMobile ? sidebarWidth : 0 }}>
                 {/* Header */}
-                <header className={`fixed top-0 right-0 left-0 ${isSidebarOpen ? 'lg:left-72' : 'left-0'} z-20 transition-all duration-200`}>
+                <header className={`fixed top-0 right-0 left-0 z-20 transition-all duration-200`}
+                        style={{ left: isSidebarOpen && !isMobile ? sidebarWidth : 0 }}>
                     <div className="h-16 bg-white border-b px-4 flex items-center justify-between shadow-sm">
                         {/* Sidebar Toggle */}
                         <div className="flex items-center space-x-2">
                             <button
                                 className="text-gray-500 hover:text-gray-700"
                                 onClick={toggleSidebar}
-                                aria-label={isSidebarOpen ? "Đóng menu" : "Mở menu"}
+                                aria-label={isSidebarOpen ? (isCollapsed ? "Mở rộng menu" : "Thu gọn menu") : "Mở menu"}
                             >
                                 {isSidebarOpen ? <ChevronLeft className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
                             </button>

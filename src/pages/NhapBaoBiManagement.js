@@ -188,6 +188,109 @@ const NhapBaoBiManagement = () => {
         return currentUser?.['Họ và Tên'] || 'Người dùng';
     };
 
+    // Thêm component StatisticCards vào đầu file, sau các import
+    const StatisticCards = ({ data }) => {
+        const stats = useMemo(() => {
+            return {
+                totalRecords: data.length,
+                totalBaoBiAnh: data.reduce((sum, record) => sum + parseFloat(record['BAO BÌ ANH (TẤN)'] || 0), 0),
+                totalBaoBiEm: data.reduce((sum, record) => sum + parseFloat(record['BAO BÌ EM (TẤN)'] || 0), 0),
+                totalThucNhanAnh: data.reduce((sum, record) => sum + parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0), 0),
+                totalThucNhanEm: data.reduce((sum, record) => sum + parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0), 0),
+                totalDaPhanBoAnh: data.reduce((sum, record) => sum + parseFloat(record['ĐÃ PHÂN BỔ (ANH)'] || 0), 0),
+                totalDaPhanBoEm: data.reduce((sum, record) => sum + parseFloat(record['ĐÃ PHÂN BỔ (EM)'] || 0), 0),
+                totalBaiAnh: data.reduce((sum, record) => sum + parseFloat(record['BÃI (ANH)'] || 0), 0),
+                totalBaiEm: data.reduce((sum, record) => sum + parseFloat(record['BÃI (EM)'] || 0), 0)
+            };
+        }, [data]);
+
+        const cardData = [
+            {
+                title: "Tổng số xe",
+                value: stats.totalRecords,
+                icon: <Package className="w-5 h-5" />,
+                bgColor: "bg-gradient-to-r from-purple-500 to-purple-600",
+                textColor: "text-white"
+            },
+            {
+                title: "Tổng nhập BB anh",
+                value: `${formatNumber(stats.totalBaoBiAnh)} T`,
+                icon: <Package className="w-5 h-5" />,
+                bgColor: "bg-gradient-to-r from-blue-500 to-blue-600",
+                textColor: "text-white"
+            },
+            {
+                title: "Tổng nhập BB em",
+                value: `${formatNumber(stats.totalBaoBiEm)} T`,
+                icon: <Package className="w-5 h-5" />,
+                bgColor: "bg-gradient-to-r from-purple-500 to-purple-600",
+                textColor: "text-white"
+            },
+            {
+                title: "Thực nhận BB anh",
+                value: `${formatNumber(stats.totalThucNhanAnh)} T`,
+                icon: <Check className="w-5 h-5" />,
+                bgColor: "bg-gradient-to-r from-green-500 to-green-600",
+                textColor: "text-white"
+            },
+            {
+                title: "Thực nhận em",
+                value: `${formatNumber(stats.totalThucNhanEm)} T`,
+                icon: <Check className="w-5 h-5" />,
+                bgColor: "bg-gradient-to-r from-teal-500 to-teal-600",
+                textColor: "text-white"
+            },
+            {
+                title: "Đã phân bổ BB anh",
+                value: `${formatNumber(stats.totalDaPhanBoAnh)} T`,
+                icon: <Users className="w-5 h-5" />,
+                bgColor: "bg-gradient-to-r from-indigo-500 to-indigo-600",
+                textColor: "text-white"
+            },
+            {
+                title: "Đã phân bổ BB em",
+                value: `${formatNumber(stats.totalDaPhanBoEm)} T`,
+                icon: <Users className="w-5 h-5" />,
+                bgColor: "bg-gradient-to-r from-violet-500 to-violet-600",
+                textColor: "text-white"
+            },
+            {
+                title: "Bãi BB anh",
+                value: `${formatNumber(stats.totalBaiAnh)} T`,
+                icon: <AlertCircle className="w-5 h-5" />,
+                bgColor: "bg-gradient-to-r from-yellow-500 to-yellow-600",
+                textColor: "text-white"
+            },
+            {
+                title: "Bãi BB em",
+                value: `${formatNumber(stats.totalBaiEm)} T`,
+                icon: <AlertCircle className="w-5 h-5" />,
+                bgColor: "bg-gradient-to-r from-orange-500 to-orange-600",
+                textColor: "text-white"
+            }
+        ];
+
+        return (
+            <div className="grid grid-cols-3 md:grid-cols-5 lg:grid-cols-9 gap-3 mb-6">
+                {cardData.map((card, index) => (
+                    <div key={index} className={`${card.bgColor} rounded-xl shadow-lg p-3 text-center transform hover:scale-105 transition-all duration-200`}>
+                        <div className="flex flex-col items-center">
+                            <div className={`${card.textColor} opacity-80 mb-1`}>
+                                {card.icon}
+                            </div>
+                            <h3 className={`${card.textColor} text-xs font-medium mb-1 text-center leading-tight`}>
+                                {card.title}
+                            </h3>
+                            <p className={`${card.textColor} text-sm lg:text-base font-bold`}>
+                                {card.value}
+                            </p>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     // Thêm nút phân bổ vào action buttons
     const handlePhanBo = (record, event) => {
         event.stopPropagation();
@@ -918,6 +1021,9 @@ const NhapBaoBiManagement = () => {
                         </div>
                     </div>
 
+                    {/* Statistics Cards - THÊM PHẦN NÀY */}
+                    <StatisticCards data={filteredData} />
+
                     {/* Table or Grouped View Section */}
                     {viewMode === 'list' ? (
                         <div className="overflow-x-auto -mx-4 md:mx-0">
@@ -1483,10 +1589,10 @@ const NhapBaoBiManagement = () => {
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                                                         <span className={`px-2 py-1 rounded-full text-xs ${(parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) >= 0.8
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) >= 0.5
-                                                                    ? 'bg-yellow-100 text-yellow-800'
-                                                                    : 'bg-red-100 text-red-800'
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) >= 0.5
+                                                                ? 'bg-yellow-100 text-yellow-800'
+                                                                : 'bg-red-100 text-red-800'
                                                             }`}>
                                                             {Math.round((parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) /
                                                                 parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) * 100)}%
@@ -1518,10 +1624,10 @@ const NhapBaoBiManagement = () => {
                                                     </td>
                                                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
                                                         <span className={`px-2 py-1 rounded-full text-xs ${(parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) >= 0.8
-                                                                ? 'bg-green-100 text-green-800'
-                                                                : (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) >= 0.5
-                                                                    ? 'bg-yellow-100 text-yellow-800'
-                                                                    : 'bg-red-100 text-red-800'
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) >= 0.5
+                                                                ? 'bg-yellow-100 text-yellow-800'
+                                                                : 'bg-red-100 text-red-800'
                                                             }`}>
                                                             {Math.round((parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) /
                                                                 parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) * 100)}%
