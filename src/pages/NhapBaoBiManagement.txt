@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Check, Upload, X, Calendar, AlertCircle, List, Package, Eye, Users, ChevronDown, ChevronUp, Clock, CheckCircle, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Check, Upload, X, Calendar, AlertCircle, List, Package, Eye, Users } from 'lucide-react';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -56,15 +56,6 @@ const parseVNDate = (dateString) => {
 const formatNumber = (number) => {
     if (!number || isNaN(number)) return '0.00';
     return parseFloat(number).toFixed(2);
-};
-
-// Format currency
-const formatCurrency = (amount) => {
-    if (!amount || isNaN(amount)) return '0 VNĐ';
-    return new Intl.NumberFormat('vi-VN', {
-        style: 'currency',
-        currency: 'VND'
-    }).format(amount);
 };
 
 // Calculate thực nhận = nhập bao bì - 3%
@@ -133,7 +124,6 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => (
 const NhapBaoBiManagement = () => {
     // State Management - core data
     const [packagingData, setPackagingData] = useState([]);
-    const [detailReports, setDetailReports] = useState([]);
     const [viewMode, setViewMode] = useState('list'); // 'list' or 'grouped'
 
     // State - UI controls
@@ -144,21 +134,12 @@ const NhapBaoBiManagement = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedRecords, setSelectedRecords] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
-    const [expandedDetailGroups, setExpandedDetailGroups] = useState(new Set());
-    const [expandedGroupDetailGroups, setExpandedGroupDetailGroups] = useState(new Set()); // For grouped view
-
-    // Add sorting state
-    const [sortConfig, setSortConfig] = useState({
-        key: null,
-        direction: 'asc'
-    });
 
     const [filters, setFilters] = useState({
         soXe: '',
         khachHang: '',
         startDate: null,
-        endDate: null,
-        allocationStatus: '' // 'allocated', 'partial', 'unallocated'
+        endDate: null
     });
 
     // State - modals
@@ -205,203 +186,6 @@ const NhapBaoBiManagement = () => {
     const getCurrentUserName = () => {
         const currentUser = authUtils.getUserData();
         return currentUser?.['Họ và Tên'] || 'Người dùng';
-    };
-
-    // Function toggle mở rộng chi tiết cho list view
-    const toggleDetailExpansion = (recordId) => {
-        const newExpanded = new Set(expandedDetailGroups);
-        if (newExpanded.has(recordId)) {
-            newExpanded.delete(recordId);
-        } else {
-            newExpanded.add(recordId);
-        }
-        setExpandedDetailGroups(newExpanded);
-    };
-
-    // Function toggle mở rộng chi tiết cho grouped view
-    const toggleGroupDetailExpansion = (recordId) => {
-        const newExpanded = new Set(expandedGroupDetailGroups);
-        if (newExpanded.has(recordId)) {
-            newExpanded.delete(recordId);
-        } else {
-            newExpanded.add(recordId);
-        }
-        setExpandedGroupDetailGroups(newExpanded);
-    };
-
-    // Add sorting function
-    const handleSort = (key) => {
-        let direction = 'asc';
-        if (sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        }
-        setSortConfig({ key, direction });
-    };
-
-    // Function tính toán trạng thái phân bổ
-    const getDistributionStatus = (record) => {
-        const relatedReports = detailReports.filter(report => report.ID_NHAPBAOBI === record.ID);
-
-        // Lấy giá trị đã phân bổ từ record gốc (đã được cập nhật từ PhanBoBaoBi)
-        const allocatedAnh = parseFloat(record['ĐÃ PHÂN BỔ (ANH)'] || 0);
-        const allocatedEm = parseFloat(record['ĐÃ PHÂN BỔ (EM)'] || 0);
-
-        const availableAnh = parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0);
-        const availableEm = parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0);
-
-        const remainingAnh = availableAnh - allocatedAnh;
-        const remainingEm = availableEm - allocatedEm;
-
-        // Tính bãi từ record gốc hoặc tính toán nếu chưa có
-        const baiAnh = record['BÃI (ANH)'] ? parseFloat(record['BÃI (ANH)']) : Math.max(0, remainingAnh);
-        const baiEm = record['BÃI (EM)'] ? parseFloat(record['BÃI (EM)']) : Math.max(0, remainingEm);
-
-        return {
-            totalReports: relatedReports.length,
-            allocatedAnh: allocatedAnh,
-            allocatedEm: allocatedEm,
-            remainingAnh: Math.max(0, remainingAnh),
-            remainingEm: Math.max(0, remainingEm),
-            baiAnh: baiAnh,
-            baiEm: baiEm,
-            isFullyAllocated: remainingAnh <= 0.01 && remainingEm <= 0.01 && (availableAnh > 0 || availableEm > 0),
-            hasAllocation: relatedReports.length > 0,
-            relatedReports: relatedReports.sort((a, b) => new Date(b['NGÀY']) - new Date(a['NGÀY'])) // Mới nhất lên đầu
-        };
-    };
-
-    // Component hiển thị status badge
-    const AllocationStatusBadge = ({ record }) => {
-        const status = getDistributionStatus(record);
-
-        if (!status.hasAllocation) {
-            return (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Chưa phân bổ
-                </span>
-            );
-        }
-
-        if (status.isFullyAllocated) {
-            return (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    Đã phân bổ hết
-                </span>
-            );
-        }
-
-        return (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                <AlertCircle className="w-3 h-3 mr-1" />
-                Phân bổ một phần
-            </span>
-        );
-    };
-
-    // Component hiển thị chi tiết phân bổ
-    const DetailReportsSection = ({ record, isInGroupView = false }) => {
-        const status = getDistributionStatus(record);
-        const expandedSet = isInGroupView ? expandedGroupDetailGroups : expandedDetailGroups;
-        const toggleFunction = isInGroupView ? toggleGroupDetailExpansion : toggleDetailExpansion;
-
-        if (!status.hasAllocation) return null;
-
-        return (
-            <>
-                {/* Button to toggle detail reports */}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        toggleFunction(record.ID);
-                    }}
-                    className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
-                    title={expandedSet.has(record.ID) ? 'Ẩn chi tiết' : 'Xem chi tiết phân bổ'}
-                >
-                    {expandedSet.has(record.ID) ?
-                        <ChevronUp className="h-4 w-4" /> :
-                        <ChevronDown className="h-4 w-4" />
-                    }
-                </button>
-
-                {/* Detail Reports Content */}
-                {expandedSet.has(record.ID) && (
-                    <tr>
-                        <td colSpan="15" className="px-4 py-0">
-                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 p-4 my-2 rounded-r-lg">
-                                <div className="flex items-center justify-between mb-3">
-                                    <h4 className="text-lg font-semibold text-blue-800 flex items-center gap-2">
-                                        <Package className="w-5 h-5" />
-                                        Chi tiết phân bổ ({status.totalReports} báo cáo)
-                                    </h4>
-                                    <div className="text-sm text-blue-600">
-                                        Tổng giá trị: <span className="font-bold">{formatCurrency(status.relatedReports.reduce((sum, r) => sum + parseFloat(r['THÀNH TIỀN'] || 0), 0))}</span>
-                                    </div>
-                                </div>
-
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-blue-200">
-                                        <thead className="bg-blue-100">
-                                            <tr>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Ngày BC</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Tên hàng</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Tổ</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Công đoạn</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Khối lượng</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Nhân sự</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Đơn giá</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Thành tiền</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Người nhập</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-blue-100">
-                                            {status.relatedReports.map((report, index) => (
-                                                <tr key={report.IDBC} className={`${index % 2 === 0 ? 'bg-white' : 'bg-blue-25'} hover:bg-blue-50 transition-colors`}>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                                                        <div className="flex items-center gap-1">
-                                                            <Clock className="w-3 h-3 text-gray-400" />
-                                                            {new Date(report['NGÀY']).toLocaleDateString('vi-VN')}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{report['TÊN HÀNG']}</td>
-                                                    <td className="px-3 py-2 whitespace-nowrap">
-                                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                                                            {report['TỔ']}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
-                                                        <div className="truncate" title={report['CÔNG ĐOẠN']}>
-                                                            {report['CÔNG ĐOẠN']}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-purple-600">
-                                                        {formatNumber(report['KHỐI LƯỢNG'])}
-                                                        <span className="text-gray-500 text-xs ml-1">{report['ĐƠN VỊ TÍNH']}</span>
-                                                    </td>
-                                                    <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
-                                                        <div className="truncate" title={report['NHÂN SỰ THAM GIA']}>
-                                                            {report['NHÂN SỰ THAM GIA']}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-green-600 font-medium">
-                                                        {formatCurrency(report['ĐƠN GIÁ'])}
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-bold text-green-700">
-                                                        {formatCurrency(report['THÀNH TIỀN'])}
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{report['NGƯỜI NHẬP']}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                )}
-            </>
-        );
     };
 
     // Thêm component StatisticCards vào đầu file, sau các import
@@ -542,7 +326,6 @@ const NhapBaoBiManagement = () => {
     // Data fetching
     useEffect(() => {
         fetchPackagingData();
-        fetchDetailReports();
     }, []);
 
     const fetchPackagingData = async () => {
@@ -552,16 +335,6 @@ const NhapBaoBiManagement = () => {
         } catch (error) {
             console.error('Error fetching packaging data:', error);
             toast.error('Lỗi khi tải danh sách nhập bao bì');
-        }
-    };
-
-    const fetchDetailReports = async () => {
-        try {
-            const response = await authUtils.apiRequest('BC2', 'Find', {});
-            setDetailReports(response);
-        } catch (error) {
-            console.error('Error fetching detail reports:', error);
-            toast.error('Lỗi khi tải dữ liệu chi tiết phân bổ');
         }
     };
 
@@ -588,7 +361,6 @@ const NhapBaoBiManagement = () => {
                 'TRỪ BAO BÌ ANH (TẤN)': record['TRỪ BAO BÌ ANH (TẤN)'] || '',
                 'THỰC NHẬN ANH (TẤN)': record['THỰC NHẬN ANH (TẤN)'] || '',
                 'BAO BÌ EM (TẤN)': record['BAO BÌ EM (TẤN)'] || '',
-                'BAO BÌ EM (TẤN)': record['BAO BÌ EM (TẤN)'] || '',
                 'TRỪ BAO BÌ EM (TẤN)': record['TRỪ BAO BÌ EM (TẤN)'] || '',
                 'THỰC NHẬN EM (TẤN)': record['THỰC NHẬN EM (TẤN)'] || ''
             });
@@ -608,7 +380,7 @@ const NhapBaoBiManagement = () => {
         setCurrentRecord(prev => {
             const updatedRecord = {
                 ...prev,
-                [field]: field === 'NGÀY THÁNG' ? new Date(value) : value
+                [field]: field === 'NGÀY THÁNG' ? new Date(value) : value // Chuyển string thành Date
             };
 
             // Nếu thay đổi BAO BÌ ANH, tự động tính TRỪ BAO BÌ ANH và THỰC NHẬN ANH
@@ -681,7 +453,6 @@ const NhapBaoBiManagement = () => {
             }
 
             await fetchPackagingData();
-            await fetchDetailReports(); // Refresh detail reports
             handleClose();
         } catch (error) {
             console.error('Error saving record:', error);
@@ -693,7 +464,7 @@ const NhapBaoBiManagement = () => {
 
     // Delete record with proper event handling
     const handleDelete = (ID, event) => {
-        event.stopPropagation();
+        event.stopPropagation(); // Ngăn event lan truyền
         event.preventDefault();
 
         setConfirmTitle("Xóa thông tin nhập bao bì");
@@ -945,7 +716,7 @@ const NhapBaoBiManagement = () => {
 
                         const record = {
                             ID: generateUniqueId(),
-                            'NGÀY THÁNG': convertedDate,
+                            'NGÀY THÁNG': convertedDate, // Sử dụng date đã convert
                             'SỐ XE': row['SỐ XE'],
                             'KHÁCH HÀNG': row['KHÁCH HÀNG'],
                             'BAO BÌ ANH (TẤN)': row['BAO BÌ ANH (TẤN)'] || '',
@@ -1023,9 +794,9 @@ const NhapBaoBiManagement = () => {
         XLSX.writeFile(wb, 'mau_nhap_bao_bi.xlsx');
     };
 
-    // Filtering and pagination logic with sorting
+    // Filtering and pagination logic
     const filteredData = useMemo(() => {
-        let filtered = packagingData.filter(record => {
+        return packagingData.filter(record => {
             const matchesSearch =
                 record['SỐ XE']?.toLowerCase().includes(search.toLowerCase()) ||
                 record['KHÁCH HÀNG']?.toLowerCase().includes(search.toLowerCase()) ||
@@ -1033,21 +804,6 @@ const NhapBaoBiManagement = () => {
 
             const matchesSoXe = !filters.soXe || record['SỐ XE']?.includes(filters.soXe);
             const matchesKhachHang = !filters.khachHang || record['KHÁCH HÀNG']?.includes(filters.khachHang);
-
-            // Allocation status filter
-            let matchesAllocationStatus = true;
-            if (filters.allocationStatus) {
-                const status = getDistributionStatus(record);
-                if (filters.allocationStatus === 'allocated' && !status.isFullyAllocated) {
-                    matchesAllocationStatus = false;
-                }
-                if (filters.allocationStatus === 'partial' && (status.isFullyAllocated || !status.hasAllocation)) {
-                    matchesAllocationStatus = false;
-                }
-                if (filters.allocationStatus === 'unallocated' && status.hasAllocation) {
-                    matchesAllocationStatus = false;
-                }
-            }
 
             // Date filtering
             let dateMatches = true;
@@ -1065,46 +821,9 @@ const NhapBaoBiManagement = () => {
                     dateMatches = recordDate <= endDate;
                 }
             }
-            return matchesSearch && matchesSoXe && matchesKhachHang && dateMatches && matchesAllocationStatus;
+            return matchesSearch && matchesSoXe && matchesKhachHang && dateMatches;
         });
-
-        // Apply sorting
-        if (sortConfig.key) {
-            filtered.sort((a, b) => {
-                let aValue = a[sortConfig.key];
-                let bValue = b[sortConfig.key];
-
-                // Special handling for date column
-                if (sortConfig.key === 'NGÀY THÁNG') {
-                    aValue = new Date(aValue);
-                    bValue = new Date(bValue);
-                }
-
-                // Special handling for numeric columns
-                if (sortConfig.key.includes('(TẤN)') || sortConfig.key.includes('PHÂN BỔ') || sortConfig.key.includes('BÃI')) {
-                    aValue = parseFloat(aValue) || 0;
-                    bValue = parseFloat(bValue) || 0;
-                }
-
-                if (aValue < bValue) {
-                    return sortConfig.direction === 'asc' ? -1 : 1;
-                }
-                if (aValue > bValue) {
-                    return sortConfig.direction === 'asc' ? 1 : -1;
-                }
-                return 0;
-            });
-        } else {
-            // Default sort by _RowNumber descending (newest first)
-            filtered.sort((a, b) => {
-                const rowA = parseInt(a._RowNumber) || 0;
-                const rowB = parseInt(b._RowNumber) || 0;
-                return rowB - rowA;
-            });
-        }
-
-        return filtered;
-    }, [packagingData, detailReports, search, filters, sortConfig]);
+    }, [packagingData, search, filters]);
 
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
     const currentItems = useMemo(() => {
@@ -1113,7 +832,7 @@ const NhapBaoBiManagement = () => {
         return filteredData.slice(indexOfFirstItem, indexOfLastItem);
     }, [filteredData, currentPage, itemsPerPage]);
 
-    // Grouped records for date view with sorting
+    // Grouped records for date view
     const groupedRecords = useMemo(() => {
         if (viewMode !== 'grouped') return null;
         const groups = {};
@@ -1138,23 +857,9 @@ const NhapBaoBiManagement = () => {
                 totalBaoBiAnh: groups[date].reduce((sum, r) => sum + parseFloat(r['BAO BÌ ANH (TẤN)'] || 0), 0),
                 totalThucNhanAnh: groups[date].reduce((sum, r) => sum + parseFloat(r['THỰC NHẬN ANH (TẤN)'] || 0), 0),
                 totalBaoBiEm: groups[date].reduce((sum, r) => sum + parseFloat(r['BAO BÌ EM (TẤN)'] || 0), 0),
-                totalThucNhanEm: groups[date].reduce((sum, r) => sum + parseFloat(r['THỰC NHẬN EM (TẤN)'] || 0), 0),
-                totalDaPhanBoAnh: groups[date].reduce((sum, r) => sum + parseFloat(r['ĐÃ PHÂN BỔ (ANH)'] || 0), 0),
-                totalDaPhanBoEm: groups[date].reduce((sum, r) => sum + parseFloat(r['ĐÃ PHÂN BỔ (EM)'] || 0), 0),
-                totalBaiAnh: groups[date].reduce((sum, r) => sum + parseFloat(r['BÃI (ANH)'] || 0), 0),
-                totalBaiEm: groups[date].reduce((sum, r) => sum + parseFloat(r['BÃI (EM)'] || 0), 0)
+                totalThucNhanEm: groups[date].reduce((sum, r) => sum + parseFloat(r['THỰC NHẬN EM (TẤN)'] || 0), 0)
             }));
     }, [filteredData, viewMode]);
-
-    // Component để hiển thị icon sắp xếp
-    const SortIcon = ({ column }) => {
-        if (sortConfig.key !== column) {
-            return <ArrowUpDown className="w-4 h-4 text-gray-400" />;
-        }
-        return sortConfig.direction === 'asc'
-            ? <ArrowUp className="w-4 h-4 text-indigo-600" />
-            : <ArrowDown className="w-4 h-4 text-indigo-600" />;
-    };
 
     return (
         <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
@@ -1232,7 +937,7 @@ const NhapBaoBiManagement = () => {
                     {/* Filter Section */}
                     {showFilters && (
                         <div className="mb-6 p-4 border rounded-lg bg-gray-50 animate-fadeIn">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Số xe</label>
                                     <input
@@ -1253,20 +958,6 @@ const NhapBaoBiManagement = () => {
                                         className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                                         placeholder="Tìm theo khách hàng"
                                     />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái phân bổ</label>
-                                    <select
-                                        value={filters.allocationStatus}
-                                        onChange={(e) => setFilters({ ...filters, allocationStatus: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                    >
-                                        <option value="">Tất cả trạng thái</option>
-                                        <option value="allocated">Đã phân bổ hết</option>
-                                        <option value="partial">Phân bổ một phần</option>
-                                        <option value="unallocated">Chưa phân bổ</option>
-                                    </select>
                                 </div>
 
                                 <div>
@@ -1305,8 +996,7 @@ const NhapBaoBiManagement = () => {
                                             soXe: '',
                                             khachHang: '',
                                             startDate: null,
-                                            endDate: null,
-                                            allocationStatus: ''
+                                            endDate: null
                                         })}
                                         className="w-full px-4 py-2 text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
                                     >
@@ -1331,7 +1021,7 @@ const NhapBaoBiManagement = () => {
                         </div>
                     </div>
 
-                    {/* Statistics Cards */}
+                    {/* Statistics Cards - THÊM PHẦN NÀY */}
                     <StatisticCards data={filteredData} />
 
                     {/* Table or Grouped View Section */}
@@ -1358,133 +1048,111 @@ const NhapBaoBiManagement = () => {
                                                         />
                                                     </div>
                                                 </th>
-                                                <th
-                                                    scope="col"
-                                                    className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left cursor-pointer hover:bg-gray-100 select-none"
-                                                    onClick={() => handleSort('NGÀY THÁNG')}
-                                                >
-                                                    <div className="flex items-center gap-1">
-                                                        Ngày tháng
-                                                        <SortIcon column="NGÀY THÁNG" />
-                                                    </div>
-                                                </th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày tháng</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số xe</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khách hàng</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trạng thái</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhập BB anh</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trừ BB anh</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận BB anh</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đã phân bổ BB anh</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bãi BB anh</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhập BB em</th>
+                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trừ BB em</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận BB em</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đã phân bổ BB em</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bãi BB em</th>
-                                                <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Chi tiết</th>
                                                 <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
                                             </tr>
                                         </thead>
                                         <tbody className="bg-white divide-y divide-gray-200">
                                             {currentItems.length > 0 ? (
-                                                currentItems.map((record) => {
-                                                    const status = getDistributionStatus(record);
-                                                    return (
-                                                        <React.Fragment key={record.ID}>
-                                                            <tr
-                                                                className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                                                onClick={() => handleViewDetail(record)}
-                                                            >
-                                                                <td className="p-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
-                                                                    <div className="flex items-center">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={selectedRecords.includes(record.ID)}
-                                                                            onChange={(e) => {
-                                                                                if (e.target.checked) {
-                                                                                    setSelectedRecords([...selectedRecords, record.ID]);
-                                                                                } else {
-                                                                                    setSelectedRecords(selectedRecords.filter(id => id !== record.ID));
-                                                                                }
-                                                                            }}
-                                                                            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                                        />
-                                                                    </div>
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                                                    {new Date(record['NGÀY THÁNG']).toLocaleDateString('vi-VN')}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{record['SỐ XE']}</td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record['KHÁCH HÀNG']}</td>
-                                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                                    <AllocationStatusBadge record={record} />
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-blue-600">
-                                                                    {record['BAO BÌ ANH (TẤN)'] ? formatNumber(record['BAO BÌ ANH (TẤN)']) : '-'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-green-600">
-                                                                    {record['THỰC NHẬN ANH (TẤN)'] ? formatNumber(record['THỰC NHẬN ANH (TẤN)']) : '-'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
-                                                                    {record['ĐÃ PHÂN BỔ (ANH)'] ? formatNumber(record['ĐÃ PHÂN BỔ (ANH)']) : '0.00'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-yellow-600">
-                                                                    {record['BÃI (ANH)'] ? formatNumber(record['BÃI (ANH)']) :
-                                                                        formatNumber(Math.max(0, parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0) - parseFloat(record['ĐÃ PHÂN BỔ (ANH)'] || 0)).toFixed(2))}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
-                                                                    {record['BAO BÌ EM (TẤN)'] ? formatNumber(record['BAO BÌ EM (TẤN)']) : '-'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-teal-600">
-                                                                    {record['THỰC NHẬN EM (TẤN)'] ? formatNumber(record['THỰC NHẬN EM (TẤN)']) : '-'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
-                                                                    {record['ĐÃ PHÂN BỔ (EM)'] ? formatNumber(record['ĐÃ PHÂN BỔ (EM)']) : '0.00'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-yellow-600">
-                                                                    {record['BÃI (EM)'] ? formatNumber(record['BÃI (EM)']) :
-                                                                        formatNumber(Math.max(0, parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0) - parseFloat(record['ĐÃ PHÂN BỔ (EM)'] || 0)).toFixed(2))}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
-                                                                    {status.hasAllocation && (
-                                                                        <DetailReportsSection record={record} isInGroupView={false} />
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
-                                                                    <div className="flex justify-end space-x-1">
-                                                                        <button
-                                                                            onClick={(e) => handlePhanBo(record, e)}
-                                                                            className="text-green-600 hover:text-green-900 p-1.5 rounded-full hover:bg-green-50"
-                                                                            title="Phân bổ"
-                                                                        >
-                                                                            <Users className="h-4 w-4" />
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(e) => handleEdit(record, e)}
-                                                                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
-                                                                            title="Sửa thông tin"
-                                                                        >
-                                                                            <Edit className="h-4 w-4" />
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(e) => handleDelete(record.ID, e)}
-                                                                            className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
-                                                                            title="Xóa thông tin"
-                                                                        >
-                                                                            <Trash className="h-4 w-4" />
-                                                                        </button>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-
-                                                            {/* Detail Reports Row - Expanded */}
-                                                            {expandedDetailGroups.has(record.ID) && status.hasAllocation && (
-                                                                <DetailReportsSection record={record} isInGroupView={false} />
-                                                            )}
-                                                        </React.Fragment>
-                                                    );
-                                                })
+                                                currentItems.map((record) => (
+                                                    <tr
+                                                        key={record.ID}
+                                                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                                        onClick={() => handleViewDetail(record)}
+                                                    >
+                                                        <td className="p-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                                                            <div className="flex items-center">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={selectedRecords.includes(record.ID)}
+                                                                    onChange={(e) => {
+                                                                        if (e.target.checked) {
+                                                                            setSelectedRecords([...selectedRecords, record.ID]);
+                                                                        } else {
+                                                                            setSelectedRecords(selectedRecords.filter(id => id !== record.ID));
+                                                                        }
+                                                                    }}
+                                                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                                                                />
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                            {new Date(record['NGÀY THÁNG']).toLocaleDateString('vi-VN')}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{record['SỐ XE']}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record['KHÁCH HÀNG']}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-blue-600">
+                                                            {record['BAO BÌ ANH (TẤN)'] ? formatNumber(record['BAO BÌ ANH (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-red-600">
+                                                            {record['TRỪ BAO BÌ ANH (TẤN)'] ? formatNumber(record['TRỪ BAO BÌ ANH (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-green-600">
+                                                            {record['THỰC NHẬN ANH (TẤN)'] ? formatNumber(record['THỰC NHẬN ANH (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
+                                                            {record['ĐÃ PHÂN BỔ (ANH)'] ? formatNumber(record['ĐÃ PHÂN BỔ (ANH)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-yellow-600">
+                                                            {record['BÃI (ANH)'] ? formatNumber(record['BÃI (ANH)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
+                                                            {record['BAO BÌ EM (TẤN)'] ? formatNumber(record['BAO BÌ EM (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-orange-600">
+                                                            {record['TRỪ BAO BÌ EM (TẤN)'] ? formatNumber(record['TRỪ BAO BÌ EM (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-teal-600">
+                                                            {record['THỰC NHẬN EM (TẤN)'] ? formatNumber(record['THỰC NHẬN EM (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
+                                                            {record['ĐÃ PHÂN BỔ (EM)'] ? formatNumber(record['ĐÃ PHÂN BỔ (EM)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-yellow-600">
+                                                            {record['BÃI (EM)'] ? formatNumber(record['BÃI (EM)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                                                            <div className="flex justify-end space-x-1">
+                                                                <button
+                                                                    onClick={(e) => handlePhanBo(record, e)}
+                                                                    className="text-green-600 hover:text-green-900 p-1.5 rounded-full hover:bg-green-50"
+                                                                    title="Phân bổ"
+                                                                >
+                                                                    <Users className="h-4 w-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => handleEdit(record, e)}
+                                                                    className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
+                                                                    title="Sửa thông tin"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => handleDelete(record.ID, e)}
+                                                                    className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
+                                                                    title="Xóa thông tin"
+                                                                >
+                                                                    <Trash className="h-4 w-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))
                                             ) : (
                                                 <tr>
-                                                    <td colSpan="15" className="px-4 py-6 text-center text-sm text-gray-500">
+                                                    <td colSpan="12" className="px-4 py-6 text-center text-sm text-gray-500">
                                                         Không tìm thấy thông tin nào phù hợp với tiêu chí tìm kiếm
                                                     </td>
                                                 </tr>
@@ -1515,12 +1183,6 @@ const NhapBaoBiManagement = () => {
                                                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-200 text-green-900">
                                                             Thực nhận BB anh: {formatNumber(group.totalThucNhanAnh.toFixed(2))} tấn
                                                         </span>
-                                                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
-                                                            Đã phân bổ BB anh: {formatNumber(group.totalDaPhanBoAnh.toFixed(2))} tấn
-                                                        </span>
-                                                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800">
-                                                            Bãi BB anh: {formatNumber(group.totalBaiAnh.toFixed(2))} tấn
-                                                        </span>
                                                     </>
                                                 )}
                                                 {group.totalBaoBiEm > 0 && (
@@ -1530,12 +1192,6 @@ const NhapBaoBiManagement = () => {
                                                         </span>
                                                         <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-200 text-purple-900">
                                                             Thực nhận BB em: {formatNumber(group.totalThucNhanEm.toFixed(2))} tấn
-                                                        </span>
-                                                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-violet-100 text-violet-800">
-                                                            Đã phân bổ BB em: {formatNumber(group.totalDaPhanBoEm.toFixed(2))} tấn
-                                                        </span>
-                                                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800">
-                                                            Bãi BB em: {formatNumber(group.totalBaiEm.toFixed(2))} tấn
                                                         </span>
                                                     </>
                                                 )}
@@ -1576,98 +1232,54 @@ const NhapBaoBiManagement = () => {
                                                 <tr>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số xe</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khách hàng</th>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trạng thái</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhập BB anh</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận BB anh</th>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đã phân bổ BB anh</th>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bãi BB anh</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhập BB em</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thực nhận BB em</th>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đã phân bổ BB em</th>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Bãi BB em</th>
-                                                    <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Chi tiết</th>
                                                     <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="bg-white divide-y divide-gray-200">
-                                                {group.records.map(record => {
-                                                    const status = getDistributionStatus(record);
-                                                    return (
-                                                        <React.Fragment key={record.ID}>
-                                                            <tr
-                                                                className="hover:bg-gray-50 transition-colors cursor-pointer"
-                                                                onClick={() => handleViewDetail(record)}
-                                                            >
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{record['SỐ XE']}</td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record['KHÁCH HÀNG']}</td>
-                                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                                    <AllocationStatusBadge record={record} />
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-blue-600">
-                                                                    {record['BAO BÌ ANH (TẤN)'] ? formatNumber(record['BAO BÌ ANH (TẤN)']) : '-'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-green-600">
-                                                                    {record['THỰC NHẬN ANH (TẤN)'] ? formatNumber(record['THỰC NHẬN ANH (TẤN)']) : '-'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
-                                                                    {record['ĐÃ PHÂN BỔ (ANH)'] ? formatNumber(record['ĐÃ PHÂN BỔ (ANH)']) : '0.00'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-yellow-600">
-                                                                    {record['BÃI (ANH)'] ? formatNumber(record['BÃI (ANH)']) :
-                                                                        formatNumber(Math.max(0, parseFloat(record['THỰC NHẬN ANH (TẤN)'] || 0) - parseFloat(record['ĐÃ PHÂN BỔ (ANH)'] || 0)).toFixed(2))}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
-                                                                    {record['BAO BÌ EM (TẤN)'] ? formatNumber(record['BAO BÌ EM (TẤN)']) : '-'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-teal-600">
-                                                                    {record['THỰC NHẬN EM (TẤN)'] ? formatNumber(record['THỰC NHẬN EM (TẤN)']) : '-'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
-                                                                    {record['ĐÃ PHÂN BỔ (EM)'] ? formatNumber(record['ĐÃ PHÂN BỔ (EM)']) : '0.00'}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-yellow-600">
-                                                                    {record['BÃI (EM)'] ? formatNumber(record['BÃI (EM)']) :
-                                                                        formatNumber(Math.max(0, parseFloat(record['THỰC NHẬN EM (TẤN)'] || 0) - parseFloat(record['ĐÃ PHÂN BỔ (EM)'] || 0)).toFixed(2))}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
-                                                                    {status.hasAllocation && (
-                                                                        <DetailReportsSection record={record} isInGroupView={true} />
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
-                                                                    <div className="flex justify-end space-x-1">
-                                                                        <button
-                                                                            onClick={(e) => handlePhanBo(record, e)}
-                                                                            className="text-green-600 hover:text-green-900 p-1.5 rounded-full hover:bg-green-50"
-                                                                            title="Phân bổ"
-                                                                        >
-                                                                            <Users className="h-4 w-4" />
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(e) => handleEdit(record, e)}
-                                                                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
-                                                                            title="Sửa thông tin"
-                                                                        >
-                                                                            <Edit className="h-4 w-4" />
-                                                                        </button>
-                                                                        <button
-                                                                            onClick={(e) => handleDelete(record.ID, e)}
-                                                                            className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
-                                                                            title="Xóa thông tin"
-                                                                        >
-                                                                            <Trash className="h-4 w-4" />
-                                                                        </button>
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-
-                                                            {/* Detail Reports Row for Grouped View */}
-                                                            {expandedGroupDetailGroups.has(record.ID) && status.hasAllocation && (
-                                                                <DetailReportsSection record={record} isInGroupView={true} />
-                                                            )}
-                                                        </React.Fragment>
-                                                    );
-                                                })}
+                                                {group.records.map(record => (
+                                                    <tr
+                                                        key={record.ID}
+                                                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                                                        onClick={() => handleViewDetail(record)}
+                                                    >
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{record['SỐ XE']}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{record['KHÁCH HÀNG']}</td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-blue-600">
+                                                            {record['BAO BÌ ANH (TẤN)'] ? formatNumber(record['BAO BÌ ANH (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-green-600">
+                                                            {record['THỰC NHẬN ANH (TẤN)'] ? formatNumber(record['THỰC NHẬN ANH (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
+                                                            {record['BAO BÌ EM (TẤN)'] ? formatNumber(record['BAO BÌ EM (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-teal-600">
+                                                            {record['THỰC NHẬN EM (TẤN)'] ? formatNumber(record['THỰC NHẬN EM (TẤN)']) : '-'}
+                                                        </td>
+                                                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
+                                                            <div className="flex justify-end space-x-1">
+                                                                <button
+                                                                    onClick={(e) => handleEdit(record, e)}
+                                                                    className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
+                                                                    title="Sửa thông tin"
+                                                                >
+                                                                    <Edit className="h-4 w-4" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => handleDelete(record.ID, e)}
+                                                                    className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
+                                                                    title="Xóa thông tin"
+                                                                >
+                                                                    <Trash className="h-4 w-4" />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                ))}
                                             </tbody>
                                         </table>
                                     </div>
@@ -1693,10 +1305,10 @@ const NhapBaoBiManagement = () => {
                 </div>
             </div>
 
-            {/* Detail View Modal - Updated with Chi tiết phân bổ */}
+            {/* Detail View Modal */}
             {showDetailModal && selectedRecord && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                    <div className="bg-white rounded-xl shadow-xl max-w-7xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto">
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
                             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                 <Eye className="h-5 w-5 text-indigo-600" />
@@ -1731,14 +1343,6 @@ const NhapBaoBiManagement = () => {
                                 <div className="bg-gray-50 p-4 rounded-lg">
                                     <label className="block text-sm font-medium text-gray-700 mb-2">Khách hàng</label>
                                     <span className="text-sm text-gray-900">{selectedRecord['KHÁCH HÀNG']}</span>
-                                </div>
-                            </div>
-
-                            {/* Status */}
-                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-                                <div className="flex items-center justify-between">
-                                    <h3 className="text-lg font-medium text-blue-800 mb-2">Trạng thái phân bổ</h3>
-                                    <AllocationStatusBadge record={selectedRecord} />
                                 </div>
                             </div>
 
@@ -1850,80 +1454,191 @@ const NhapBaoBiManagement = () => {
                                 )}
                             </div>
 
-                            {/* Chi tiết phân bổ trong modal */}
-                            {(() => {
-                                const status = getDistributionStatus(selectedRecord);
-                                return status.hasAllocation && (
-                                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-5">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h3 className="text-lg font-medium text-blue-800 flex items-center gap-2">
-                                                <Package className="w-5 h-5" />
-                                                Chi tiết phân bổ ({status.totalReports} báo cáo)
-                                            </h3>
-                                            <div className="text-sm text-blue-600">
-                                                Tổng giá trị: <span className="font-bold">{formatCurrency(status.relatedReports.reduce((sum, r) => sum + parseFloat(r['THÀNH TIỀN'] || 0), 0))}</span>
-                                            </div>
-                                        </div>
-
-                                        <div className="overflow-x-auto">
-                                            <table className="min-w-full divide-y divide-blue-200">
-                                                <thead className="bg-blue-100">
-                                                    <tr>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Ngày BC</th>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Tên hàng</th>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Tổ</th>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Công đoạn</th>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Khối lượng</th>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Nhân sự</th>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Đơn giá</th>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Thành tiền</th>
-                                                        <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Người nhập</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="bg-white divide-y divide-blue-100">
-                                                    {status.relatedReports.map((report, index) => (
-                                                        <tr key={report.IDBC} className={`${index % 2 === 0 ? 'bg-white' : 'bg-blue-25'} hover:bg-blue-50 transition-colors`}>
-                                                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                                                                <div className="flex items-center gap-1">
-                                                                    <Clock className="w-3 h-3 text-gray-400" />
-                                                                    {new Date(report['NGÀY']).toLocaleDateString('vi-VN')}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{report['TÊN HÀNG']}</td>
-                                                            <td className="px-3 py-2 whitespace-nowrap">
-                                                                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                                                                    {report['TỔ']}
-                                                                </span>
-                                                            </td>
-                                                            <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
-                                                                <div className="truncate" title={report['CÔNG ĐOẠN']}>
-                                                                    {report['CÔNG ĐOẠN']}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-purple-600">
-                                                                {formatNumber(report['KHỐI LƯỢNG'])}
-                                                                <span className="text-gray-500 text-xs ml-1">{report['ĐƠN VỊ TÍNH']}</span>
-                                                            </td>
-                                                            <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
-                                                                <div className="truncate" title={report['NHÂN SỰ THAM GIA']}>
-                                                                    {report['NHÂN SỰ THAM GIA']}
-                                                                </div>
-                                                            </td>
-                                                            <td className="px-3 py-2 whitespace-nowrap text-sm text-green-600 font-medium">
-                                                                {formatCurrency(report['ĐƠN GIÁ'])}
-                                                            </td>
-                                                            <td className="px-3 py-2 whitespace-nowrap text-sm font-bold text-green-700">
-                                                                {formatCurrency(report['THÀNH TIỀN'])}
-                                                            </td>
-                                                            <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{report['NGƯỜI NHẬP']}</td>
-                                                        </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                            {/* Status Summary */}
+                            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-200 rounded-lg p-5">
+                                <h3 className="text-lg font-medium text-indigo-800 mb-4">Tổng kết phân bổ</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tổng nhập bao bì</label>
+                                        <div className="text-lg font-bold text-indigo-600">
+                                            {formatNumber(
+                                                (parseFloat(selectedRecord['BAO BÌ ANH (TẤN)'] || 0) +
+                                                    parseFloat(selectedRecord['BAO BÌ EM (TẤN)'] || 0)).toFixed(2)
+                                            )} tấn
                                         </div>
                                     </div>
-                                );
-                            })()}
+
+                                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tổng thực nhận</label>
+                                        <div className="text-lg font-bold text-green-600">
+                                            {formatNumber(
+                                                (parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 0) +
+                                                    parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 0)).toFixed(2)
+                                            )} tấn
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tổng đã phân bổ</label>
+                                        <div className="text-lg font-bold text-blue-600">
+                                            {formatNumber(
+                                                (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) +
+                                                    parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0)).toFixed(2)
+                                            )} tấn
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-4 rounded-lg border border-gray-200">
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">Tổng còn lại</label>
+                                        <div className="text-lg font-bold text-yellow-600">
+                                            {formatNumber(
+                                                (parseFloat(selectedRecord['BÃI (ANH)'] || 0) +
+                                                    parseFloat(selectedRecord['BÃI (EM)'] || 0)).toFixed(2)
+                                            )} tấn
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Progress bars */}
+                                <div className="mt-4 space-y-3">
+                                    {/* Progress for Anh */}
+                                    {selectedRecord['BAO BÌ ANH (TẤN)'] && parseFloat(selectedRecord['BAO BÌ ANH (TẤN)']) > 0 && (
+                                        <div>
+                                            <div className="flex justify-between text-sm font-medium text-gray-700 mb-1">
+                                                <span>Tiến độ phân bổ Anh</span>
+                                                <span>
+                                                    {Math.round((parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) /
+                                                        parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) * 100)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                                    style={{
+                                                        width: `${Math.min(100, (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) /
+                                                            parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) * 100)}%`
+                                                    }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Progress for Em */}
+                                    {selectedRecord['BAO BÌ EM (TẤN)'] && parseFloat(selectedRecord['BAO BÌ EM (TẤN)']) > 0 && (
+                                        <div>
+                                            <div className="flex justify-between text-sm font-medium text-gray-700 mb-1">
+                                                <span>Tiến độ phân bổ Em</span>
+                                                <span>
+                                                    {Math.round((parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) /
+                                                        parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) * 100)}%
+                                                </span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                                <div
+                                                    className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                                                    style={{
+                                                        width: `${Math.min(100, (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) /
+                                                            parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) * 100)}%`
+                                                    }}
+                                                ></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Detailed breakdown table */}
+                            <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                                <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+                                    <h3 className="text-lg font-medium text-gray-800">Chi tiết phân bổ</h3>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loại bao bì</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nhập</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trừ bao bì</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Thực nhận</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Đã phân bổ</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Còn lại (Bãi)</th>
+                                                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">% Phân bổ</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {/* Row for Anh */}
+                                            {selectedRecord['BAO BÌ ANH (TẤN)'] && parseFloat(selectedRecord['BAO BÌ ANH (TẤN)']) > 0 && (
+                                                <tr className="hover:bg-blue-50">
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-blue-800">Bao bì Anh</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-blue-600 font-medium">
+                                                        {formatNumber(selectedRecord['BAO BÌ ANH (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-red-600">
+                                                        -{formatNumber(selectedRecord['TRỪ BAO BÌ ANH (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-green-600 font-medium">
+                                                        {formatNumber(selectedRecord['THỰC NHẬN ANH (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-indigo-600 font-medium">
+                                                        {selectedRecord['ĐÃ PHÂN BỔ (ANH)'] ? formatNumber(selectedRecord['ĐÃ PHÂN BỔ (ANH)']) : '0.00'} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-yellow-600 font-medium">
+                                                        {selectedRecord['BÃI (ANH)'] ? formatNumber(selectedRecord['BÃI (ANH)']) :
+                                                            formatNumber((parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 0) -
+                                                                parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0)).toFixed(2))} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                                        <span className={`px-2 py-1 rounded-full text-xs ${(parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) >= 0.8
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) >= 0.5
+                                                                ? 'bg-yellow-100 text-yellow-800'
+                                                                : 'bg-red-100 text-red-800'
+                                                            }`}>
+                                                            {Math.round((parseFloat(selectedRecord['ĐÃ PHÂN BỔ (ANH)'] || 0) /
+                                                                parseFloat(selectedRecord['THỰC NHẬN ANH (TẤN)'] || 1)) * 100)}%
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            )}
+
+                                            {/* Row for Em */}
+                                            {selectedRecord['BAO BÌ EM (TẤN)'] && parseFloat(selectedRecord['BAO BÌ EM (TẤN)']) > 0 && (
+                                                <tr className="hover:bg-purple-50">
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-purple-800">Bao bì Em</td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-purple-600 font-medium">
+                                                        {formatNumber(selectedRecord['BAO BÌ EM (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-orange-600">
+                                                        -{formatNumber(selectedRecord['TRỪ BAO BÌ EM (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-teal-600 font-medium">
+                                                        {formatNumber(selectedRecord['THỰC NHẬN EM (TẤN)'])} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-indigo-600 font-medium">
+                                                        {selectedRecord['ĐÃ PHÂN BỔ (EM)'] ? formatNumber(selectedRecord['ĐÃ PHÂN BỔ (EM)']) : '0.00'} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm text-yellow-600 font-medium">
+                                                        {selectedRecord['BÃI (EM)'] ? formatNumber(selectedRecord['BÃI (EM)']) :
+                                                            formatNumber((parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 0) -
+                                                                parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0)).toFixed(2))} tấn
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                                                        <span className={`px-2 py-1 rounded-full text-xs ${(parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) >= 0.8
+                                                            ? 'bg-green-100 text-green-800'
+                                                            : (parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) / parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) >= 0.5
+                                                                ? 'bg-yellow-100 text-yellow-800'
+                                                                : 'bg-red-100 text-red-800'
+                                                            }`}>
+                                                            {Math.round((parseFloat(selectedRecord['ĐÃ PHÂN BỔ (EM)'] || 0) /
+                                                                parseFloat(selectedRecord['THỰC NHẬN EM (TẤN)'] || 1)) * 100)}%
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
 
                             {/* Action buttons */}
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
@@ -1968,8 +1683,7 @@ const NhapBaoBiManagement = () => {
                         setSelectedRecordForPhanBo(null);
                     }}
                     onSuccess={async () => {
-                        await fetchPackagingData();
-                        await fetchDetailReports();
+                        await fetchPackagingData(); // Refresh data để hiển thị cập nhật
                         toast.success('Phân bổ thành công!');
                     }}
                 />
@@ -2190,6 +1904,128 @@ const NhapBaoBiManagement = () => {
                                 File cần có các cột: <span className="font-medium">NGÀY THÁNG, SỐ XE, KHÁCH HÀNG</span> và ít nhất một trong hai cột:
                                 <span className="font-medium"> BAO BÌ ANH (TẤN), BAO BÌ EM (TẤN)</span>.
                             </p>
+                            <div className="flex gap-3">
+                                <label className="flex items-center gap-2 cursor-pointer px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+                                    <input
+                                        type="file"
+                                        accept=".xlsx,.xls,.csv"
+                                        className="hidden"
+                                        onChange={handleImportFileChange}
+                                    />
+                                    <Upload className="h-4 w-4" />
+                                    <span>Chọn file</span>
+                                </label>
+                                <button
+                                    onClick={handleDownloadTemplate}
+                                    className="px-4 py-2 text-indigo-600 border border-indigo-300 bg-indigo-50 rounded-lg hover:bg-indigo-100 flex items-center gap-2 transition-colors shadow-sm"
+                                >
+                                    <Download className="h-4 w-4" />
+                                    Tải mẫu nhập
+                                </button>
+                            </div>
+
+                            {importFile && (
+                                <div className="mt-3 p-3 bg-indigo-50 border border-indigo-100 rounded-lg text-sm text-indigo-700 flex items-center">
+                                    <div className="mr-2 flex-shrink-0">
+                                        <Package className="h-5 w-5" />
+                                    </div>
+                                    <div>
+                                        <div className="font-medium">Đã chọn: {importFile.name}</div>
+                                        <div className="text-xs text-indigo-600 mt-1">Kích thước: {(importFile.size / 1024).toFixed(2)} KB</div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {importPreview.length > 0 && (
+                            <div className="mb-5">
+                                <h3 className="font-medium mb-2">Xem trước dữ liệu (5 dòng đầu tiên):</h3>
+                                <div className="overflow-x-auto border rounded-lg">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                {Object.keys(importPreview[0]).map((header, index) => (
+                                                    <th key={index} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                        {header}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {importPreview.map((row, rowIndex) => (
+                                                <tr key={rowIndex}>
+                                                    {Object.values(row).map((cell, cellIndex) => (
+                                                        <td key={cellIndex} className="px-3 py-2 text-sm text-gray-500 truncate">
+                                                            {cell}
+                                                        </td>
+                                                    ))}
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                            <button
+                                onClick={() => {
+                                    setShowImportModal(false);
+                                    setImportFile(null);
+                                    setImportPreview([]);
+                                }}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
+                                disabled={isImporting}
+                            >
+                                Hủy
+                            </button>
+                            <button
+                                onClick={handleImportData}
+                                disabled={!importFile || isImporting}
+                                className={`px-4 py-2 bg-indigo-600 text-white rounded-lg ${(!importFile || isImporting)
+                                    ? 'opacity-50 cursor-not-allowed'
+                                    : 'hover:bg-indigo-700'
+                                    } flex items-center gap-2 transition-colors shadow-sm`}
+                            >
+                                {isImporting ? (
+                                    <>
+                                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                        </svg>
+                                        Đang nhập...
+                                    </>
+                                ) : 'Nhập dữ liệu'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Import Excel Modal */}
+            {showImportModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full p-6">
+                        <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
+                            <h2 className="text-xl font-bold text-gray-800">Nhập dữ liệu từ Excel</h2>
+                            <button
+                                onClick={() => {
+                                    setShowImportModal(false);
+                                    setImportFile(null);
+                                    setImportPreview([]);
+                                }}
+                                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="mb-5">
+                            <p className="text-sm text-gray-600 mb-3">
+                                Tải lên file Excel (.xlsx, .xls) hoặc CSV có chứa dữ liệu nhập bao bì.
+                                File cần có các cột: <span className="font-medium">NGÀY THÁNG, SỐ XE, KHÁCH HÀNG</span> và ít nhất một trong hai cột:
+                                <span className="font-medium"> BAO BÌ ANH (TẤN), BAO BÌ EM (TẤN)</span>.
+                            </p>
 
                             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
                                 <div className="flex items-start">
@@ -2294,66 +2130,6 @@ const NhapBaoBiManagement = () => {
                                     </>
                                 ) : 'Nhập dữ liệu'}
                             </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Confirmation Modal */}
-            {showConfirmModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-                        <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
-                            <h2 className="text-xl font-bold text-gray-800">{confirmTitle}</h2>
-                            <button
-                                onClick={handleCloseConfirmModal}
-                                className="text-gray-500 hover:text-gray-700 focus:outline-none"
-                                disabled={isConfirmLoading}
-                            >
-                                <X className="h-5 w-5" />
-                            </button>
-                        </div>
-
-                        <div className="space-y-5">
-                            <p className="text-gray-600">{confirmMessage}</p>
-                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                                <button
-                                    onClick={handleCloseConfirmModal}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-                                    disabled={isConfirmLoading}
-                                >
-                                    Hủy
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        if (confirmAction && typeof confirmAction === 'function') {
-                                            setIsConfirmLoading(true);
-                                            try {
-                                                await confirmAction();
-                                            } catch (error) {
-                                                console.error("Error executing confirmation action:", error);
-                                                toast.error("Có lỗi xảy ra khi thực hiện thao tác");
-                                            } finally {
-                                                handleCloseConfirmModal();
-                                            }
-                                        }
-                                    }}
-                                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2"
-                                    disabled={isConfirmLoading}
-                                >
-                                    {isConfirmLoading ? (
-                                        <>
-                                            <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            Đang xử lý...
-                                        </>
-                                    ) : (
-                                        'Xác nhận'
-                                    )}
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </div>
