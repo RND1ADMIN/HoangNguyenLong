@@ -147,7 +147,8 @@ const MainLayout = ({ children }) => {
                 { text: 'Công đoạn - Đơn giá', icon: LayoutList, path: '/congdoan_dongia' },
                 { text: 'Phân bố nhân sự', icon: LayoutList, path: '/phanbonhansu' },
                 { text: 'Nhập bao bì', icon: NotebookPen, path: '/nhapbaobi' },
-                { text: 'Tổng hợp năng suất', icon: NotebookPen, path: '/report' }
+                { text: 'Tổng hợp năng suất', icon: NotebookPen, path: '/report' },
+                { text: 'Tổng hợp', icon: NotebookPen, path: '/tonghop' }
             ]
         },
         {

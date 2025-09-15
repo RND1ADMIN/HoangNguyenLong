@@ -96,7 +96,7 @@ const LoginPage = () => {
 
                         <div className="text-center mb-8">
                             <h2 className="text-2xl font-semibold text-blue-800 mb-2">
-                                Đăng nhập hệ thống
+                                Đăng nhập
                             </h2>
                         </div>
 
