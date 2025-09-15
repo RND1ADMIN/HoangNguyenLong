@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Upload, X, Calendar, AlertCircle, List, ChevronDown, ChevronUp, Package } from 'lucide-react';
+import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Upload, X, Calendar, AlertCircle } from 'lucide-react';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -19,19 +19,6 @@ const formatDateForInput = (dateString) => {
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
   return `${year}-${month}-${day}`;
-};
-
-const parseVNDate = (dateString) => {
-  if (!dateString) return null;
-  if (dateString.includes('/')) {
-    const [day, month, year] = dateString.split('/').map(Number);
-    const date = new Date(year, month - 1, day);
-    date.setHours(0, 0, 0, 0);
-    return date;
-  }
-  const date = new Date(dateString);
-  date.setHours(0, 0, 0, 0);
-  return date;
 };
 
 const formatCurrency = (amount) => {
@@ -98,12 +85,9 @@ const Pagination = ({ currentPage, totalPages, onPageChange }) => (
 const ReportManagement = () => {
   // State Management - core data
   const [reports, setReports] = useState([]);
-  const [nhapBaoBiData, setNhapBaoBiData] = useState([]);
   const [staffList, setStaffList] = useState([]);
-  const [teamWorkStages, setTeamWorkStages] = useState([]); // TO_PBNS data
+  const [teamWorkStages, setTeamWorkStages] = useState([]);
   const [teams, setTeams] = useState([]);
-  const [viewMode, setViewMode] = useState('grouped');
-  const [expandedGroups, setExpandedGroups] = useState(new Set());
 
   // State - UI controls
   const [open, setOpen] = useState(false);
@@ -117,7 +101,6 @@ const ReportManagement = () => {
   const [filters, setFilters] = useState({
     to: '',
     congDoan: '',
-    khachHang: '',
     startDate: null,
     endDate: null
   });
@@ -139,11 +122,10 @@ const ReportManagement = () => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState([]);
 
-  // Default empty report - removed status fields
+  // Default empty report
   const emptyReport = {
     IDBC: '',
     'NGÀY': new Date(),
-    'ID_NHAPBAOBI': '',
     'TÊN HÀNG': '',
     'TỔ': '',
     'CÔNG ĐOẠN': '',
@@ -260,7 +242,6 @@ const ReportManagement = () => {
   // Data fetching
   useEffect(() => {
     fetchReports();
-    fetchNhapBaoBiData();
     fetchStaffList();
     fetchTeamWorkStages();
   }, []);
@@ -272,16 +253,6 @@ const ReportManagement = () => {
     } catch (error) {
       console.error('Error fetching reports:', error);
       toast.error('Lỗi khi tải danh sách báo cáo');
-    }
-  };
-
-  const fetchNhapBaoBiData = async () => {
-    try {
-      const response = await authUtils.apiRequest('NHAPBAOBI', 'Find', {});
-      setNhapBaoBiData(response);
-    } catch (error) {
-      console.error('Error fetching NHAPBAOBI data:', error);
-      toast.error('Lỗi khi tải dữ liệu nhập bao bì');
     }
   };
 
@@ -330,17 +301,6 @@ const ReportManagement = () => {
     setShowHistoryModal(true);
   };
 
-  // Toggle group expansion
-  const toggleGroupExpansion = (batchId) => {
-    const newExpanded = new Set(expandedGroups);
-    if (newExpanded.has(batchId)) {
-      newExpanded.delete(batchId);
-    } else {
-      newExpanded.add(batchId);
-    }
-    setExpandedGroups(newExpanded);
-  };
-
   // Report modal functions
   const handleOpen = useCallback((report = null) => {
     if (report) {
@@ -354,7 +314,6 @@ const ReportManagement = () => {
       setCurrentReport({
         IDBC: report.IDBC || '',
         'NGÀY': report['NGÀY'] ? new Date(report['NGÀY']) : new Date(),
-        'ID_NHAPBAOBI': report['ID_NHAPBAOBI'] || '',
         'TÊN HÀNG': report['TÊN HÀNG'] || '',
         'TỔ': report['TỔ'] || '',
         'CÔNG ĐOẠN': report['CÔNG ĐOẠN'] || '',
@@ -414,10 +373,9 @@ const ReportManagement = () => {
     }));
   }, []);
 
-  // Report validation - removed status validation
+  // Report validation
   const validateReport = useCallback((report) => {
     const errors = [];
-    if (!report['ID_NHAPBAOBI']) errors.push('ID Nhập bao bì không được để trống');
     if (!report['TỔ']) errors.push('TỔ không được để trống');
     if (!report['CÔNG ĐOẠN']) errors.push('CÔNG ĐOẠN không được để trống');
     if (!report['KHỐI LƯỢNG']) errors.push('KHỐI LƯỢNG không được để trống');
@@ -426,7 +384,7 @@ const ReportManagement = () => {
     return errors;
   }, []);
 
-  // Save report - simplified without status logic
+  // Save report
   const handleSave = async () => {
     if (isSubmitting) return;
 
@@ -539,7 +497,6 @@ const ReportManagement = () => {
     const excelData = selectedItems.map(item => ({
       IDBC: item.IDBC,
       'NGÀY': item['NGÀY'],
-      'ID_NHAPBAOBI': item['ID_NHAPBAOBI'],
       'TÊN HÀNG': item['TÊN HÀNG'],
       'TỔ': item['TỔ'],
       'CÔNG ĐOẠN': item['CÔNG ĐOẠN'],
@@ -590,7 +547,7 @@ const ReportManagement = () => {
         }
 
         const headers = jsonData[0];
-        const requiredColumns = ['NGÀY', 'ID_NHAPBAOBI', 'TỔ', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'NGƯỜI NHẬP'];
+        const requiredColumns = ['NGÀY', 'TỔ', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'NGƯỜI NHẬP'];
         const missingColumns = requiredColumns.filter(col => !headers.includes(col));
 
         if (missingColumns.length > 0) {
@@ -654,7 +611,7 @@ const ReportManagement = () => {
           for (let i = 0; i < jsonData.length; i++) {
             const row = jsonData[i];
 
-            if (!row['ID_NHAPBAOBI'] || !row['TỔ'] || !row['CÔNG ĐOẠN'] || !row['KHỐI LƯỢNG'] || !row['NGÀY']) {
+            if (!row['TỔ'] || !row['CÔNG ĐOẠN'] || !row['KHỐI LƯỢNG'] || !row['NGÀY']) {
               invalidRows.push(i + 2);
               continue;
             }
@@ -674,7 +631,6 @@ const ReportManagement = () => {
             const report = {
               IDBC: row.IDBC || `BC${newIdCounter.toString().padStart(3, '0')}`,
               'NGÀY': row['NGÀY'],
-              'ID_NHAPBAOBI': row['ID_NHAPBAOBI'],
               'TÊN HÀNG': row['TÊN HÀNG'] || '',
               'TỔ': row['TỔ'],
               'CÔNG ĐOẠN': row['CÔNG ĐOẠN'],
@@ -746,9 +702,9 @@ const ReportManagement = () => {
 
   const handleDownloadTemplate = () => {
     const templateData = [
-      ['NGÀY', 'ID_NHAPBAOBI', 'TÊN HÀNG', 'TỔ', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'SỐ DÂY', 'NHÂN SỰ THAM GIA', 'GHI CHÚ', 'NGƯỜI NHẬP'],
-      ['2025-03-22', 'UVVU7XLQ', 'Bao bì anh', 'CD1', 'Bao bì anh - Cưa', '50', '10', 'Nguyễn Văn A, Trần Văn B', 'Hoàn thành đúng tiến độ', 'Lê Văn C'],
-      ['2025-03-22', 'UVVU7XLQ', 'Bao bì em', 'CD2', 'Bao bì em - Cắt lưa', '30', '8', 'Phạm Văn D, Ngô Văn E', 'Cần bổ sung nhân lực', 'Lê Văn C']
+      ['NGÀY', 'TÊN HÀNG', 'TỔ', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'SỐ DÂY', 'NHÂN SỰ THAM GIA', 'GHI CHÚ', 'NGƯỜI NHẬP'],
+      ['2025-03-22', 'Bao bì anh', 'CD1', 'Bao bì anh - Cưa', '50', '10', 'Nguyễn Văn A, Trần Văn B', 'Hoàn thành đúng tiến độ', 'Lê Văn C'],
+      ['2025-03-22', 'Bao bì em', 'CD2', 'Bao bì em - Cắt lưa', '30', '8', 'Phạm Văn D, Ngô Văn E', 'Cần bổ sung nhân lực', 'Lê Văn C']
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(templateData);
@@ -757,75 +713,45 @@ const ReportManagement = () => {
     XLSX.writeFile(wb, 'mau_nhap_bao_cao_chi_tiet.xlsx');
   };
 
-  // Group reports by ID_NHAPBAOBI with NHAPBAOBI info
-  const groupedReportsByBatch = useMemo(() => {
-    const groups = {};
-
-    reports.forEach(report => {
-      const batchId = report['ID_NHAPBAOBI'];
-      if (!groups[batchId]) {
-        const nhapBaoBiInfo = nhapBaoBiData.find(item => item.ID === batchId) || {};
-
-        groups[batchId] = {
-          batchInfo: nhapBaoBiInfo,
-          reports: [],
-          totalAmount: 0,
-          totalReports: 0
-        };
-      }
-      groups[batchId].reports.push(report);
-      groups[batchId].totalReports++;
-
-      const amount = parseFloat(report['THÀNH TIỀN']) || 0;
-      groups[batchId].totalAmount += amount;
-    });
-
-    return groups;
-  }, [reports, nhapBaoBiData]);
-
-  // Apply filters to grouped data
-  const filteredGroupedReports = useMemo(() => {
-    const filtered = Object.entries(groupedReportsByBatch).filter(([batchId, group]) => {
+  // Apply filters to reports
+  const filteredReports = useMemo(() => {
+    return reports.filter(report => {
       const searchMatch = !search ||
-        batchId.toLowerCase().includes(search.toLowerCase()) ||
-        group.batchInfo['KHÁCH HÀNG']?.toLowerCase().includes(search.toLowerCase()) ||
-        group.batchInfo['SỐ XE']?.toLowerCase().includes(search.toLowerCase()) ||
-        group.reports.some(report =>
-          report['TỔ']?.toLowerCase().includes(search.toLowerCase()) ||
-          report['CÔNG ĐOẠN']?.toLowerCase().includes(search.toLowerCase()) ||
-          report.IDBC?.toLowerCase().includes(search.toLowerCase()) ||
-          report['TÊN HÀNG']?.toLowerCase().includes(search.toLowerCase())
-        );
+        report.IDBC?.toLowerCase().includes(search.toLowerCase()) ||
+        report['TÊN HÀNG']?.toLowerCase().includes(search.toLowerCase()) ||
+        report['TỔ']?.toLowerCase().includes(search.toLowerCase()) ||
+        report['CÔNG ĐOẠN']?.toLowerCase().includes(search.toLowerCase()) ||
+        report['NGƯỜI NHẬP']?.toLowerCase().includes(search.toLowerCase());
 
-      const customerMatch = !filters.khachHang ||
-        group.batchInfo['KHÁCH HÀNG']?.includes(filters.khachHang);
-
-      const teamMatch = !filters.to ||
-        group.reports.some(report => report['TỔ'] === filters.to);
-
-      const stageMatch = !filters.congDoan ||
-        group.reports.some(report => report['CÔNG ĐOẠN'] === filters.congDoan);
+      const teamMatch = !filters.to || report['TỔ'] === filters.to;
+      const stageMatch = !filters.congDoan || report['CÔNG ĐOẠN'] === filters.congDoan;
 
       let dateMatches = true;
       if (filters.startDate || filters.endDate) {
-        const batchDate = parseVNDate(group.batchInfo['NGÀY THÁNG']);
+        const reportDate = new Date(report['NGÀY']);
         const startDate = filters.startDate ? new Date(filters.startDate.setHours(0, 0, 0, 0)) : null;
-        const endDate = filters.endDate ? new Date(filters.endDate.setHours(0, 0, 0, 0)) : null;
+        const endDate = filters.endDate ? new Date(filters.endDate.setHours(23, 59, 59, 999)) : null;
 
         if (startDate && endDate) {
-          dateMatches = batchDate >= startDate && batchDate <= endDate;
+          dateMatches = reportDate >= startDate && reportDate <= endDate;
         } else if (startDate) {
-          dateMatches = batchDate >= startDate;
+          dateMatches = reportDate >= startDate;
         } else if (endDate) {
-          dateMatches = batchDate <= endDate;
+          dateMatches = reportDate <= endDate;
         }
       }
 
-      return searchMatch && customerMatch && teamMatch && stageMatch && dateMatches;
+      return searchMatch && teamMatch && stageMatch && dateMatches;
     });
+  }, [reports, search, filters]);
 
-    return filtered;
-  }, [groupedReportsByBatch, search, filters]);
+  // Pagination
+  const paginatedReports = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredReports.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredReports, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
 
   return (
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
@@ -877,44 +803,13 @@ const ReportManagement = () => {
                 <Plus className="w-4 h-4" />
                 Thêm báo cáo
               </button>
-
-              <button
-                onClick={() => setViewMode(viewMode === 'list' ? 'grouped' : 'list')}
-                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors shadow-sm"
-              >
-                {viewMode === 'list' ? (
-                  <>
-                    <Package className="w-4 h-4" />
-                    Nhóm theo lô
-                  </>
-                ) : (
-                  <>
-                    <List className="w-4 h-4" />
-                    Danh sách
-                  </>
-                )}
-              </button>
             </div>
           </div>
 
           {/* Filter Section */}
           {showFilters && (
             <div className="mb-6 p-4 border rounded-lg bg-gray-50 animate-fadeIn">
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Khách hàng</label>
-                  <select
-                    value={filters.khachHang}
-                    onChange={(e) => setFilters({ ...filters, khachHang: e.target.value })}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                  >
-                    <option value="">Tất cả khách hàng</option>
-                    {Array.from(new Set(nhapBaoBiData.map(item => item['KHÁCH HÀNG']))).filter(Boolean).map(customer => (
-                      <option key={customer} value={customer}>{customer}</option>
-                    ))}
-                  </select>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tổ</label>
                   <select
@@ -944,7 +839,7 @@ const ReportManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Từ</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Từ ngày</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                       <Calendar className="w-4 h-4 text-gray-500" />
@@ -954,14 +849,12 @@ const ReportManagement = () => {
                       value={filters.startDate ? formatDateForInput(filters.startDate) : ''}
                       onChange={(e) => handleFilterDateChange('startDate', e.target.value)}
                       className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="Từ ngày"
                     />
                   </div>
                 </div>
 
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Đến</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Đến ngày</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                       <Calendar className="w-4 h-4 text-gray-500" />
@@ -971,7 +864,6 @@ const ReportManagement = () => {
                       value={filters.endDate ? formatDateForInput(filters.endDate) : ''}
                       onChange={(e) => handleFilterDateChange('endDate', e.target.value)}
                       className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="Đến ngày"
                     />
                   </div>
                 </div>
@@ -981,7 +873,6 @@ const ReportManagement = () => {
                     onClick={() => setFilters({
                       to: '',
                       congDoan: '',
-                      khachHang: '',
                       startDate: null,
                       endDate: null
                     })}
@@ -1000,7 +891,7 @@ const ReportManagement = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo khách hàng, tổ, công đoạn, tên hàng..."
+                placeholder="Tìm kiếm theo mã BC, tên hàng, tổ, công đoạn, người nhập..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -1008,329 +899,120 @@ const ReportManagement = () => {
             </div>
           </div>
 
-          {/* Main Content */}
-          {viewMode === 'grouped' ? (
-            <div className="space-y-6">
-              {filteredGroupedReports.length > 0 ? (
-                filteredGroupedReports.map(([batchId, group]) => (
-                  <div key={batchId} className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
-                    {/* Improved Batch Header */}
-                    <div className="bg-gradient-to-r from-slate-50 to-blue-50 border-b border-gray-200">
-                      <div className="px-6 py-5">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-4">
-                            <button
-                              onClick={() => toggleGroupExpansion(batchId)}
-                              className="flex items-center gap-3 text-xl font-bold text-gray-800 hover:text-indigo-600 transition-colors"
-                            >
-                              {expandedGroups.has(batchId) ?
-                                <ChevronUp className="w-6 h-6 text-blue-600" /> :
-                                <ChevronDown className="w-6 h-6 text-blue-600" />
-                              }
-                              <Package className="w-6 h-6 text-blue-600" />
-                              <span className="text-blue-800">{group.batchInfo['NGÀY THÁNG'] ?
-                                new Date(group.batchInfo['NGÀY THÁNG']).toLocaleDateString('vi-VN') : 'N/A'} • Xe: {group.batchInfo['SỐ XE'] || 'N/A'}</span>
-                            </button>
-                            <div className="hidden md:flex items-center gap-4">
-                              <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                                {group.totalReports} báo cáo
-                              </span>
-                              <span className="text-sm text-gray-600">
-                                Tổng giá trị: <span className="font-bold text-green-600">{formatCurrency(group.totalAmount)}</span>
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <div className="text-lg font-semibold text-gray-800">{group.batchInfo['KHÁCH HÀNG'] || 'N/A'}</div>
-                            {/* <div className="text-sm text-gray-500">
-                              {group.batchInfo['NGÀY THÁNG'] ?
-                                new Date(group.batchInfo['NGÀY THÁNG']).toLocaleDateString('vi-VN') : 'N/A'} • Xe: {group.batchInfo['SỐ XE'] || 'N/A'}
-                            </div> */}
-                          </div>
-                        </div>
-
-                        {/* Batch Details - Compact Grid */}
-                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 text-sm bg-white p-2 rounded-lg border border-gray-100">
-                          <div className="text-center border-r border-gray-200 pr-4">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Nhập BB anh</div>
-                            <div className="text-lg font-bold text-blue-600">{formatNumber(group.batchInfo['BAO BÌ ANH (TẤN)']) || '0'}T</div>
-                          </div>
-                          <div className="text-center border-r border-gray-200 pr-4">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Thực nhận BB anh</div>
-                            <div className="text-lg font-bold text-green-600">{formatNumber(group.batchInfo['THỰC NHẬN ANH (TẤN)']) || '0'}T</div>
-                          </div>
-                          <div className="text-center border-r border-gray-200 pr-4">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Đã phân bổ BB anh</div>
-                            <div className="text-lg font-bold text-purple-600">{formatNumber(group.batchInfo['ĐÃ PHÂN BỔ (ANH)']) || '0'}T</div>
-                          </div>
-                          <div className="text-center border-r border-gray-200 pr-4">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Nhập BB em</div>
-                            <div className="text-lg font-bold text-blue-600">{formatNumber(group.batchInfo['BAO BÌ EM (TẤN)']) || '0'}T</div>
-                          </div>
-                          <div className="text-center border-r border-gray-200 pr-4">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Nhập BB em</div>
-                            <div className="text-lg font-bold text-green-600">{formatNumber(group.batchInfo['THỰC NHẬN EM (TẤN)']) || '0'}T</div>
-                          </div>
-                          <div className="text-center">
-                            <div className="text-xs text-gray-500 mb-1 font-medium">Đã phân bổ BB em</div>
-                            <div className="text-lg font-bold text-purple-600">{formatNumber(group.batchInfo['ĐÃ PHÂN BỔ (EM)']) || '0'}T</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Expandable Details */}
-                    {expandedGroups.has(batchId) && (
-                      <div className="bg-gray-50">
-                        <div className="overflow-x-auto">
-                          <table className="min-w-full">
-                            <thead className="bg-gray-100">
-                              <tr>
-                                <th className="p-4 text-left">
-                                  <input
-                                    type="checkbox"
-                                    checked={group.reports.every(r => selectedReports.includes(r.IDBC))}
-                                    onChange={(e) => {
-                                      const reportIds = group.reports.map(r => r.IDBC);
-                                      if (e.target.checked) {
-                                        setSelectedReports(prev => [...new Set([...prev, ...reportIds])]);
-                                      } else {
-                                        setSelectedReports(prev => prev.filter(id => !reportIds.includes(id)));
-                                      }
-                                    }}
-                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                  />
-                                </th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Tên hàng</th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Tổ</th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Công đoạn</th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Khối lượng</th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Số dây</th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Nhân sự</th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Đơn giá</th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Thành tiền</th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-left">Người nhập</th>
-                                <th className="px-4 py-3 text-xs font-medium text-gray-600 uppercase tracking-wider text-right">Thao tác</th>
-                              </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-100">
-                              {group.reports.map(report => (
-                                <tr key={report.IDBC} className="hover:bg-gray-50 transition-colors">
-                                  <td className="p-4 whitespace-nowrap">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedReports.includes(report.IDBC)}
-                                      onChange={(e) => {
-                                        if (e.target.checked) {
-                                          setSelectedReports([...selectedReports, report.IDBC]);
-                                        } else {
-                                          setSelectedReports(selectedReports.filter(id => id !== report.IDBC));
-                                        }
-                                      }}
-                                      className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
-                                  <td className="px-4 py-3 whitespace-nowrap">
-                                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                                      {report['TỔ']}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                    {formatNumber(report['KHỐI LƯỢNG'])} <span className="text-gray-500 text-xs">{report['ĐƠN VỊ TÍNH']}</span>
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['SỐ DÂY']}</td>
-                                  <td className="px-4 py-3 text-sm text-gray-700">
-                                    <div className="max-w-xs truncate" title={report['NHÂN SỰ THAM GIA']}>
-                                      {report['NHÂN SỰ THAM GIA']}
-                                    </div>
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{formatNumber(report['ĐƠN GIÁ'])}</td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
-                                    {formatCurrency(report['THÀNH TIỀN'])}
-                                  </td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI NHẬP']}</td>
-                                  <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                    <div className="flex justify-end space-x-1">
-                                      <button
-                                        onClick={() => handleOpen(report)}
-                                        className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
-                                        title="Sửa báo cáo"
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </button>
-                                      <button
-                                        onClick={() => handleDelete(report.IDBC)}
-                                        className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
-                                        title="Xóa báo cáo"
-                                      >
-                                        <Trash className="h-4 w-4" />
-                                      </button>
-                                      {report['LỊCH SỬ'] && (
-                                        <button
-                                          onClick={() => handleViewHistory(report)}
-                                          className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
-                                          title="Xem lịch sử"
-                                        >
-                                          <AlertCircle className="h-4 w-4" />
-                                        </button>
-                                      )}
-                                    </div>
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-                  <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">Không tìm thấy báo cáo nào phù hợp với tiêu chí tìm kiếm</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            // List View
-            <div className="overflow-x-auto -mx-4 md:mx-0">
-              <div className="inline-block min-w-full align-middle">
-                <div className="overflow-hidden border border-gray-200 rounded-lg">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th scope="col" className="p-4 text-left">
+          {/* Table */}
+          <div className="overflow-x-auto -mx-4 md:mx-0">
+            <div className="inline-block min-w-full align-middle">
+              <div className="overflow-hidden border border-gray-200 rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="p-4 text-left">
+                        <input
+                          type="checkbox"
+                          checked={selectedReports.length === paginatedReports.length && paginatedReports.length > 0}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedReports(paginatedReports.map(r => r.IDBC));
+                            } else {
+                              setSelectedReports([]);
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                      </th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Mã BC</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số dây</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Người nhập</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paginatedReports.map(report => (
+                      <tr key={report.IDBC} className="hover:bg-gray-50 transition-colors">
+                        <td className="p-4 whitespace-nowrap">
                           <input
                             type="checkbox"
-                            checked={selectedReports.length === reports.length && reports.length > 0}
+                            checked={selectedReports.includes(report.IDBC)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedReports(reports.map(r => r.IDBC));
+                                setSelectedReports([...selectedReports, report.IDBC]);
                               } else {
-                                setSelectedReports([]);
+                                setSelectedReports(selectedReports.filter(id => id !== report.IDBC));
                               }
                             }}
                             className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                           />
-                        </th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khách hàng</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số dây</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Người nhập</th>
-                        <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-indigo-600">
+                          {report.IDBC}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                          {report['NGÀY'] ? new Date(report['NGÀY']).toLocaleDateString('vi-VN') : 'N/A'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                            {report['TỔ']}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {formatNumber(report['KHỐI LƯỢNG'])} <span className="text-gray-500 text-xs">{report['ĐƠN VỊ TÍNH']}</span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['SỐ DÂY']}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{formatNumber(report['ĐƠN GIÁ'])}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
+                          {formatCurrency(report['THÀNH TIỀN'])}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI NHẬP']}</td>
+                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end space-x-1">
+                            <button
+                              onClick={() => handleOpen(report)}
+                              className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
+                              title="Sửa báo cáo"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(report.IDBC)}
+                              className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
+                              title="Xóa báo cáo"
+                            >
+                              <Trash className="h-4 w-4" />
+                            </button>
+                            {report['LỊCH SỬ'] && (
+                              <button
+                                onClick={() => handleViewHistory(report)}
+                                className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
+                                title="Xem lịch sử"
+                              >
+                                <AlertCircle className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {Object.values(groupedReportsByBatch).flatMap(group => group.reports)
-                        .filter(report => {
-                          const matchesSearch = !search ||
-                            report.IDBC?.toLowerCase().includes(search.toLowerCase()) ||
-                            report['ID_NHAPBAOBI']?.toLowerCase().includes(search.toLowerCase()) ||
-                            report['TÊN HÀNG']?.toLowerCase().includes(search.toLowerCase()) ||
-                            report['TỔ']?.toLowerCase().includes(search.toLowerCase()) ||
-                            report['CÔNG ĐOẠN']?.toLowerCase().includes(search.toLowerCase());
-
-                          const batchInfo = nhapBaoBiData.find(item => item.ID === report['ID_NHAPBAOBI']);
-                          const matchesFilters = (!filters.to || report['TỔ'] === filters.to) &&
-                            (!filters.congDoan || report['CÔNG ĐOẠN'] === filters.congDoan) &&
-                            (!filters.khachHang || batchInfo?.['KHÁCH HÀNG']?.includes(filters.khachHang));
-
-                          return matchesSearch && matchesFilters;
-                        })
-                        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                        .map(report => {
-                          const batchInfo = nhapBaoBiData.find(item => item.ID === report['ID_NHAPBAOBI']) || {};
-                          return (
-                            <tr key={report.IDBC} className="hover:bg-gray-50 transition-colors">
-                              <td className="p-4 whitespace-nowrap">
-                                <input
-                                  type="checkbox"
-                                  checked={selectedReports.includes(report.IDBC)}
-                                  onChange={(e) => {
-                                    if (e.target.checked) {
-                                      setSelectedReports([...selectedReports, report.IDBC]);
-                                    } else {
-                                      setSelectedReports(selectedReports.filter(id => id !== report.IDBC));
-                                    }
-                                  }}
-                                  className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                />
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                                {batchInfo['NGÀY THÁNG'] ? new Date(batchInfo['NGÀY THÁNG']).toLocaleDateString('vi-VN') : 'N/A'}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{batchInfo['KHÁCH HÀNG'] || 'N/A'}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
-                              <td className="px-4 py-3 whitespace-nowrap">
-                                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                                  {report['TỔ']}
-                                </span>
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                {formatNumber(report['KHỐI LƯỢNG'])} <span className="text-gray-500 text-xs">{report['ĐƠN VỊ TÍNH']}</span>
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['SỐ DÂY']}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{formatNumber(report['ĐƠN GIÁ'])}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
-                                {formatCurrency(report['THÀNH TIỀN'])}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI NHẬP']}</td>
-                              <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                <div className="flex justify-end space-x-1">
-                                  <button
-                                    onClick={() => handleOpen(report)}
-                                    className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
-                                    title="Sửa báo cáo"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </button>
-                                  <button
-                                    onClick={() => handleDelete(report.IDBC)}
-                                    className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
-                                    title="Xóa báo cáo"
-                                  >
-                                    <Trash className="h-4 w-4" />
-                                  </button>
-                                  {report['LỊCH SỬ'] && (
-                                    <button
-                                      onClick={() => handleViewHistory(report)}
-                                      className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
-                                      title="Xem lịch sử"
-                                    >
-                                      <AlertCircle className="h-4 w-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* Pagination for list view */}
-          {viewMode === 'list' && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={Math.ceil(Object.values(groupedReportsByBatch).flatMap(g => g.reports).length / itemsPerPage)}
-              onPageChange={setCurrentPage}
-            />
-          )}
+          {/* Pagination */}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 
@@ -1369,23 +1051,6 @@ const ReportManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ID Nhập Bao Bì <span className="text-red-500">*</span></label>
-                  <select
-                    className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                    value={currentReport['ID_NHAPBAOBI']}
-                    onChange={(e) => handleInputChange('ID_NHAPBAOBI', e.target.value)}
-                    required
-                  >
-                    <option value="">Chọn lô nhập bao bì</option>
-                    {nhapBaoBiData.map((item) => (
-                      <option key={item.ID} value={item.ID}>
-                        {item.ID} - {item['KHÁCH HÀNG']} ({item['NGÀY THÁNG'] ? new Date(item['NGÀY THÁNG']).toLocaleDateString('vi-VN') : 'N/A'})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tên hàng</label>
                   <input
                     type="text"
@@ -1395,10 +1060,7 @@ const ReportManagement = () => {
                     onChange={(e) => handleInputChange('TÊN HÀNG', e.target.value)}
                   />
                 </div>
-              </div>
 
-              {/* Production Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tổ <span className="text-red-500">*</span></label>
                   <select
@@ -1413,7 +1075,10 @@ const ReportManagement = () => {
                     ))}
                   </select>
                 </div>
+              </div>
 
+              {/* Production Information */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Công đoạn <span className="text-red-500">*</span></label>
                   <select
@@ -1430,6 +1095,19 @@ const ReportManagement = () => {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Khối lượng <span className="text-red-500">*</span></label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Nhập khối lượng"
+                    className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
+                    value={currentReport['KHỐI LƯỢNG']}
+                    onChange={(e) => handleInputChange('KHỐI LƯỢNG', e.target.value)}
+                    required
+                  />
                 </div>
               </div>
 
@@ -1457,21 +1135,6 @@ const ReportManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Khối lượng <span className="text-red-500">*</span></label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    placeholder="Nhập khối lượng"
-                    className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                    value={currentReport['KHỐI LƯỢNG']}
-                    onChange={(e) => handleInputChange('KHỐI LƯỢNG', e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Số dây</label>
                   <input
                     type="text"
@@ -1481,7 +1144,9 @@ const ReportManagement = () => {
                     onChange={(e) => handleInputChange('SỐ DÂY', e.target.value)}
                   />
                 </div>
+              </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Đơn giá</label>
                   <input
@@ -1504,33 +1169,6 @@ const ReportManagement = () => {
                     placeholder="Tự động tính từ khối lượng x đơn giá"
                   />
                 </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nhân sự tham gia</label>
-                  <Select
-                    isMulti
-                    options={staffList}
-                    value={currentReport['NHÂN SỰ THAM GIA']}
-                    onChange={handleStaffChange}
-                    placeholder="Chọn nhân sự tham gia..."
-                    className="react-select-container"
-                    classNamePrefix="react-select"
-                    styles={{
-                      control: (base) => ({
-                        ...base,
-                        borderColor: '#d1d5db',
-                        borderRadius: '0.5rem',
-                        padding: '2px',
-                        boxShadow: 'none',
-                        '&:hover': {
-                          borderColor: '#9ca3af',
-                        }
-                      })
-                    }}
-                  />
-                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Người nhập <span className="text-red-500">*</span></label>
@@ -1543,6 +1181,31 @@ const ReportManagement = () => {
                     required
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nhân sự tham gia</label>
+                <Select
+                  isMulti
+                  options={staffList}
+                  value={currentReport['NHÂN SỰ THAM GIA']}
+                  onChange={handleStaffChange}
+                  placeholder="Chọn nhân sự tham gia..."
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      borderColor: '#d1d5db',
+                      borderRadius: '0.5rem',
+                      padding: '2px',
+                      boxShadow: 'none',
+                      '&:hover': {
+                        borderColor: '#9ca3af',
+                      }
+                    })
+                  }}
+                />
               </div>
 
               <div>
@@ -1609,7 +1272,7 @@ const ReportManagement = () => {
             <div className="mb-5">
               <p className="text-sm text-gray-600 mb-3">
                 Tải lên file Excel (.xlsx, .xls) hoặc CSV có chứa dữ liệu báo cáo.
-                File cần có các cột: <span className="font-medium">NGÀY, ID_NHAPBAOBI, TỔ, CÔNG ĐOẠN, KHỐI LƯỢNG, NGƯỜI NHẬP</span>.
+                File cần có các cột: <span className="font-medium">NGÀY, TỔ, CÔNG ĐOẠN, KHỐI LƯỢNG, NGƯỜI NHẬP</span>.
               </p>
               <div className="flex gap-3">
                 <label className="flex items-center gap-2 cursor-pointer px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
@@ -1711,124 +1374,119 @@ const ReportManagement = () => {
             </div>
           </div>
         </div>
-      )
-      }
+      )}
 
       {/* Confirmation Modal */}
-      {
-        showConfirmModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-              <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
-                <h2 className="text-xl font-bold text-gray-800">{confirmTitle}</h2>
+      {showConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
+              <h2 className="text-xl font-bold text-gray-800">{confirmTitle}</h2>
+              <button
+                onClick={() => setShowConfirmModal(false)}
+                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                disabled={isConfirmLoading}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-5">
+              <p className="text-gray-600">{confirmMessage}</p>
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
                 <button
                   onClick={() => setShowConfirmModal(false)}
-                  className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
                   disabled={isConfirmLoading}
                 >
-                  <X className="h-5 w-5" />
+                  Hủy
                 </button>
-              </div>
-
-              <div className="space-y-5">
-                <p className="text-gray-600">{confirmMessage}</p>
-                <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
-                  <button
-                    onClick={() => setShowConfirmModal(false)}
-                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors shadow-sm"
-                    disabled={isConfirmLoading}
-                  >
-                    Hủy
-                  </button>
-                  <button
-                    onClick={async () => {
-                      if (confirmAction && typeof confirmAction === 'function') {
-                        setIsConfirmLoading(true);
-                        try {
-                          await confirmAction();
-                        } catch (error) {
-                          console.error("Error executing confirmation action:", error);
-                          toast.error("Có lỗi xảy ra khi thực hiện thao tác");
-                        } finally {
-                          setIsConfirmLoading(false);
-                          setShowConfirmModal(false);
-                        }
-                      } else {
-                        console.error("Confirmation action is not a function", confirmAction);
+                <button
+                  onClick={async () => {
+                    if (confirmAction && typeof confirmAction === 'function') {
+                      setIsConfirmLoading(true);
+                      try {
+                        await confirmAction();
+                      } catch (error) {
+                        console.error("Error executing confirmation action:", error);
+                        toast.error("Có lỗi xảy ra khi thực hiện thao tác");
+                      } finally {
+                        setIsConfirmLoading(false);
                         setShowConfirmModal(false);
                       }
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2"
-                    disabled={isConfirmLoading}
-                  >
-                    {isConfirmLoading ? (
-                      <>
-                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Đang xử lý...
-                      </>
-                    ) : (
-                      'Xác nhận'
-                    )}
-                  </button>
-                </div>
+                    } else {
+                      console.error("Confirmation action is not a function", confirmAction);
+                      setShowConfirmModal(false);
+                    }
+                  }}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2"
+                  disabled={isConfirmLoading}
+                >
+                  {isConfirmLoading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Đang xử lý...
+                    </>
+                  ) : (
+                    'Xác nhận'
+                  )}
+                </button>
               </div>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
       {/* History Modal */}
-      {
-        showHistoryModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6">
-              <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
-                <h2 className="text-xl font-bold text-gray-800">Lịch sử thay đổi</h2>
+      {showHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full p-6">
+            <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
+              <h2 className="text-xl font-bold text-gray-800">Lịch sử thay đổi</h2>
+              <button
+                onClick={() => {
+                  setShowHistoryModal(false);
+                  setSelectedHistory([]);
+                }}
+                className="text-gray-500 hover:text-gray-700 focus:outline-none"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
+                {selectedHistory.length > 0 ? (
+                  <ul className="space-y-3">
+                    {selectedHistory.map((entry, index) => (
+                      <li key={index} className={`p-3 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} rounded-md border border-gray-100`}>
+                        {entry}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-gray-500 text-center py-4">Không có dữ liệu lịch sử</p>
+                )}
+              </div>
+
+              <div className="flex justify-end pt-4 border-t border-gray-200">
                 <button
                   onClick={() => {
                     setShowHistoryModal(false);
                     setSelectedHistory([]);
                   }}
-                  className="text-gray-500 hover:text-gray-700 focus:outline-none"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
                 >
-                  <X className="h-5 w-5" />
+                  Đóng
                 </button>
-              </div>
-
-              <div className="space-y-4">
-                <div className="border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
-                  {selectedHistory.length > 0 ? (
-                    <ul className="space-y-3">
-                      {selectedHistory.map((entry, index) => (
-                        <li key={index} className={`p-3 ${index % 2 === 0 ? 'bg-gray-50' : 'bg-white'} rounded-md border border-gray-100`}>
-                          {entry}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">Không có dữ liệu lịch sử</p>
-                  )}
-                </div>
-
-                <div className="flex justify-end pt-4 border-t border-gray-200">
-                  <button
-                    onClick={() => {
-                      setShowHistoryModal(false);
-                      setSelectedHistory([]);
-                    }}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-sm"
-                  >
-                    Đóng
-                  </button>
-                </div>
               </div>
             </div>
           </div>
-        )
-      }
+        </div>
+      )}
 
       {/* Toast Container */}
       <ToastContainer
