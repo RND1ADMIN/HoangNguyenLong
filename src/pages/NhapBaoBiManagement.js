@@ -380,8 +380,8 @@ const NhapBaoBiManagement = () => {
                                                         <span className="text-gray-500 text-xs ml-1">{report['ĐƠN VỊ TÍNH']}</span>
                                                     </td>
                                                     <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
-                                                        <div className="truncate" title={report['NHÂN SỰ THAM GIA']}>
-                                                            {report['NHÂN SỰ THAM GIA']}
+                                                        <div className="truncate" title={report['SỐ LƯỢNG NHÂN SỰ']}>
+                                                            {report['SỐ LƯỢNG NHÂN SỰ']}
                                                         </div>
                                                     </td>
                                                     <td className="px-3 py-2 whitespace-nowrap text-sm text-green-600 font-medium">
@@ -516,18 +516,10 @@ const NhapBaoBiManagement = () => {
     };
 
     const handleFilterDateChange = (field, value) => {
-        if (value) {
-            const date = new Date(value);
-            setFilters(prev => ({
-                ...prev,
-                [field]: date
-            }));
-        } else {
-            setFilters(prev => ({
-                ...prev,
-                [field]: null
-            }));
-        }
+        setFilters(prev => ({
+            ...prev,
+            [field]: value || ''
+        }));
     };
 
     // Close confirm modal and reset states
@@ -581,13 +573,12 @@ const NhapBaoBiManagement = () => {
         if (record) {
             setCurrentRecord({
                 ID: record.ID || '',
-                'NGÀY THÁNG': record['NGÀY THÁNG'] ? new Date(record['NGÀY THÁNG']) : new Date(),
+                'NGÀY THÁNG': formatDateForInput(record['NGÀY THÁNG']),
                 'SỐ XE': record['SỐ XE'] || '',
                 'KHÁCH HÀNG': record['KHÁCH HÀNG'] || '',
                 'BAO BÌ ANH (TẤN)': record['BAO BÌ ANH (TẤN)'] || '',
                 'TRỪ BAO BÌ ANH (TẤN)': record['TRỪ BAO BÌ ANH (TẤN)'] || '',
                 'THỰC NHẬN ANH (TẤN)': record['THỰC NHẬN ANH (TẤN)'] || '',
-                'BAO BÌ EM (TẤN)': record['BAO BÌ EM (TẤN)'] || '',
                 'BAO BÌ EM (TẤN)': record['BAO BÌ EM (TẤN)'] || '',
                 'TRỪ BAO BÌ EM (TẤN)': record['TRỪ BAO BÌ EM (TẤN)'] || '',
                 'THỰC NHẬN EM (TẤN)': record['THỰC NHẬN EM (TẤN)'] || ''
@@ -608,7 +599,7 @@ const NhapBaoBiManagement = () => {
         setCurrentRecord(prev => {
             const updatedRecord = {
                 ...prev,
-                [field]: field === 'NGÀY THÁNG' ? new Date(value) : value
+                [field]: field === 'NGÀY THÁNG' ? value : value // luôn lưu chuỗi yyyy-mm-dd
             };
 
             // Nếu thay đổi BAO BÌ ANH, tự động tính TRỪ BAO BÌ ANH và THỰC NHẬN ANH
@@ -661,7 +652,7 @@ const NhapBaoBiManagement = () => {
 
             let recordData = {
                 ...currentRecord,
-                'NGÀY THÁNG': currentRecord['NGÀY THÁNG'].toISOString().split('T')[0]
+                'NGÀY THÁNG': formatDateForInput(currentRecord['NGÀY THÁNG'])
             };
 
             if (recordData.ID) {
@@ -1053,9 +1044,8 @@ const NhapBaoBiManagement = () => {
             let dateMatches = true;
             if (filters.startDate || filters.endDate) {
                 const recordDate = parseVNDate(record['NGÀY THÁNG']);
-
-                const startDate = filters.startDate ? new Date(filters.startDate.setHours(0, 0, 0, 0)) : null;
-                const endDate = filters.endDate ? new Date(filters.endDate.setHours(0, 0, 0, 0)) : null;
+                const startDate = filters.startDate ? new Date(filters.startDate) : null;
+                const endDate = filters.endDate ? new Date(filters.endDate) : null;
 
                 if (startDate && endDate) {
                     dateMatches = recordDate >= startDate && recordDate <= endDate;
@@ -1278,7 +1268,7 @@ const NhapBaoBiManagement = () => {
                                             </div>
                                             <input
                                                 type="date"
-                                                value={filters.startDate ? formatDateForInput(filters.startDate) : ''}
+                                                value={filters.startDate || ''}
                                                 onChange={(e) => handleFilterDateChange('startDate', e.target.value)}
                                                 className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                                                 placeholder="Từ ngày"
@@ -1290,7 +1280,7 @@ const NhapBaoBiManagement = () => {
                                             </div>
                                             <input
                                                 type="date"
-                                                value={filters.endDate ? formatDateForInput(filters.endDate) : ''}
+                                                value={filters.endDate || ''}
                                                 onChange={(e) => handleFilterDateChange('endDate', e.target.value)}
                                                 className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                                                 placeholder="Đến ngày"
@@ -1905,8 +1895,8 @@ const NhapBaoBiManagement = () => {
                                                                 <span className="text-gray-500 text-xs ml-1">{report['ĐƠN VỊ TÍNH']}</span>
                                                             </td>
                                                             <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
-                                                                <div className="truncate" title={report['NHÂN SỰ THAM GIA']}>
-                                                                    {report['NHÂN SỰ THAM GIA']}
+                                                                <div className="truncate" title={report['SỐ LƯỢNG NHÂN SỰ']}>
+                                                                    {report['SỐ LƯỢNG NHÂN SỰ']}
                                                                 </div>
                                                             </td>
                                                             <td className="px-3 py-2 whitespace-nowrap text-sm text-green-600 font-medium">

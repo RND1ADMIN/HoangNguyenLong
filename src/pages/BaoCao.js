@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Upload, X, Calendar, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Upload, X, Calendar, AlertCircle, Package, Users, Check } from 'lucide-react';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -10,14 +10,19 @@ import Select from 'react-select';
 // Date formatting utilities
 const formatDateForInput = (dateString) => {
   if (!dateString) return '';
+
+  // Nếu đã là định dạng yyyy-mm-dd thì trả về luôn
   if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
     return dateString;
   }
+
   const date = new Date(dateString);
   if (isNaN(date.getTime())) return '';
+
   const year = date.getFullYear();
   const month = (date.getMonth() + 1).toString().padStart(2, '0');
   const day = date.getDate().toString().padStart(2, '0');
+
   return `${year}-${month}-${day}`;
 };
 
@@ -32,6 +37,138 @@ const formatCurrency = (amount) => {
 const formatNumber = (number) => {
   if (!number || isNaN(number)) return '0';
   return new Intl.NumberFormat('vi-VN').format(number);
+};
+
+// Statistics Cards Component
+const StatisticCards = ({ data }) => {
+  const stats = useMemo(() => {
+    const totalReports = data.length;
+
+    // Đếm số nhân sự duy nhất từ tất cả báo cáo
+    const nhanSuSet = new Set();
+    data.forEach(report => {
+      if (report['NHÂN SỰ']) {
+        report['NHÂN SỰ']
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean)
+          .forEach(name => nhanSuSet.add(name));
+      }
+    });
+    const totalNhanSu = nhanSuSet.size;
+
+    const totalKhoiLuong = data.reduce((sum, report) => sum + parseFloat(report['KHỐI LƯỢNG'] || 0), 0);
+    const totalThanhTien = data.reduce((sum, report) => sum + parseFloat(report['THÀNH TIỀN'] || 0), 0);
+
+    // Thống kê theo tổ
+    const teamStats = {};
+    data.forEach(report => {
+      const team = report['TỔ'];
+      if (team) {
+        if (!teamStats[team]) {
+          teamStats[team] = { count: 0, khoiLuong: 0, thanhTien: 0, nhanSu: 0 };
+        }
+        teamStats[team].count++;
+        teamStats[team].khoiLuong += parseFloat(report['KHỐI LƯỢNG'] || 0);
+        teamStats[team].thanhTien += parseFloat(report['THÀNH TIỀN'] || 0);
+        teamStats[team].nhanSu += parseInt(report['SỐ LƯỢNG NHÂN SỰ'] || 0);
+      }
+    });
+
+    // Thống kê theo công đoạn
+    const stageStats = {};
+    data.forEach(report => {
+      const stage = report['CÔNG ĐOẠN'];
+      if (stage) {
+        if (!stageStats[stage]) {
+          stageStats[stage] = { count: 0, khoiLuong: 0, thanhTien: 0, nhanSu: 0 };
+        }
+        stageStats[stage].count++;
+        stageStats[stage].khoiLuong += parseFloat(report['KHỐI LƯỢNG'] || 0);
+        stageStats[stage].thanhTien += parseFloat(report['THÀNH TIỀN'] || 0);
+        stageStats[stage].nhanSu += parseInt(report['SỐ LƯỢNG NHÂN SỰ'] || 0);
+      }
+    });
+
+    const topStage = Object.keys(stageStats).length > 0 ?
+      Object.keys(stageStats).reduce((a, b) =>
+        stageStats[a].thanhTien > stageStats[b].thanhTien ? a : b) : 'N/A';
+
+    return {
+      totalReports,
+      totalNhanSu, // Số nhân sự duy nhất
+      totalKhoiLuong,
+      totalThanhTien,
+      uniqueTeams: Object.keys(teamStats).length,
+      uniqueStages: Object.keys(stageStats).length,
+      topStage
+    };
+  }, [data]);
+
+  const cardData = [
+    {
+      title: "Tổng số báo cáo",
+      value: stats.totalReports,
+      icon: <AlertCircle className="w-5 h-5" />,
+      bgColor: "bg-gradient-to-r from-purple-500 to-purple-600",
+      textColor: "text-white"
+    },
+    {
+      title: "Tổng khối lượng",
+      value: `${formatNumber(stats.totalKhoiLuong)}`,
+      icon: <Package className="w-5 h-5" />,
+      bgColor: "bg-gradient-to-r from-blue-500 to-blue-600",
+      textColor: "text-white"
+    },
+    {
+      title: "Tổng thành tiền",
+      value: formatCurrency(stats.totalThanhTien),
+      icon: <Check className="w-5 h-5" />,
+      bgColor: "bg-gradient-to-r from-green-500 to-green-600",
+      textColor: "text-white"
+    },
+    {
+      title: "Tổng lượt nhân sự",
+      value: `${stats.totalNhanSu} lượt`,
+      icon: <Users className="w-5 h-5" />,
+      bgColor: "bg-gradient-to-r from-indigo-500 to-indigo-600",
+      textColor: "text-white"
+    },
+    {
+      title: "Số tổ hoạt động",
+      value: stats.uniqueTeams,
+      icon: <Package className="w-5 h-5" />,
+      bgColor: "bg-gradient-to-r from-teal-500 to-teal-600",
+      textColor: "text-white"
+    },
+    {
+      title: "Số công đoạn",
+      value: stats.uniqueStages,
+      icon: <AlertCircle className="w-5 h-5" />,
+      bgColor: "bg-gradient-to-r from-orange-500 to-orange-600",
+      textColor: "text-white"
+    }
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      {cardData.map((card, index) => (
+        <div key={index} className={`${card.bgColor} rounded-xl shadow-lg p-3 text-center transform hover:scale-105 transition-all duration-200`}>
+          <div className="flex flex-col items-center">
+            <div className={`${card.textColor} opacity-80 mb-1`}>
+              {card.icon}
+            </div>
+            <h3 className={`${card.textColor} text-xs font-medium mb-1 text-center leading-tight`}>
+              {card.title}
+            </h3>
+            <p className={`${card.textColor} text-sm lg:text-base font-bold`}>
+              {card.value}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 };
 
 const Pagination = ({ currentPage, totalPages, onPageChange }) => (
@@ -88,6 +225,7 @@ const ReportManagement = () => {
   const [staffList, setStaffList] = useState([]);
   const [teamWorkStages, setTeamWorkStages] = useState([]);
   const [teams, setTeams] = useState([]);
+  const [nhapBaoBiList, setNhapBaoBiList] = useState([]);
 
   // State - UI controls
   const [open, setOpen] = useState(false);
@@ -126,13 +264,15 @@ const ReportManagement = () => {
   const emptyReport = {
     IDBC: '',
     'NGÀY': new Date(),
+    'ID_NHAPBAOBI': '',
     'TÊN HÀNG': '',
     'TỔ': '',
     'CÔNG ĐOẠN': '',
     'ĐƠN VỊ TÍNH': '',
     'PP TÍNH NĂNG SUẤT': '',
     'KHỐI LƯỢNG': '',
-    'NHÂN SỰ THAM GIA': [],
+    'SỐ LƯỢNG NHÂN SỰ': '',
+    'NHÂN SỰ': [],
     'SỐ DÂY': '',
     'GHI CHÚ': '',
     'NGƯỜI NHẬP': '',
@@ -191,7 +331,8 @@ const ReportManagement = () => {
       'CÔNG ĐOẠN': '',
       'ĐƠN VỊ TÍNH': '',
       'PP TÍNH NĂNG SUẤT': '',
-      'NHÂN SỰ THAM GIA': [],
+      'SỐ LƯỢNG NHÂN SỰ': '',
+      'NHÂN SỰ': [],
       'ĐƠN GIÁ': '',
       'THÀNH TIỀN': ''
     }));
@@ -217,7 +358,7 @@ const ReportManagement = () => {
         'CÔNG ĐOẠN': workStage,
         'ĐƠN VỊ TÍNH': stageData['ĐƠN VỊ TÍNH'] || '',
         'PP TÍNH NĂNG SUẤT': stageData['PP TÍNH NĂNG SUẤT'] || '',
-        'NHÂN SỰ THAM GIA': staffArray,
+        'NHÂN SỰ': staffArray,
         'ĐƠN GIÁ': stageData['ĐƠN GIÁ NĂNG SUẤT'] || '',
         'THÀNH TIỀN': calculateThanhTien(prev['KHỐI LƯỢNG'], stageData['ĐƠN GIÁ NĂNG SUẤT'])
       }));
@@ -225,18 +366,10 @@ const ReportManagement = () => {
   };
 
   const handleFilterDateChange = (field, value) => {
-    if (value) {
-      const date = new Date(value);
-      setFilters(prev => ({
-        ...prev,
-        [field]: date
-      }));
-    } else {
-      setFilters(prev => ({
-        ...prev,
-        [field]: null
-      }));
-    }
+    setFilters(prev => ({
+      ...prev,
+      [field]: value || ''
+    }));
   };
 
   // Data fetching
@@ -244,6 +377,7 @@ const ReportManagement = () => {
     fetchReports();
     fetchStaffList();
     fetchTeamWorkStages();
+    fetchNhapBaoBiList();
   }, []);
 
   const fetchReports = async () => {
@@ -267,6 +401,16 @@ const ReportManagement = () => {
     } catch (error) {
       console.error('Error fetching staff list:', error);
       toast.error('Lỗi khi tải danh sách nhân viên');
+    }
+  };
+
+  const fetchNhapBaoBiList = async () => {
+    try {
+      const response = await authUtils.apiRequest('NHAPBAOBI', 'Find', {});
+      setNhapBaoBiList(response);
+    } catch (error) {
+      console.error('Error fetching nhap bao bi list:', error);
+      toast.error('Lỗi khi tải danh sách nhập bao bì');
     }
   };
 
@@ -304,8 +448,8 @@ const ReportManagement = () => {
   // Report modal functions
   const handleOpen = useCallback((report = null) => {
     if (report) {
-      const staffArray = report['NHÂN SỰ THAM GIA']
-        ? report['NHÂN SỰ THAM GIA'].split(',').map(name => ({
+      const staffArray = report['NHÂN SỰ']
+        ? report['NHÂN SỰ'].split(',').map(name => ({
           value: name.trim(),
           label: name.trim()
         }))
@@ -314,13 +458,15 @@ const ReportManagement = () => {
       setCurrentReport({
         IDBC: report.IDBC || '',
         'NGÀY': report['NGÀY'] ? new Date(report['NGÀY']) : new Date(),
+        'ID_NHAPBAOBI': report['ID_NHAPBAOBI'] || '',
         'TÊN HÀNG': report['TÊN HÀNG'] || '',
         'TỔ': report['TỔ'] || '',
         'CÔNG ĐOẠN': report['CÔNG ĐOẠN'] || '',
         'ĐƠN VỊ TÍNH': report['ĐƠN VỊ TÍNH'] || '',
         'PP TÍNH NĂNG SUẤT': report['PP TÍNH NĂNG SUẤT'] || '',
         'KHỐI LƯỢNG': report['KHỐI LƯỢNG'] || '',
-        'NHÂN SỰ THAM GIA': staffArray,
+        'SỐ LƯỢNG NHÂN SỰ': report['SỐ LƯỢNG NHÂN SỰ'] || '',
+        'NHÂN SỰ': staffArray,
         'SỐ DÂY': report['SỐ DÂY'] || '',
         'GHI CHÚ': report['GHI CHÚ'] || '',
         'NGƯỜI NHẬP': report['NGƯỜI NHẬP'] || '',
@@ -359,17 +505,18 @@ const ReportManagement = () => {
     });
   }, []);
 
-  const handleDateChange = useCallback((date) => {
+  const handleDateChange = useCallback((dateStr) => {
     setCurrentReport(prev => ({
       ...prev,
-      'NGÀY': date
+      'NGÀY': dateStr // Lưu dạng chuỗi yyyy-mm-dd
     }));
   }, []);
 
   const handleStaffChange = useCallback((selectedOptions) => {
     setCurrentReport(prev => ({
       ...prev,
-      'NHÂN SỰ THAM GIA': selectedOptions || []
+      'NHÂN SỰ': selectedOptions || [],
+      'SỐ LƯỢNG NHÂN SỰ': selectedOptions ? selectedOptions.length.toString() : '0'
     }));
   }, []);
 
@@ -396,14 +543,14 @@ const ReportManagement = () => {
         return;
       }
 
-      const staffString = currentReport['NHÂN SỰ THAM GIA']
+      const staffString = currentReport['NHÂN SỰ']
         .map(staff => staff.value)
         .join(', ');
 
       let reportData = {
         ...currentReport,
         'NGÀY': currentReport['NGÀY'].toISOString().split('T')[0],
-        'NHÂN SỰ THAM GIA': staffString
+        'NHÂN SỰ': staffString
       };
 
       if (reportData.IDBC) {
@@ -497,13 +644,15 @@ const ReportManagement = () => {
     const excelData = selectedItems.map(item => ({
       IDBC: item.IDBC,
       'NGÀY': item['NGÀY'],
+      'ID_NHAPBAOBI': item['ID_NHAPBAOBI'],
       'TÊN HÀNG': item['TÊN HÀNG'],
       'TỔ': item['TỔ'],
       'CÔNG ĐOẠN': item['CÔNG ĐOẠN'],
       'ĐƠN VỊ TÍNH': item['ĐƠN VỊ TÍNH'],
       'PP TÍNH NĂNG SUẤT': item['PP TÍNH NĂNG SUẤT'],
       'KHỐI LƯỢNG': item['KHỐI LƯỢNG'],
-      'NHÂN SỰ THAM GIA': item['NHÂN SỰ THAM GIA'],
+      'SỐ LƯỢNG NHÂN SỰ': item['SỐ LƯỢNG NHÂN SỰ'],
+      'NHÂN SỰ': item['NHÂN SỰ'],
       'SỐ DÂY': item['SỐ DÂY'],
       'GHI CHÚ': item['GHI CHÚ'],
       'NGƯỜI NHẬP': item['NGƯỜI NHẬP'],
@@ -631,13 +780,15 @@ const ReportManagement = () => {
             const report = {
               IDBC: row.IDBC || `BC${newIdCounter.toString().padStart(3, '0')}`,
               'NGÀY': row['NGÀY'],
+              'ID_NHAPBAOBI': row['ID_NHAPBAOBI'] || '',
               'TÊN HÀNG': row['TÊN HÀNG'] || '',
               'TỔ': row['TỔ'],
               'CÔNG ĐOẠN': row['CÔNG ĐOẠN'],
               'ĐƠN VỊ TÍNH': donViTinh,
               'PP TÍNH NĂNG SUẤT': ppTinhNangSuat,
               'KHỐI LƯỢNG': row['KHỐI LƯỢNG'],
-              'NHÂN SỰ THAM GIA': row['NHÂN SỰ THAM GIA'] || nhanSu,
+              'SỐ LƯỢNG NHÂN SỰ': row['SỐ LƯỢNG NHÂN SỰ'] || '0',
+              'NHÂN SỰ': row['NHÂN SỰ'] || nhanSu,
               'SỐ DÂY': row['SỐ DÂY'] || '',
               'GHI CHÚ': row['GHI CHÚ'] || '',
               'NGƯỜI NHẬP': row['NGƯỜI NHẬP'] || getCurrentUserName(),
@@ -702,9 +853,9 @@ const ReportManagement = () => {
 
   const handleDownloadTemplate = () => {
     const templateData = [
-      ['NGÀY', 'TÊN HÀNG', 'TỔ', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'SỐ DÂY', 'NHÂN SỰ THAM GIA', 'GHI CHÚ', 'NGƯỜI NHẬP'],
-      ['2025-03-22', 'Bao bì anh', 'CD1', 'Bao bì anh - Cưa', '50', '10', 'Nguyễn Văn A, Trần Văn B', 'Hoàn thành đúng tiến độ', 'Lê Văn C'],
-      ['2025-03-22', 'Bao bì em', 'CD2', 'Bao bì em - Cắt lưa', '30', '8', 'Phạm Văn D, Ngô Văn E', 'Cần bổ sung nhân lực', 'Lê Văn C']
+      ['NGÀY', 'ID_NHAPBAOBI', 'TÊN HÀNG', 'TỔ', 'CÔNG ĐOẠN', 'KHỐI LƯỢNG', 'SỐ LƯỢNG NHÂN SỰ', 'NHÂN SỰ', 'SỐ DÂY', 'GHI CHÚ', 'NGƯỜI NHẬP'],
+      ['2025-03-22', 'BBID001', 'Bao bì anh', 'CD1', 'Bao bì anh - Cưa', '50', '2', 'Nguyễn Văn A, Trần Văn B', '10', 'Hoàn thành đúng tiến độ', 'Lê Văn C'],
+      ['2025-03-22', 'BBID002', 'Bao bì em', 'CD2', 'Bao bì em - Cắt lưa', '30', '2', 'Phạm Văn D, Ngô Văn E', '8', 'Cần bổ sung nhân lực', 'Lê Văn C']
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(templateData);
@@ -721,16 +872,17 @@ const ReportManagement = () => {
         report['TÊN HÀNG']?.toLowerCase().includes(search.toLowerCase()) ||
         report['TỔ']?.toLowerCase().includes(search.toLowerCase()) ||
         report['CÔNG ĐOẠN']?.toLowerCase().includes(search.toLowerCase()) ||
-        report['NGƯỜI NHẬP']?.toLowerCase().includes(search.toLowerCase());
+        report['NGƯỜI NHẬP']?.toLowerCase().includes(search.toLowerCase()) ||
+        report['ID_NHAPBAOBI']?.toLowerCase().includes(search.toLowerCase());
 
       const teamMatch = !filters.to || report['TỔ'] === filters.to;
       const stageMatch = !filters.congDoan || report['CÔNG ĐOẠN'] === filters.congDoan;
 
       let dateMatches = true;
       if (filters.startDate || filters.endDate) {
-        const reportDate = new Date(report['NGÀY']);
-        const startDate = filters.startDate ? new Date(filters.startDate.setHours(0, 0, 0, 0)) : null;
-        const endDate = filters.endDate ? new Date(filters.endDate.setHours(23, 59, 59, 999)) : null;
+        const reportDate = new Date(formatDateForInput(report['NGÀY']));
+        const startDate = filters.startDate ? new Date(filters.startDate) : null;
+        const endDate = filters.endDate ? new Date(filters.endDate) : null;
 
         if (startDate && endDate) {
           dateMatches = reportDate >= startDate && reportDate <= endDate;
@@ -846,7 +998,7 @@ const ReportManagement = () => {
                     </div>
                     <input
                       type="date"
-                      value={filters.startDate ? formatDateForInput(filters.startDate) : ''}
+                      value={filters.startDate || ''}
                       onChange={(e) => handleFilterDateChange('startDate', e.target.value)}
                       className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                     />
@@ -861,7 +1013,7 @@ const ReportManagement = () => {
                     </div>
                     <input
                       type="date"
-                      value={filters.endDate ? formatDateForInput(filters.endDate) : ''}
+                      value={filters.endDate || ''}
                       onChange={(e) => handleFilterDateChange('endDate', e.target.value)}
                       className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                     />
@@ -891,13 +1043,16 @@ const ReportManagement = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo mã BC, tên hàng, tổ, công đoạn, người nhập..."
+                placeholder="Tìm kiếm theo mã BC, ID nhập bao bì, tên hàng, tổ, công đoạn, người nhập..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
           </div>
+
+          {/* Statistics Cards */}
+          <StatisticCards data={filteredReports} />
 
           {/* Table */}
           <div className="overflow-x-auto -mx-4 md:mx-0">
@@ -922,10 +1077,13 @@ const ReportManagement = () => {
                       </th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Mã BC</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID Nhập BB</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">SL Nhân sự</th>
+                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhân sự</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số dây</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
@@ -956,6 +1114,9 @@ const ReportManagement = () => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                           {report['NGÀY'] ? new Date(report['NGÀY']).toLocaleDateString('vi-VN') : 'N/A'}
                         </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
+                          {report['ID_NHAPBAOBI']}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
@@ -965,6 +1126,14 @@ const ReportManagement = () => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                           {formatNumber(report['KHỐI LƯỢNG'])} <span className="text-gray-500 text-xs">{report['ĐƠN VỊ TÍNH']}</span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
+                          {report['SỐ LƯỢNG NHÂN SỰ']}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700 max-w-xs">
+                          <div className="truncate" title={report['NHÂN SỰ']}>
+                            {report['NHÂN SỰ']}
+                          </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['SỐ DÂY']}</td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{formatNumber(report['ĐƠN GIÁ'])}</td>
@@ -1019,7 +1188,7 @@ const ReportManagement = () => {
       {/* Add/Edit Report Modal */}
       {open && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full p-6 max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-xl max-w-5xl w-full p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
               <h2 className="text-xl font-bold text-gray-800">
                 {currentReport.IDBC ? 'Cập nhật báo cáo chi tiết' : 'Thêm báo cáo chi tiết mới'}
@@ -1034,7 +1203,7 @@ const ReportManagement = () => {
 
             <div className="space-y-5">
               {/* Basic Information */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ngày báo cáo</label>
                   <div className="relative">
@@ -1044,10 +1213,29 @@ const ReportManagement = () => {
                     <input
                       type="date"
                       value={formatDateForInput(currentReport['NGÀY'])}
-                      onChange={(e) => handleDateChange(new Date(e.target.value))}
+                      onChange={(e) => setCurrentReport(prev => ({
+                        ...prev,
+                        'NGÀY': e.target.value // luôn lưu dạng yyyy-mm-dd
+                      }))}
                       className="pl-10 p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                     />
                   </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">ID Nhập Bao Bì</label>
+                  <select
+                    className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
+                    value={currentReport['ID_NHAPBAOBI']}
+                    onChange={(e) => handleInputChange('ID_NHAPBAOBI', e.target.value)}
+                  >
+                    <option value="">Chọn ID Nhập Bao Bì</option>
+                    {nhapBaoBiList.map((item, index) => (
+                      <option key={index} value={item.ID}>
+                        {item.ID} - {item['SỐ XE']} - {item['KHÁCH HÀNG']}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -1111,7 +1299,7 @@ const ReportManagement = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Đơn vị tính</label>
                   <input
@@ -1135,6 +1323,18 @@ const ReportManagement = () => {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Số lượng nhân sự</label>
+                  <input
+                    type="number"
+                    placeholder="Nhập số lượng nhân sự"
+                    className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
+                    value={currentReport['SỐ LƯỢNG NHÂN SỰ']}
+                    readOnly
+                    title="Số lượng sẽ tự động cập nhật khi chọn nhân sự"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Số dây</label>
                   <input
                     type="text"
@@ -1144,6 +1344,32 @@ const ReportManagement = () => {
                     onChange={(e) => handleInputChange('SỐ DÂY', e.target.value)}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nhân sự tham gia</label>
+                <Select
+                  isMulti
+                  options={staffList}
+                  value={currentReport['NHÂN SỰ']}
+                  onChange={handleStaffChange}
+                  placeholder="Chọn nhân sự tham gia..."
+                  className="react-select-container"
+                  classNamePrefix="react-select"
+                  styles={{
+                    control: (base) => ({
+                      ...base,
+                      borderColor: '#d1d5db',
+                      borderRadius: '0.5rem',
+                      padding: '2px',
+                      boxShadow: 'none',
+                      '&:hover': {
+                        borderColor: '#9ca3af',
+                      }
+                    })
+                  }}
+                />
+                <p className="text-xs text-gray-500 mt-1">Số lượng nhân sự sẽ tự động cập nhật</p>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -1181,31 +1407,6 @@ const ReportManagement = () => {
                     required
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nhân sự tham gia</label>
-                <Select
-                  isMulti
-                  options={staffList}
-                  value={currentReport['NHÂN SỰ THAM GIA']}
-                  onChange={handleStaffChange}
-                  placeholder="Chọn nhân sự tham gia..."
-                  className="react-select-container"
-                  classNamePrefix="react-select"
-                  styles={{
-                    control: (base) => ({
-                      ...base,
-                      borderColor: '#d1d5db',
-                      borderRadius: '0.5rem',
-                      padding: '2px',
-                      boxShadow: 'none',
-                      '&:hover': {
-                        borderColor: '#9ca3af',
-                      }
-                    })
-                  }}
-                />
               </div>
 
               <div>
@@ -1254,7 +1455,7 @@ const ReportManagement = () => {
       {/* Import Excel Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full p-6">
             <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
               <h2 className="text-xl font-bold text-gray-800">Nhập báo cáo từ Excel</h2>
               <button
@@ -1273,6 +1474,7 @@ const ReportManagement = () => {
               <p className="text-sm text-gray-600 mb-3">
                 Tải lên file Excel (.xlsx, .xls) hoặc CSV có chứa dữ liệu báo cáo.
                 File cần có các cột: <span className="font-medium">NGÀY, TỔ, CÔNG ĐOẠN, KHỐI LƯỢNG, NGƯỜI NHẬP</span>.
+                Các cột tùy chọn: <span className="font-medium">ID_NHAPBAOBI, TÊN HÀNG, SỐ LƯỢNG NHÂN SỰ, NHÂN SỰ, SỐ DÂY, GHI CHÚ</span>.
               </p>
               <div className="flex gap-3">
                 <label className="flex items-center gap-2 cursor-pointer px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">

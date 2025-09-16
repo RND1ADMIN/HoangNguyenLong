@@ -10,7 +10,7 @@ import authUtils from './utils/authUtils';
 import Profile from './pages/Profile';
 import Users from './pages/UserManagement';
 import ReportManagement from './pages/BaoCao';
-import DailyProductivityReport from './pages/DailyProductivityReport';
+import TongHop from './pages/TongHop';
 import XuatNhapKhoForm from './pages/XuatNhapKhoForm';
 import DMHHManagement from './pages/DMHHManagement';
 import XuatNhapKhoManager from './pages/XuatNhapKhoManager';
@@ -62,7 +62,7 @@ function App() {
                   <Route path="/congdoan_dongia" element={<CongDoanDonGiaManagement />} />
                   <Route path="/phanbonhansu" element={<PhanBoNhanSuManagement />} />
                   <Route path="/report" element={<ReportManagement />} />
-                  <Route path="/tonghop" element={<DailyProductivityReport />} />
+                  <Route path="/tonghop" element={<TongHop />} />
                   <Route path="/reportMobile" element={<BaoCaoMobie />} />
 
 

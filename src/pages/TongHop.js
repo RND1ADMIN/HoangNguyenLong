@@ -23,7 +23,7 @@ const formatNumber = (number) => {
   return new Intl.NumberFormat('vi-VN').format(number);
 };
 
-const DailyProductivityReport = () => {
+const TongHop = () => {
   const [reports, setReports] = useState([]);
   const [teamWorkStages, setTeamWorkStages] = useState([]);
   const [search, setSearch] = useState('');
@@ -71,7 +71,7 @@ const DailyProductivityReport = () => {
       reportsByDate[date].push(report);
     });
 
-    // Get active work stages for the 3 required categories
+    // Get active work stages
     const today = new Date();
     const activeStages = teamWorkStages.filter(stage => {
       const startDate = new Date(stage['HIỆU LỰC TỪ']);
@@ -79,66 +79,85 @@ const DailyProductivityReport = () => {
       return today >= startDate && today <= endDate;
     });
 
-    const requiredCategories = [
-      { code: 'TA1', name: 'T-HOACHAT' },
-      { code: 'TM1', name: 'T-MUICUA' },
-      { code: 'HT1', name: 'X-HANGTUOI' }
-    ];
+    // Get unique work stage codes from reports
+    const workStageCodes = [...new Set(reports.map(report => report['CÔNG ĐOẠN']))];
 
     // Process each date
     const processedResults = [];
     Object.keys(reportsByDate).sort().forEach(date => {
       const dayReports = reportsByDate[date];
       
-      requiredCategories.forEach(category => {
-        // Find work stages for this category
-        const categoryStages = activeStages.filter(stage => 
-          stage['MÃ CÔNG ĐOẠN'] === category.code
-        );
+      // Group by work stage
+      workStageCodes.forEach(stageCode => {
+        const stageReports = dayReports.filter(report => report['CÔNG ĐOẠN'] === stageCode);
+        
+        if (stageReports.length === 0) return;
 
         // Group reports by team (TỔ)
         const teamData = {};
-        dayReports.forEach(report => {
+        stageReports.forEach(report => {
           const team = report['TỔ'];
           if (!teamData[team]) {
             teamData[team] = {
               team: team,
               totalQuantity: 0,
               staffSet: new Set(),
-              staffCount: 0
+              staffCount: 0,
+              items: []
             };
           }
 
-          // Add quantity only once per team (not per work stage)
+          // Add quantity and staff info
           const quantity = parseFloat(report['KHỐI LƯỢNG']) || 0;
           teamData[team].totalQuantity += quantity;
 
-          // Collect all staff members
-          if (report['NHÂN SỰ THAM GIA']) {
-            const staffList = report['NHÂN SỰ THAM GIA'].split(',');
+          // Collect staff information
+          const staffCount = parseInt(report['SỐ LƯỢNG NHÂN SỰ']) || 0;
+          teamData[team].staffCount = Math.max(teamData[team].staffCount, staffCount);
+
+          if (report['NHÂN SỰ']) {
+            const staffList = report['NHÂN SỰ'].split(',');
             staffList.forEach(staff => {
               teamData[team].staffSet.add(staff.trim());
             });
           }
+
+          // Store item details
+          teamData[team].items.push({
+            name: report['TÊN HÀNG'],
+            quantity: quantity,
+            unit: report['ĐƠN VỊ TÍNH'],
+            unitPrice: parseFloat(report['ĐƠN GIÁ']) || 0,
+            amount: parseFloat(report['THÀNH TIỀN']) || 0
+          });
         });
 
-        // Calculate staff count and get stage info
+        // Calculate totals and get stage info
         Object.values(teamData).forEach(team => {
-          team.staffCount = team.staffSet.size;
+          // Use actual staff count or unique staff count, whichever is higher
+          team.actualStaffCount = Math.max(team.staffCount, team.staffSet.size);
           
-          // Find corresponding work stage for this team and category
-          const workStage = categoryStages.find(stage => stage['TỔ'] === team.team);
+          // Find corresponding work stage for this team and work stage code
+          const workStage = activeStages.find(stage => 
+            stage['TỔ'] === team.team && stage['MÃ CÔNG ĐOẠN'] === stageCode
+          );
+          
           team.unitPrice = workStage ? parseFloat(workStage['ĐƠN GIÁ NĂNG SUẤT']) || 0 : 0;
-          team.totalAmount = team.totalQuantity * team.unitPrice;
-          team.unit = workStage ? workStage['ĐƠN VỊ TÍNH'] : '';
+          team.totalAmount = team.items.reduce((sum, item) => sum + item.amount, 0);
+          team.unit = workStage ? workStage['ĐƠN VỊ TÍNH'] : 
+                      (team.items.length > 0 ? team.items[0].unit : '');
+          team.workStageName = workStage ? workStage['TÊN CÔNG ĐOẠN'] : stageCode;
         });
 
         processedResults.push({
           date: date,
-          category: category,
+          workStage: {
+            code: stageCode,
+            name: Object.values(teamData)[0]?.workStageName || stageCode
+          },
           teams: Object.values(teamData),
           totalQuantity: Object.values(teamData).reduce((sum, team) => sum + team.totalQuantity, 0),
-          totalStaff: Object.values(teamData).reduce((sum, team) => sum + team.staffCount, 0),
+          totalStaff: Object.values(teamData).reduce((sum, team) => sum + team.actualStaffCount, 0),
           totalAmount: Object.values(teamData).reduce((sum, team) => sum + team.totalAmount, 0)
         });
       });
@@ -164,7 +183,8 @@ const DailyProductivityReport = () => {
       // Search filter
       const searchMatch = !search || 
         item.date.includes(search) ||
-        item.category.name.toLowerCase().includes(search.toLowerCase()) ||
+        item.workStage.name.toLowerCase().includes(search.toLowerCase()) ||
+        item.workStage.code.toLowerCase().includes(search.toLowerCase()) ||
         item.teams.some(team => team.team.toLowerCase().includes(search.toLowerCase()));
 
       return dateMatch && searchMatch;
@@ -181,12 +201,12 @@ const DailyProductivityReport = () => {
   const handleExport = () => {
     const exportData = filteredData.map(item => ({
       'Ngày': item.date,
-      'Hạng mục': `${item.category.code} ${item.category.name}`,
+      'Công đoạn': `${item.workStage.code} - ${item.workStage.name}`,
       'Tổng khối lượng': item.totalQuantity,
       'Tổng nhân sự': item.totalStaff,
       'Tổng thành tiền': item.totalAmount,
       'Chi tiết tổ': item.teams.map(team => 
-        `${team.team}: ${team.totalQuantity}${team.unit} (${team.staffCount} người)`
+        `${team.team}: ${team.totalQuantity}${team.unit} (${team.actualStaffCount} người) - ${formatNumber(team.totalAmount)} VNĐ`
       ).join('; ')
     }));
 
@@ -270,7 +290,7 @@ const DailyProductivityReport = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo ngày, hạng mục, tổ..."
+                placeholder="Tìm kiếm theo ngày, công đoạn, tổ..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -284,7 +304,7 @@ const DailyProductivityReport = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ngày</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Hạng mục</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Công đoạn</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tổng KL</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tổng NS</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tổng TT</th>
@@ -293,13 +313,13 @@ const DailyProductivityReport = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredData.map((item, index) => (
-                  <tr key={`${item.date}-${item.category.code}`} className="hover:bg-gray-50">
+                  <tr key={`${item.date}-${item.workStage.code}`} className="hover:bg-gray-50">
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                       {new Date(item.date).toLocaleDateString('vi-VN')}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
-                        {item.category.code} {item.category.name}
+                        {item.workStage.code} - {item.workStage.name}
                       </span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
@@ -314,11 +334,22 @@ const DailyProductivityReport = () => {
                     <td className="px-4 py-3 text-sm text-gray-700">
                       <div className="space-y-1">
                         {item.teams.map((team, teamIndex) => (
-                          <div key={teamIndex} className="flex items-center gap-2 p-1 bg-gray-50 rounded text-xs">
-                            <span className="font-medium text-blue-600">{team.team}:</span>
-                            <span>{formatNumber(team.totalQuantity)}{team.unit}</span>
-                            <span className="text-gray-500">({team.staffCount} người)</span>
-                            <span className="text-green-600 font-medium">{formatNumber(team.totalAmount)} VNĐ</span>
+                          <div key={teamIndex} className="p-2 bg-gray-50 rounded border">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-blue-600">{team.team}:</span>
+                              <span>{formatNumber(team.totalQuantity)}{team.unit}</span>
+                              <span className="text-gray-500">({team.actualStaffCount} người)</span>
+                              <span className="text-green-600 font-medium">{formatNumber(team.totalAmount)} VNĐ</span>
+                            </div>
+                            {team.items.length > 1 && (
+                              <div className="ml-4 space-y-1">
+                                {team.items.map((item, itemIndex) => (
+                                  <div key={itemIndex} className="text-xs text-gray-600">
+                                    • {item.name}: {formatNumber(item.quantity)}{item.unit} - {formatNumber(item.amount)} VNĐ
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         ))}
                       </div>
@@ -354,4 +385,4 @@ const DailyProductivityReport = () => {
   );
 };
 
-export default DailyProductivityReport;
+export default TongHop;
