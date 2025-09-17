@@ -20,7 +20,26 @@ const formatDateToString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-// Parse date for filtering
+// Parse date correctly for filtering, handling MM/dd/yyyy format
+const parseDate = (dateString) => {
+  if (!dateString) return null;
+
+  // Handle different date string formats
+  let date;
+  if (dateString.includes('/')) {
+    // MM/dd/yyyy format
+    const [month, day, year] = dateString.split('/').map(Number);
+    date = new Date(year, month - 1, day);
+  } else {
+    date = new Date(dateString);
+  }
+
+  // Normalize time portion
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+// Parse date for filtering (Vietnamese format)
 const parseVNDate = (dateString) => {
   if (!dateString) return null;
   if (dateString.includes('/')) {
@@ -33,51 +52,34 @@ const parseVNDate = (dateString) => {
   date.setHours(0, 0, 0, 0);
   return date;
 };
-// Parse date correctly for filtering, handling MM/dd/yyyy format
-const parseDate = (dateString) => {
-    if (!dateString) return null;
-    
-    // Handle different date string formats
-    let date;
-    if (dateString.includes('/')) {
-      // MM/dd/yyyy format
-      const [month, day, year] = dateString.split('/').map(Number);
-      date = new Date(year, month - 1, day);
-    } else {
-      date = new Date(dateString);
-    }
-    
-    // Normalize time portion
-    date.setHours(0, 0, 0, 0);
-    return date;
-  };
-  
-  
-  // Format date for display in MM/dd/yyyy format
-  const formatDateForDisplay = (date) => {
-    if (!date) return '';
-    const d = new Date(date);
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const year = d.getFullYear();
-    return `${month}/${day}/${year}`;
-  };
+
+// Format date for display in MM/dd/yyyy format
+const formatDateForDisplay = (date) => {
+  if (!date) return '';
+  const d = new Date(date);
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${month}/${day}/${year}`;
+};
+
 const ProductionReportStats = () => {
   // State for data
   const [reports, setReports] = useState([]);
   const [congDoanData, setCongDoanData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
-  const [reportView, setReportView] = useState('overview'); // overview, byStage, byStaff, byTime
+  const [reportView, setReportView] = useState('overview'); // overview, byStage, byStaff, byTime, byTeam
 
   // State for filters
   const [filters, setFilters] = useState({
     startDate: new Date(new Date().setDate(1)), // First day of current month
     endDate: new Date(),
     congDoan: '',
-    trangThai: 'Đã duyệt' // Default to show only approved reports
+    to: '', // Team filter
+    tenHang: '' // Product name filter
   });
-  
+
   // Fetch data on component mount
   useEffect(() => {
     fetchData();
@@ -86,12 +88,12 @@ const ProductionReportStats = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Fetch reports and production stages
+      // Fetch reports from BC2 table and production stages
       const [reportsResponse, congDoanResponse] = await Promise.all([
-        authUtils.apiRequest('BC', 'Find', {}),
+        authUtils.apiRequest('BC2', 'Find', {}),
         authUtils.apiRequest('CONGDOAN', 'Find', {})
       ]);
-      
+
       setReports(reportsResponse);
       setCongDoanData(congDoanResponse);
     } catch (error) {
@@ -105,27 +107,31 @@ const ProductionReportStats = () => {
   // Apply filters to reports
   const filteredReports = useMemo(() => {
     return reports.filter(report => {
-        const reportDate = parseDate(report['NGÀY']);
-    
-        // Filter by date range
-        const startDate = filters.startDate ? new Date(filters.startDate.setHours(0, 0, 0, 0)) : null;
-        const endDate = filters.endDate ? new Date(filters.endDate.setHours(23, 59, 59, 999)) : null;
-        
-        let dateMatches = true;
-        if (startDate && endDate) {
-          dateMatches = reportDate >= startDate && reportDate <= endDate;
-        } else if (startDate) {
-          dateMatches = reportDate >= startDate;
-        } else if (endDate) {
-          dateMatches = reportDate <= endDate;
-        }
+      const reportDate = parseDate(report['NGÀY']);
+
+      // Filter by date range
+      const startDate = filters.startDate ? new Date(filters.startDate.setHours(0, 0, 0, 0)) : null;
+      const endDate = filters.endDate ? new Date(filters.endDate.setHours(23, 59, 59, 999)) : null;
+
+      let dateMatches = true;
+      if (startDate && endDate) {
+        dateMatches = reportDate >= startDate && reportDate <= endDate;
+      } else if (startDate) {
+        dateMatches = reportDate >= startDate;
+      } else if (endDate) {
+        dateMatches = reportDate <= endDate;
+      }
+
       // Filter by production stage
       const congDoanMatches = !filters.congDoan || report['CÔNG ĐOẠN'] === filters.congDoan;
-      
-      // Filter by approval status
-      const statusMatches = !filters.trangThai || report['TRẠNG THÁI'] === filters.trangThai;
-      
-      return dateMatches && congDoanMatches && statusMatches;
+
+      // Filter by team
+      const toMatches = !filters.to || report['TỔ'] === filters.to;
+
+      // Filter by product name
+      const tenHangMatches = !filters.tenHang || report['TÊN HÀNG']?.toLowerCase().includes(filters.tenHang.toLowerCase());
+
+      return dateMatches && congDoanMatches && toMatches && tenHangMatches;
     });
   }, [reports, filters]);
 
@@ -136,43 +142,50 @@ const ProductionReportStats = () => {
         totalReports: 0,
         totalVolume: 0,
         totalValue: 0,
-        approvedReports: 0,
-        pendingReports: 0,
-        rejectedReports: 0
+        totalStaff: 0,
+        uniqueProducts: 0
       };
     }
 
-    const approved = filteredReports.filter(r => r['TRẠNG THÁI'] === 'Đã duyệt');
-    const pending = filteredReports.filter(r => r['TRẠNG THÁI'] === 'Chờ duyệt');
-    const rejected = filteredReports.filter(r => r['TRẠNG THÁI'] === 'Từ chối');
-
-    // Calculate total production volume (may need to normalize units)
-    const totalVolume = approved.reduce((sum, report) => {
+    // Calculate total production volume
+    const totalVolume = filteredReports.reduce((sum, report) => {
       const volume = parseFloat(report['KHỐI LƯỢNG']) || 0;
       return sum + volume;
     }, 0);
 
     // Calculate total value
-    const totalValue = approved.reduce((sum, report) => {
+    const totalValue = filteredReports.reduce((sum, report) => {
       const value = parseFloat(report['THÀNH TIỀN']) || 0;
       return sum + value;
     }, 0);
+
+    // Calculate unique staff count
+    const allStaff = new Set();
+    filteredReports.forEach(report => {
+      if (report['NHÂN SỰ']) {
+        const staffList = report['NHÂN SỰ'].split(',').map(s => s.trim());
+        staffList.forEach(staff => {
+          if (staff) allStaff.add(staff);
+        });
+      }
+    });
+
+    // Calculate unique products
+    const uniqueProducts = new Set(filteredReports.map(r => r['TÊN HÀNG']).filter(Boolean)).size;
 
     return {
       totalReports: filteredReports.length,
       totalVolume: totalVolume,
       totalValue: totalValue,
-      approvedReports: approved.length,
-      pendingReports: pending.length,
-      rejectedReports: rejected.length
+      totalStaff: allStaff.size,
+      uniqueProducts: uniqueProducts
     };
   }, [filteredReports]);
 
   // Group data by production stage
   const stageData = useMemo(() => {
-    const approved = filteredReports.filter(r => r['TRẠNG THÁI'] === 'Đã duyệt');
     const stageGroups = {};
-    
+
     // Initialize with all known stages
     congDoanData.forEach(cd => {
       stageGroups[cd['CÔNG ĐOẠN']] = {
@@ -181,74 +194,111 @@ const ProductionReportStats = () => {
         value: 0
       };
     });
-    
+
     // Populate data
-    approved.forEach(report => {
+    filteredReports.forEach(report => {
       const stage = report['CÔNG ĐOẠN'];
       if (!stageGroups[stage]) {
         stageGroups[stage] = { count: 0, volume: 0, value: 0 };
       }
-      
+
       stageGroups[stage].count += 1;
       stageGroups[stage].volume += parseFloat(report['KHỐI LƯỢNG']) || 0;
       stageGroups[stage].value += parseFloat(report['THÀNH TIỀN']) || 0;
     });
-    
+
     return Object.entries(stageGroups).map(([stage, data]) => ({
       stage,
       ...data
     }));
   }, [filteredReports, congDoanData]);
 
+  // Group data by team
+  const teamData = useMemo(() => {
+    const teamMap = {};
+
+    filteredReports.forEach(report => {
+      const team = report['TỔ'] || 'Chưa phân tổ';
+
+      if (!teamMap[team]) {
+        teamMap[team] = {
+          count: 0,
+          volume: 0,
+          value: 0,
+          stages: new Set(),
+          products: new Set()
+        };
+      }
+
+      teamMap[team].count += 1;
+      teamMap[team].volume += parseFloat(report['KHỐI LƯỢNG']) || 0;
+      teamMap[team].value += parseFloat(report['THÀNH TIỀN']) || 0;
+      if (report['CÔNG ĐOẠN']) teamMap[team].stages.add(report['CÔNG ĐOẠN']);
+      if (report['TÊN HÀNG']) teamMap[team].products.add(report['TÊN HÀNG']);
+    });
+
+    return Object.entries(teamMap)
+      .map(([name, data]) => ({
+        name,
+        ...data,
+        stageCount: data.stages.size,
+        productCount: data.products.size,
+        stages: Array.from(data.stages),
+        products: Array.from(data.products)
+      }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredReports]);
+
   // Group data by staff
   const staffData = useMemo(() => {
-    const approved = filteredReports.filter(r => r['TRẠNG THÁI'] === 'Đã duyệt');
     const staffMap = {};
-    
-    approved.forEach(report => {
-      const staffList = report['NHÂN SỰ THAM GIA']?.split(',').map(s => s.trim()) || [];
-      
+
+    filteredReports.forEach(report => {
+      const staffList = report['NHÂN SỰ']?.split(',').map(s => s.trim()) || [];
+
       staffList.forEach(staff => {
         if (!staff) return;
-        
+
         if (!staffMap[staff]) {
           staffMap[staff] = {
             count: 0,
             volume: 0,
             value: 0,
-            stages: new Set()
+            stages: new Set(),
+            teams: new Set()
           };
         }
-        
+
         // Since multiple staff can be on one report, we divide the volume and value
         const staffCount = staffList.length || 1;
         staffMap[staff].count += 1;
         staffMap[staff].volume += (parseFloat(report['KHỐI LƯỢNG']) || 0) / staffCount;
         staffMap[staff].value += (parseFloat(report['THÀNH TIỀN']) || 0) / staffCount;
-        staffMap[staff].stages.add(report['CÔNG ĐOẠN']);
+        if (report['CÔNG ĐOẠN']) staffMap[staff].stages.add(report['CÔNG ĐOẠN']);
+        if (report['TỔ']) staffMap[staff].teams.add(report['TỔ']);
       });
     });
-    
+
     return Object.entries(staffMap)
       .map(([name, data]) => ({
         name,
         ...data,
         stageCount: data.stages.size,
-        stages: Array.from(data.stages)
+        teamCount: data.teams.size,
+        stages: Array.from(data.stages),
+        teams: Array.from(data.teams)
       }))
       .sort((a, b) => b.value - a.value);
   }, [filteredReports]);
 
   // Group data by time periods (daily, weekly, monthly)
   const timeData = useMemo(() => {
-    const approved = filteredReports.filter(r => r['TRẠNG THÁI'] === 'Đã duyệt');
-    
     // Group by day
     const dailyData = {};
-    
-    approved.forEach(report => {
+
+    filteredReports.forEach(report => {
       const date = new Date(report['NGÀY']).toLocaleDateString('vi-VN');
-      
+
       if (!dailyData[date]) {
         dailyData[date] = {
           count: 0,
@@ -256,12 +306,12 @@ const ProductionReportStats = () => {
           value: 0
         };
       }
-      
+
       dailyData[date].count += 1;
       dailyData[date].volume += parseFloat(report['KHỐI LƯỢNG']) || 0;
       dailyData[date].value += parseFloat(report['THÀNH TIỀN']) || 0;
     });
-    
+
     // Convert to sorted array
     const dailyArray = Object.entries(dailyData)
       .map(([date, data]) => ({
@@ -271,18 +321,22 @@ const ProductionReportStats = () => {
       .sort((a, b) => {
         return parseVNDate(a.date) - parseVNDate(b.date);
       });
-      
+
     return {
       daily: dailyArray
     };
   }, [filteredReports]);
+
+  // Get unique values for filters
+  const uniqueTeams = [...new Set(reports.map(r => r['TỔ']).filter(Boolean))];
+  const uniqueProducts = [...new Set(reports.map(r => r['TÊN HÀNG']).filter(Boolean))];
 
   // Prepare chart data for stages
   const stageChartData = useMemo(() => {
     const labels = stageData.map(item => item.stage);
     const volumeData = stageData.map(item => item.volume);
     const valueData = stageData.map(item => item.value);
-    
+
     return {
       volume: {
         labels,
@@ -311,14 +365,11 @@ const ProductionReportStats = () => {
     };
   }, [stageData]);
 
-  // Prepare chart data for staff
-  const staffChartData = useMemo(() => {
-    // Limit to top 10 staff by value
-    const topStaff = staffData.slice(0, 10);
-    
-    const labels = topStaff.map(item => item.name);
-    const valueData = topStaff.map(item => item.value);
-    
+  // Prepare chart data for teams
+  const teamChartData = useMemo(() => {
+    const labels = teamData.map(item => item.name);
+    const valueData = teamData.map(item => item.value);
+
     const backgroundColors = [
       'rgba(255, 99, 132, 0.6)',
       'rgba(54, 162, 235, 0.6)',
@@ -331,7 +382,44 @@ const ProductionReportStats = () => {
       'rgba(40, 159, 64, 0.6)',
       'rgba(210, 99, 132, 0.6)'
     ];
-    
+
+    return {
+      value: {
+        labels,
+        datasets: [
+          {
+            label: 'Giá trị sản xuất',
+            data: valueData,
+            backgroundColor: backgroundColors,
+            borderColor: backgroundColors.map(color => color.replace('0.6', '1')),
+            borderWidth: 1
+          }
+        ]
+      }
+    };
+  }, [teamData]);
+
+  // Prepare chart data for staff
+  const staffChartData = useMemo(() => {
+    // Limit to top 10 staff by value
+    const topStaff = staffData.slice(0, 10);
+
+    const labels = topStaff.map(item => item.name);
+    const valueData = topStaff.map(item => item.value);
+
+    const backgroundColors = [
+      'rgba(255, 99, 132, 0.6)',
+      'rgba(54, 162, 235, 0.6)',
+      'rgba(255, 206, 86, 0.6)',
+      'rgba(75, 192, 192, 0.6)',
+      'rgba(153, 102, 255, 0.6)',
+      'rgba(255, 159, 64, 0.6)',
+      'rgba(199, 199, 199, 0.6)',
+      'rgba(83, 102, 255, 0.6)',
+      'rgba(40, 159, 64, 0.6)',
+      'rgba(210, 99, 132, 0.6)'
+    ];
+
     return {
       value: {
         labels,
@@ -353,7 +441,7 @@ const ProductionReportStats = () => {
     const labels = timeData.daily.map(item => item.date);
     const valueData = timeData.daily.map(item => item.value);
     const volumeData = timeData.daily.map(item => item.volume);
-    
+
     return {
       timeSeries: {
         labels,
@@ -446,7 +534,7 @@ const ProductionReportStats = () => {
     // Determine which data to export based on current view
     let dataToExport = [];
     let fileName = 'bao-cao-thong-ke-';
-    
+
     if (reportView === 'byStage') {
       dataToExport = stageData.map(item => ({
         'Công đoạn': item.stage,
@@ -456,6 +544,18 @@ const ProductionReportStats = () => {
       }));
       fileName += 'cong-doan';
     }
+    else if (reportView === 'byTeam') {
+      dataToExport = teamData.map(item => ({
+        'Tổ': item.name,
+        'Số lượng báo cáo': item.count,
+        'Khối lượng': item.volume.toFixed(2),
+        'Giá trị': item.value.toFixed(2),
+        'Số công đoạn': item.stageCount,
+        'Số sản phẩm': item.productCount,
+        'Công đoạn': item.stages.join(', ')
+      }));
+      fileName += 'to-san-xuat';
+    }
     else if (reportView === 'byStaff') {
       dataToExport = staffData.map(item => ({
         'Nhân viên': item.name,
@@ -463,7 +563,9 @@ const ProductionReportStats = () => {
         'Khối lượng đóng góp': item.volume.toFixed(2),
         'Giá trị đóng góp': item.value.toFixed(2),
         'Số công đoạn tham gia': item.stageCount,
-        'Công đoạn tham gia': item.stages.join(', ')
+        'Số tổ tham gia': item.teamCount,
+        'Công đoạn tham gia': item.stages.join(', '),
+        'Tổ tham gia': item.teams.join(', ')
       }));
       fileName += 'nhan-vien';
     }
@@ -479,27 +581,33 @@ const ProductionReportStats = () => {
     else {
       // Overview - export all filtered reports
       dataToExport = filteredReports.map(item => ({
-        'ID': item.ID,
-        'Ngày': new Date(item['NGÀY']).toLocaleDateString('vi-VN'),
+        'ID BC': item.IDBC,
+        'Ngày': formatDateForDisplay(item['NGÀY']),
+        'ID Nhập Bao Bì': item['ID_NHAPBAOBI'],
+        'Tên hàng': item['TÊN HÀNG'],
+        'Tổ': item['TỔ'],
         'Công đoạn': item['CÔNG ĐOẠN'],
+        'Đơn vị tính': item['ĐƠN VỊ TÍNH'],
+        'PP tính năng suất': item['PP TÍNH NĂNG SUẤT'],
         'Khối lượng': item['KHỐI LƯỢNG'],
-        'Đơn giá': item['ĐƠN GIÁ'],
-        'Thành tiền': item['THÀNH TIỀN'],
-        'Nhân sự tham gia': item['NHÂN SỰ THAM GIA'],
-        'Trạng thái': item['TRẠNG THÁI'],
+        'Số lượng nhân sự': item['SỐ LƯỢNG NHÂN SỰ'],
+        'Nhân sự': item['NHÂN SỰ'],
+        'Số dây': item['SỐ DÂY'],
+        'Ghi chú': item['GHI CHÚ'],
         'Người nhập': item['NGƯỜI NHẬP'],
-        'Người duyệt': item['NGƯỜI DUYỆT'] || ''
+        'Đơn giá': item['ĐƠN GIÁ'],
+        'Thành tiền': item['THÀNH TIỀN']
       }));
       fileName += 'chi-tiet';
     }
-    
+
     fileName += `-${new Date().toISOString().slice(0, 10)}.xlsx`;
-    
+
     // Create workbook and add worksheet
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
-    
+
     // Generate Excel file and trigger download
     XLSX.writeFile(wb, fileName);
   };
@@ -523,12 +631,13 @@ const ProductionReportStats = () => {
   const resetFilters = () => {
     const now = new Date();
     const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    
+
     setFilters({
       startDate: firstDayOfMonth,
       endDate: now,
       congDoan: '',
-      trangThai: 'Đã duyệt'
+      to: '',
+      tenHang: ''
     });
   };
 
@@ -538,7 +647,7 @@ const ProductionReportStats = () => {
         <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
           {/* Header Section */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h1 className="text-2xl font-bold text-gray-800">Thống kê Báo Cáo Sản Xuất</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Thống kê Báo Cáo Sản Xuất BC2</h1>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -561,7 +670,7 @@ const ProductionReportStats = () => {
           {/* Filter Section */}
           {showFilters && (
             <div className="mb-6 p-4 border rounded-lg bg-gray-50 animate-fadeIn">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Công đoạn</label>
                   <select
@@ -577,17 +686,28 @@ const ProductionReportStats = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tổ</label>
                   <select
-                    value={filters.trangThai}
-                    onChange={(e) => setFilters({ ...filters, trangThai: e.target.value })}
+                    value={filters.to}
+                    onChange={(e) => setFilters({ ...filters, to: e.target.value })}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                   >
-                    <option value="">Tất cả trạng thái</option>
-                    <option value="Chờ duyệt">Chờ duyệt</option>
-                    <option value="Đã duyệt">Đã duyệt</option>
-                    <option value="Từ chối">Từ chối</option>
+                    <option value="">Tất cả tổ</option>
+                    {uniqueTeams.map(team => (
+                      <option key={team} value={team}>{team}</option>
+                    ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tên hàng</label>
+                  <input
+                    type="text"
+                    value={filters.tenHang}
+                    onChange={(e) => setFilters({ ...filters, tenHang: e.target.value })}
+                    placeholder="Tìm theo tên hàng..."
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+                  />
                 </div>
 
                 <div>
@@ -638,11 +758,10 @@ const ProductionReportStats = () => {
               <li className="mr-2">
                 <button
                   onClick={() => setReportView('overview')}
-                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg group ${
-                    reportView === 'overview'
-                    ? 'text-indigo-600 border-indigo-600'
-                    : 'border-transparent hover:text-gray-600 hover:border-gray-300'
-                  }`}
+                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg group ${reportView === 'overview'
+                      ? 'text-indigo-600 border-indigo-600'
+                      : 'border-transparent hover:text-gray-600 hover:border-gray-300'
+                    }`}
                 >
                   <TrendingUp className={`w-4 h-4 mr-2 ${reportView === 'overview' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'}`} />
                   Tổng quan
@@ -651,11 +770,10 @@ const ProductionReportStats = () => {
               <li className="mr-2">
                 <button
                   onClick={() => setReportView('byStage')}
-                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg group ${
-                    reportView === 'byStage'
-                    ? 'text-indigo-600 border-indigo-600'
-                    : 'border-transparent hover:text-gray-600 hover:border-gray-300'
-                  }`}
+                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg group ${reportView === 'byStage'
+                      ? 'text-indigo-600 border-indigo-600'
+                      : 'border-transparent hover:text-gray-600 hover:border-gray-300'
+                    }`}
                 >
                   <Layers className={`w-4 h-4 mr-2 ${reportView === 'byStage' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'}`} />
                   Theo công đoạn
@@ -663,12 +781,23 @@ const ProductionReportStats = () => {
               </li>
               <li className="mr-2">
                 <button
+                  onClick={() => setReportView('byTeam')}
+                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg group ${reportView === 'byTeam'
+                      ? 'text-indigo-600 border-indigo-600'
+                      : 'border-transparent hover:text-gray-600 hover:border-gray-300'
+                    }`}
+                >
+                  <UserCheck className={`w-4 h-4 mr-2 ${reportView === 'byTeam' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'}`} />
+                  Theo tổ
+                </button>
+              </li>
+              <li className="mr-2">
+                <button
                   onClick={() => setReportView('byStaff')}
-                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg group ${
-                    reportView === 'byStaff'
-                    ? 'text-indigo-600 border-indigo-600'
-                    : 'border-transparent hover:text-gray-600 hover:border-gray-300'
-                  }`}
+                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg group ${reportView === 'byStaff'
+                      ? 'text-indigo-600 border-indigo-600'
+                      : 'border-transparent hover:text-gray-600 hover:border-gray-300'
+                    }`}
                 >
                   <UserCheck className={`w-4 h-4 mr-2 ${reportView === 'byStaff' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'}`} />
                   Theo nhân viên
@@ -677,11 +806,10 @@ const ProductionReportStats = () => {
               <li>
                 <button
                   onClick={() => setReportView('byTime')}
-                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg group ${
-                    reportView === 'byTime'
-                    ? 'text-indigo-600 border-indigo-600'
-                    : 'border-transparent hover:text-gray-600 hover:border-gray-300'
-                  }`}
+                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg group ${reportView === 'byTime'
+                      ? 'text-indigo-600 border-indigo-600'
+                      : 'border-transparent hover:text-gray-600 hover:border-gray-300'
+                    }`}
                 >
                   <Calendar className={`w-4 h-4 mr-2 ${reportView === 'byTime' ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'}`} />
                   Theo thời gian
@@ -711,17 +839,10 @@ const ProductionReportStats = () => {
                     </div>
                   </div>
                   <div className="mt-3 flex items-center text-sm">
-                    <div className="flex gap-1 mr-3">
-                      <Check className="h-4 w-4 text-green-500" />
-                      <span className="text-gray-600">Đã duyệt: {summaryStats.approvedReports}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      <X className="h-4 w-4 text-red-500" />
-                      <span className="text-gray-600">Từ chối: {summaryStats.rejectedReports}</span>
-                    </div>
+                    <span className="text-gray-600">Báo cáo sản xuất trong kỳ</span>
                   </div>
                 </div>
-                
+
                 <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
@@ -731,12 +852,12 @@ const ProductionReportStats = () => {
                     <div className="p-2 bg-green-100 rounded-lg">
                       <TrendingUp className="h-6 w-6 text-green-600" />
                     </div>
-                    </div>
+                  </div>
                   <div className="mt-3 flex items-center text-sm">
-                    <span className="text-gray-600">Khối lượng sản xuất đã duyệt</span>
+                    <span className="text-gray-600">Khối lượng sản xuất</span>
                   </div>
                 </div>
-                
+
                 <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
@@ -750,24 +871,22 @@ const ProductionReportStats = () => {
                     </div>
                   </div>
                   <div className="mt-3 flex items-center text-sm">
-                    <span className="text-gray-600">Giá trị sản xuất đã duyệt</span>
+                    <span className="text-gray-600">Giá trị sản xuất</span>
                   </div>
                 </div>
-                
+
                 <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                   <div className="flex justify-between items-start">
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Số công đoạn hoạt động</p>
-                      <h3 className="text-2xl font-bold text-gray-900">
-                        {stageData.filter(s => s.count > 0).length}/{congDoanData.length}
-                      </h3>
+                      <p className="text-sm text-gray-500 mb-1">Nhân sự tham gia</p>
+                      <h3 className="text-2xl font-bold text-gray-900">{summaryStats.totalStaff}</h3>
                     </div>
                     <div className="p-2 bg-amber-100 rounded-lg">
-                      <Layers className="h-6 w-6 text-amber-600" />
+                      <UserCheck className="h-6 w-6 text-amber-600" />
                     </div>
                   </div>
                   <div className="mt-3 flex items-center text-sm">
-                    <span className="text-gray-600">Công đoạn có báo cáo trong kỳ</span>
+                    <span className="text-gray-600">Số sản phẩm: {summaryStats.uniqueProducts}</span>
                   </div>
                 </div>
               </div>
@@ -781,7 +900,7 @@ const ProductionReportStats = () => {
                     <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                       <h3 className="text-lg font-medium text-gray-800 mb-4">Phân bố theo công đoạn</h3>
                       <div className="h-80">
-                        <Pie 
+                        <Pie
                           data={{
                             labels: stageData.filter(s => s.count > 0).map(s => s.stage),
                             datasets: [{
@@ -808,7 +927,7 @@ const ProductionReportStats = () => {
                     <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                       <h3 className="text-lg font-medium text-gray-800 mb-4">Xu hướng sản xuất</h3>
                       <div className="h-80">
-                        <Line 
+                        <Line
                           data={timeChartData.timeSeries}
                           options={timeChartOptions}
                         />
@@ -819,50 +938,42 @@ const ProductionReportStats = () => {
                   {/* Recent reports table */}
                   <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-800 mb-4">Báo cáo gần đây</h3>
-                    
+
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID</th>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID BC</th>
                             <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
                             <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
                             <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
                             <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
                             <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
-                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Trạng thái</th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {filteredReports.slice(0, 5).map((report) => (
-                            <tr key={report.ID} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{report.ID}</td>
+                          {filteredReports.slice(0, 10).map((report) => (
+                            <tr key={report.IDBC} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{report.IDBC}</td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-  {formatDateForDisplay(report['NGÀY'])}
-</td>
+                                {formatDateForDisplay(report['NGÀY'])}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TỔ']}</td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">{report['KHỐI LƯỢNG']}</td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['ĐƠN GIÁ']}</td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium">
-                                {report['TRẠNG THÁI'] === 'Đã duyệt' ? report['THÀNH TIỀN'] : '—'}
-                              </td>
-                              <td className="px-4 py-3 whitespace-nowrap text-sm">
-                                <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                                  report['TRẠNG THÁI'] === 'Đã duyệt' 
-                                    ? 'bg-green-100 text-green-800 border border-green-200'
-                                    : report['TRẠNG THÁI'] === 'Từ chối'
-                                      ? 'bg-red-100 text-red-800 border border-red-200'
-                                      : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                                }`}>
-                                  {report['TRẠNG THÁI']}
-                                </span>
+                                {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(report['THÀNH TIỀN'] || 0)}
                               </td>
                             </tr>
                           ))}
-                          
+
                           {filteredReports.length === 0 && (
                             <tr>
-                              <td colSpan="7" className="px-4 py-6 text-center text-sm text-gray-500">
+                              <td colSpan="8" className="px-4 py-6 text-center text-sm text-gray-500">
                                 Không tìm thấy báo cáo nào phù hợp với tiêu chí tìm kiếm
                               </td>
                             </tr>
@@ -881,7 +992,7 @@ const ProductionReportStats = () => {
                   <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-800 mb-4">Giá trị theo công đoạn</h3>
                     <div className="h-80">
-                      <Bar 
+                      <Bar
                         data={stageChartData.value}
                         options={chartOptions}
                       />
@@ -891,7 +1002,7 @@ const ProductionReportStats = () => {
                   {/* Detailed stage data table */}
                   <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-800 mb-4">Chi tiết theo công đoạn</h3>
-                    
+
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -907,10 +1018,10 @@ const ProductionReportStats = () => {
                           {stageData
                             .sort((a, b) => b.value - a.value)
                             .map((stage) => {
-                              const percentOfTotal = summaryStats.totalValue > 0 
-                                ? (stage.value / summaryStats.totalValue * 100).toFixed(2) 
+                              const percentOfTotal = summaryStats.totalValue > 0
+                                ? (stage.value / summaryStats.totalValue * 100).toFixed(2)
                                 : '0.00';
-                              
+
                               return (
                                 <tr key={stage.stage} className="hover:bg-gray-50 transition-colors">
                                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{stage.stage}</td>
@@ -921,13 +1032,12 @@ const ProductionReportStats = () => {
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
                                     <div className="flex items-center justify-end">
-                                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                                        parseFloat(percentOfTotal) > 30
+                                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${parseFloat(percentOfTotal) > 30
                                           ? 'bg-green-100 text-green-800'
                                           : parseFloat(percentOfTotal) > 10
                                             ? 'bg-blue-100 text-blue-800'
                                             : 'bg-gray-100 text-gray-800'
-                                      }`}>
+                                        }`}>
                                         {percentOfTotal}%
                                       </span>
                                     </div>
@@ -935,10 +1045,86 @@ const ProductionReportStats = () => {
                                 </tr>
                               );
                             })}
-                          
+
                           {stageData.length === 0 && (
                             <tr>
                               <td colSpan="5" className="px-4 py-6 text-center text-sm text-gray-500">
+                                Không tìm thấy dữ liệu phù hợp với tiêu chí tìm kiếm
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* By Team View */}
+              {reportView === 'byTeam' && (
+                <div className="space-y-6">
+                  {/* Chart for teams */}
+                  <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                    <h3 className="text-lg font-medium text-gray-800 mb-4">Giá trị sản xuất theo tổ</h3>
+                    <div className="h-80">
+                      <Bar
+                        data={teamChartData.value}
+                        options={chartOptions}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Detailed team data table */}
+                  <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
+                    <h3 className="text-lg font-medium text-gray-800 mb-4">Chi tiết theo tổ</h3>
+
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Số báo cáo</th>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Khối lượng</th>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Giá trị</th>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Số công đoạn</th>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Số sản phẩm</th>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn tham gia</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {teamData
+                            .sort((a, b) => b.value - a.value)
+                            .map((team) => (
+                              <tr key={team.name} className="hover:bg-gray-50 transition-colors">
+                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{team.name}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">{team.count}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">{team.volume.toFixed(2)}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right font-medium">
+                                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(team.value)}
+                                </td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">{team.stageCount}</td>
+                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 text-right">{team.productCount}</td>
+                                <td className="px-4 py-3 text-sm text-gray-700">
+                                  <div className="flex flex-wrap gap-1">
+                                    {team.stages.slice(0, 3).map((stage, index) => (
+                                      <span
+                                        key={index}
+                                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
+                                      >
+                                        {stage}
+                                      </span>
+                                    ))}
+                                    {team.stages.length > 3 && (
+                                      <span className="text-xs text-gray-500">+{team.stages.length - 3} khác</span>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+
+                          {teamData.length === 0 && (
+                            <tr>
+                              <td colSpan="7" className="px-4 py-6 text-center text-sm text-gray-500">
                                 Không tìm thấy dữ liệu phù hợp với tiêu chí tìm kiếm
                               </td>
                             </tr>
@@ -957,7 +1143,7 @@ const ProductionReportStats = () => {
                   <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-800 mb-4">Top 10 nhân viên có giá trị đóng góp cao nhất</h3>
                     <div className="h-80">
-                      <Bar 
+                      <Bar
                         data={staffChartData.value}
                         options={chartOptions}
                       />
@@ -967,7 +1153,7 @@ const ProductionReportStats = () => {
                   {/* Detailed staff data table */}
                   <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-800 mb-4">Chi tiết theo nhân viên</h3>
-                    
+
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -976,6 +1162,7 @@ const ProductionReportStats = () => {
                             <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Số lượng tham gia</th>
                             <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Khối lượng đóng góp</th>
                             <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Giá trị đóng góp</th>
+                            <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ tham gia</th>
                             <th scope="col" className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn tham gia</th>
                           </tr>
                         </thead>
@@ -992,22 +1179,37 @@ const ProductionReportStats = () => {
                                 </td>
                                 <td className="px-4 py-3 text-sm text-gray-700">
                                   <div className="flex flex-wrap gap-1">
-                                    {staff.stages.map((stage, index) => (
-                                      <span 
-                                        key={index} 
+                                    {staff.teams.map((team, index) => (
+                                      <span
+                                        key={index}
+                                        className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800"
+                                      >
+                                        {team}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3 text-sm text-gray-700">
+                                  <div className="flex flex-wrap gap-1">
+                                    {staff.stages.slice(0, 2).map((stage, index) => (
+                                      <span
+                                        key={index}
                                         className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800"
                                       >
                                         {stage}
                                       </span>
                                     ))}
+                                    {staff.stages.length > 2 && (
+                                      <span className="text-xs text-gray-500">+{staff.stages.length - 2}</span>
+                                    )}
                                   </div>
                                 </td>
                               </tr>
                             ))}
-                          
+
                           {staffData.length === 0 && (
                             <tr>
-                              <td colSpan="5" className="px-4 py-6 text-center text-sm text-gray-500">
+                              <td colSpan="6" className="px-4 py-6 text-center text-sm text-gray-500">
                                 Không tìm thấy dữ liệu phù hợp với tiêu chí tìm kiếm
                               </td>
                             </tr>
@@ -1026,7 +1228,7 @@ const ProductionReportStats = () => {
                   <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-800 mb-4">Biểu đồ sản xuất theo thời gian</h3>
                     <div className="h-80">
-                      <Line 
+                      <Line
                         data={timeChartData.timeSeries}
                         options={timeChartOptions}
                       />
@@ -1036,7 +1238,7 @@ const ProductionReportStats = () => {
                   {/* Detailed time data table */}
                   <div className="bg-white p-5 rounded-lg border border-gray-200 shadow-sm">
                     <h3 className="text-lg font-medium text-gray-800 mb-4">Chi tiết theo ngày</h3>
-                    
+
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -1052,10 +1254,10 @@ const ProductionReportStats = () => {
                           {timeData.daily
                             .sort((a, b) => parseVNDate(b.date) - parseVNDate(a.date))
                             .map((day, index) => {
-                              const percentOfTotal = summaryStats.totalValue > 0 
-                                ? (day.value / summaryStats.totalValue * 100).toFixed(2) 
+                              const percentOfTotal = summaryStats.totalValue > 0
+                                ? (day.value / summaryStats.totalValue * 100).toFixed(2)
                                 : '0.00';
-                              
+
                               return (
                                 <tr key={index} className="hover:bg-gray-50 transition-colors">
                                   <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">{day.date}</td>
@@ -1066,13 +1268,12 @@ const ProductionReportStats = () => {
                                   </td>
                                   <td className="px-4 py-3 whitespace-nowrap text-sm text-right">
                                     <div className="flex items-center justify-end">
-                                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                                        parseFloat(percentOfTotal) > 15
+                                      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${parseFloat(percentOfTotal) > 15
                                           ? 'bg-green-100 text-green-800'
                                           : parseFloat(percentOfTotal) > 5
                                             ? 'bg-blue-100 text-blue-800'
                                             : 'bg-gray-100 text-gray-800'
-                                      }`}>
+                                        }`}>
                                         {percentOfTotal}%
                                       </span>
                                     </div>
@@ -1080,7 +1281,7 @@ const ProductionReportStats = () => {
                                 </tr>
                               );
                             })}
-                          
+
                           {timeData.daily.length === 0 && (
                             <tr>
                               <td colSpan="5" className="px-4 py-6 text-center text-sm text-gray-500">
@@ -1098,7 +1299,7 @@ const ProductionReportStats = () => {
           )}
         </div>
       </div>
-      
+
       {/* Toast Container */}
       <ToastContainer
         position="top-right"
