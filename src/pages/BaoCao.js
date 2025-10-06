@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Upload, X, Calendar, AlertCircle, Package, Users, Check } from 'lucide-react';
+import { Plus, Edit, Trash, Search, ChevronLeft, ChevronRight, Filter, Download, Upload, X, Calendar, AlertCircle, Package, Users, Check, List, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -24,6 +24,20 @@ const formatDateForInput = (dateString) => {
   const day = date.getDate().toString().padStart(2, '0');
 
   return `${year}-${month}-${day}`;
+};
+
+// Parse date for filtering
+const parseVNDate = (dateString) => {
+  if (!dateString) return null;
+  if (dateString.includes('/')) {
+    const [day, month, year] = dateString.split('/').map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setHours(0, 0, 0, 0);
+    return date;
+  }
+  const date = new Date(dateString);
+  date.setHours(0, 0, 0, 0);
+  return date;
 };
 
 const formatCurrency = (amount) => {
@@ -96,7 +110,7 @@ const StatisticCards = ({ data }) => {
 
     return {
       totalReports,
-      totalNhanSu, // Số nhân sự duy nhất
+      totalNhanSu,
       totalKhoiLuong,
       totalThanhTien,
       uniqueTeams: Object.keys(teamStats).length,
@@ -226,6 +240,7 @@ const ReportManagement = () => {
   const [teamWorkStages, setTeamWorkStages] = useState([]);
   const [teams, setTeams] = useState([]);
   const [nhapBaoBiList, setNhapBaoBiList] = useState([]);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'grouped'
 
   // State - UI controls
   const [open, setOpen] = useState(false);
@@ -239,8 +254,8 @@ const ReportManagement = () => {
   const [filters, setFilters] = useState({
     soXe: '',
     khachHang: '',
-    startDate: null,  // null thay vì ''
-    endDate: null,    // null thay vì ''
+    startDate: null,
+    endDate: null,
     allocationStatus: ''
   });
 
@@ -260,6 +275,9 @@ const ReportManagement = () => {
   // State - view history modal
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState([]);
+
+  // Thêm vào phần State - UI controls
+  const [expandedDateGroups, setExpandedDateGroups] = useState(new Set());
 
   // Default empty report
   const emptyReport = {
@@ -324,6 +342,17 @@ const ReportManagement = () => {
     return activeStages.filter(stage => stage['TỔ'] === teamName);
   };
 
+  // Thêm function toggle mở rộng/thu gọn nhóm ngày
+  const toggleDateGroupExpansion = (date) => {
+    const newExpanded = new Set(expandedDateGroups);
+    if (newExpanded.has(date)) {
+      newExpanded.delete(date);
+    } else {
+      newExpanded.add(date);
+    }
+    setExpandedDateGroups(newExpanded);
+  };
+
   // Handle team selection
   const handleTeamChange = (teamName) => {
     setCurrentReport(prev => ({
@@ -369,7 +398,7 @@ const ReportManagement = () => {
   const handleFilterDateChange = (field, value) => {
     setFilters(prev => ({
       ...prev,
-      [field]: value || null  // Dùng null thay vì ''
+      [field]: value || null
     }));
   };
 
@@ -509,7 +538,7 @@ const ReportManagement = () => {
   const handleDateChange = useCallback((dateStr) => {
     setCurrentReport(prev => ({
       ...prev,
-      'NGÀY': dateStr // Lưu dạng chuỗi yyyy-mm-dd
+      'NGÀY': dateStr
     }));
   }, []);
 
@@ -898,6 +927,48 @@ const ReportManagement = () => {
     });
   }, [reports, search, filters]);
 
+  // Grouped records for date view
+  const groupedRecords = useMemo(() => {
+    if (viewMode !== 'grouped') return null;
+
+    const groups = {};
+
+    // Nhóm các reports theo ngày
+    filteredReports.forEach(report => {
+      const date = new Date(report['NGÀY']).toLocaleDateString('vi-VN');
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(report);
+    });
+
+    // Chuyển thành mảng và tính tổng cho mỗi nhóm
+    return Object.keys(groups)
+      .sort((a, b) => {
+        const dateA = parseVNDate(a);
+        const dateB = parseVNDate(b);
+        return dateB - dateA; // Sắp xếp giảm dần (mới nhất trước)
+      })
+      .map(date => ({
+        date,
+        records: groups[date],
+        totalReports: groups[date].length,
+        totalKhoiLuong: groups[date].reduce((sum, r) => sum + parseFloat(r['KHỐI LƯỢNG'] || 0), 0),
+        totalThanhTien: groups[date].reduce((sum, r) => sum + parseFloat(r['THÀNH TIỀN'] || 0), 0),
+        totalNhanSu: groups[date].reduce((sum, r) => sum + parseInt(r['SỐ LƯỢNG NHÂN SỰ'] || 0), 0),
+
+        // Thống kê theo tổ
+        teamStats: groups[date].reduce((acc, r) => {
+          const team = r['TỔ'];
+          if (!acc[team]) acc[team] = { count: 0, khoiLuong: 0, thanhTien: 0 };
+          acc[team].count++;
+          acc[team].khoiLuong += parseFloat(r['KHỐI LƯỢNG'] || 0);
+          acc[team].thanhTien += parseFloat(r['THÀNH TIỀN'] || 0);
+          return acc;
+        }, {})
+      }));
+  }, [filteredReports, viewMode]);
+
   // Pagination
   const paginatedReports = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
@@ -955,6 +1026,23 @@ const ReportManagement = () => {
               >
                 <Plus className="w-4 h-4" />
                 Thêm báo cáo
+              </button>
+
+              <button
+                onClick={() => setViewMode(viewMode === 'list' ? 'grouped' : 'list')}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2 transition-colors shadow-sm"
+              >
+                {viewMode === 'list' ? (
+                  <>
+                    <Calendar className="w-4 h-4" />
+                    Nhóm theo ngày
+                  </>
+                ) : (
+                  <>
+                    <List className="w-4 h-4" />
+                    Danh sách
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -1055,130 +1143,315 @@ const ReportManagement = () => {
           {/* Statistics Cards */}
           <StatisticCards data={filteredReports} />
 
-          {/* Table */}
-          <div className="overflow-x-auto -mx-4 md:mx-0">
-            <div className="inline-block min-w-full align-middle">
-              <div className="overflow-hidden border border-gray-200 rounded-lg">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th scope="col" className="p-4 text-left">
-                        <input
-                          type="checkbox"
-                          checked={selectedReports.length === paginatedReports.length && paginatedReports.length > 0}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedReports(paginatedReports.map(r => r.IDBC));
-                            } else {
-                              setSelectedReports([]);
-                            }
-                          }}
-                          className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                        />
-                      </th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID Nhập BB</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">SL Nhân sự</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhân sự</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số dây</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Người nhập</th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {paginatedReports.map(report => (
-                      <tr key={report.IDBC} className="hover:bg-gray-50 transition-colors">
-                        <td className="p-4 whitespace-nowrap">
-                          <input
-                            type="checkbox"
-                            checked={selectedReports.includes(report.IDBC)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedReports([...selectedReports, report.IDBC]);
-                              } else {
-                                setSelectedReports(selectedReports.filter(id => id !== report.IDBC));
-                              }
-                            }}
-                            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                          />
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
-                          {report['NGÀY'] ? new Date(report['NGÀY']).toLocaleDateString('vi-VN') : 'N/A'}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
-                          {report['ID_NHAPBAOBI']}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
-                        <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                            {report['TỔ']}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                          {formatNumber(report['KHỐI LƯỢNG'])} <span className="text-gray-500 text-xs">{report['ĐƠN VỊ TÍNH']}</span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
-                          {report['SỐ LƯỢNG NHÂN SỰ']}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-700 max-w-xs">
-                          <div className="truncate" title={report['NHÂN SỰ']}>
-                            {report['NHÂN SỰ']}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['SỐ DÂY']}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{formatNumber(report['ĐƠN GIÁ'])}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
-                          {formatCurrency(report['THÀNH TIỀN'])}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI NHẬP']}</td>
-                        <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                          <div className="flex justify-end space-x-1">
-                            <button
-                              onClick={() => handleOpen(report)}
-                              className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
-                              title="Sửa báo cáo"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(report.IDBC)}
-                              className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
-                              title="Xóa báo cáo"
-                            >
-                              <Trash className="h-4 w-4" />
-                            </button>
-                            {report['LỊCH SỬ'] && (
-                              <button
-                                onClick={() => handleViewHistory(report)}
-                                className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
-                                title="Xem lịch sử"
-                              >
-                                <AlertCircle className="h-4 w-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {/* Table or Grouped View Section */}
+          {viewMode === 'list' ? (
+            <>
+              {/* Table */}
+              <div className="overflow-x-auto -mx-4 md:mx-0">
+                <div className="inline-block min-w-full align-middle">
+                  <div className="overflow-hidden border border-gray-200 rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th scope="col" className="p-4 text-left">
+                            <input
+                              type="checkbox"
+                              checked={selectedReports.length === paginatedReports.length && paginatedReports.length > 0}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedReports(paginatedReports.map(r => r.IDBC));
+                                } else {
+                                  setSelectedReports([]);
+                                }
+                              }}
+                              className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          </th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID Nhập BB</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">SL Nhân sự</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhân sự</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Số dây</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Người nhập</th>
+                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {paginatedReports.map(report => (
+                          <tr key={report.IDBC} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-4 whitespace-nowrap">
+                              <input
+                                type="checkbox"
+                                checked={selectedReports.includes(report.IDBC)}
+                                onChange={(e) => {
+                                  if (e.target.checked) {
+                                    setSelectedReports([...selectedReports, report.IDBC]);
+                                  } else {
+                                    setSelectedReports(selectedReports.filter(id => id !== report.IDBC));
+                                  }
+                                }}
+                                className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              />
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                              {report['NGÀY'] ? new Date(report['NGÀY']).toLocaleDateString('vi-VN') : 'N/A'}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
+                              {report['ID_NHAPBAOBI']}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                                {report['TỔ']}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                              {formatNumber(report['KHỐI LƯỢNG'])} <span className="text-gray-500 text-xs">{report['ĐƠN VỊ TÍNH']}</span>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
+                              {report['SỐ LƯỢNG NHÂN SỰ']}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-gray-700 max-w-xs">
+                              <div className="truncate" title={report['NHÂN SỰ']}>
+                                {report['NHÂN SỰ']}
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['SỐ DÂY']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{formatNumber(report['ĐƠN GIÁ'])}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
+                              {formatCurrency(report['THÀNH TIỀN'])}
+                            </td>
+                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI NHẬP']}</td>
+                            <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                              <div className="flex justify-end space-x-1">
+                                <button
+                                  onClick={() => handleOpen(report)}
+                                  className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
+                                  title="Sửa báo cáo"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(report.IDBC)}
+                                  className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
+                                  title="Xóa báo cáo"
+                                >
+                                  <Trash className="h-4 w-4" />
+                                </button>
+                                {report['LỊCH SỬ'] && (
+                                  <button
+                                    onClick={() => handleViewHistory(report)}
+                                    className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
+                                    title="Xem lịch sử"
+                                  >
+                                    <AlertCircle className="h-4 w-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Pagination */}
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
+              {/* Pagination */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </>
+          ) : (
+            // Grouped View
+            <div className="space-y-6">
+              {groupedRecords && groupedRecords.map(group => (
+                <div key={group.date} className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+                  {/* Header của mỗi nhóm ngày */}
+                  <div className="bg-gradient-to-r from-indigo-50 to-blue-50 px-6 py-4 border-b">
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          {/* Nút toggle thu gọn/mở rộng */}
+                          <button
+                            onClick={() => toggleDateGroupExpansion(group.date)}
+                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-100 transition-colors"
+                            title={expandedDateGroups.has(group.date) ? 'Thu gọn' : 'Mở rộng'}
+                          >
+                            {expandedDateGroups.has(group.date) ? (
+                              <ChevronUp className="w-5 h-5" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5" />
+                            )}
+                          </button>
+
+                          <h3 className="text-lg font-medium text-gray-800 flex items-center gap-2">
+                            <Calendar className="w-5 h-5 text-indigo-600" />
+                            Ngày: {group.date}
+                          </h3>
+                        </div>
+
+                        {/* Badges thống kê */}
+                        <div className="flex flex-wrap gap-2 mt-2 ml-11">
+                          <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                            {group.totalReports} báo cáo
+                          </span>
+                          <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                            KL: {formatNumber(group.totalKhoiLuong.toFixed(2))}
+                          </span>
+                          <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-green-100 text-green-800">
+                            {formatCurrency(group.totalThanhTien)}
+                          </span>
+                          <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                            {group.totalNhanSu} lượt NS
+                          </span>
+
+                          {/* Hiển thị thống kê theo tổ */}
+                          {Object.entries(group.teamStats).map(([team, stats]) => (
+                            <span key={team} className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800">
+                              {team}: {stats.count} BC
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Nút xuất file */}
+                      <div>
+                        <button
+                          onClick={() => {
+                            const excelData = group.records.map(item => ({
+                              IDBC: item.IDBC,
+                              'NGÀY': item['NGÀY'],
+                              'ID_NHAPBAOBI': item['ID_NHAPBAOBI'],
+                              'TÊN HÀNG': item['TÊN HÀNG'],
+                              'TỔ': item['TỔ'],
+                              'CÔNG ĐOẠN': item['CÔNG ĐOẠN'],
+                              'ĐƠN VỊ TÍNH': item['ĐƠN VỊ TÍNH'],
+                              'PP TÍNH NĂNG SUẤT': item['PP TÍNH NĂNG SUẤT'],
+                              'KHỐI LƯỢNG': item['KHỐI LƯỢNG'],
+                              'SỐ LƯỢNG NHÂN SỰ': item['SỐ LƯỢNG NHÂN SỰ'],
+                              'NHÂN SỰ': item['NHÂN SỰ'],
+                              'SỐ DÂY': item['SỐ DÂY'],
+                              'GHI CHÚ': item['GHI CHÚ'],
+                              'NGƯỜI NHẬP': item['NGƯỜI NHẬP'],
+                              'ĐƠN GIÁ': item['ĐƠN GIÁ'],
+                              'THÀNH TIỀN': item['THÀNH TIỀN']
+                            }));
+
+                            const ws = XLSX.utils.json_to_sheet(excelData);
+                            const wb = XLSX.utils.book_new();
+                            XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo');
+                            XLSX.writeFile(wb, `bao-cao-${group.date.replace(/\//g, '-')}.xlsx`);
+                          }}
+                          className="px-3 py-1.5 bg-amber-500 text-white rounded-lg hover:bg-amber-600 flex items-center gap-1.5 text-sm transition-colors shadow-sm"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          Xuất file
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bảng chi tiết - chỉ hiển thị khi được mở rộng */}
+                  {expandedDateGroups.has(group.date) && (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID Nhập BB</th>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Khối lượng</th>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">SL Nhân sự</th>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Nhân sự</th>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Đơn giá</th>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Thành tiền</th>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Người nhập</th>
+                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-right">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {group.records.map(report => (
+                            <tr key={report.IDBC} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
+                                {report['ID_NHAPBAOBI']}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
+                              <td className="px-4 py-3 whitespace-nowrap">
+                                <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
+                                  {report['TỔ']}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['CÔNG ĐOẠN']}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                {formatNumber(report['KHỐI LƯỢNG'])} <span className="text-gray-500 text-xs">{report['ĐƠN VỊ TÍNH']}</span>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-indigo-600">
+                                {report['SỐ LƯỢNG NHÂN SỰ']}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-gray-700 max-w-xs">
+                                <div className="truncate" title={report['NHÂN SỰ']}>
+                                  {report['NHÂN SỰ']}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{formatNumber(report['ĐƠN GIÁ'])}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-green-600">
+                                {formatCurrency(report['THÀNH TIỀN'])}
+                              </td>
+                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['NGƯỜI NHẬP']}</td>
+                              <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                <div className="flex justify-end space-x-1">
+                                  <button
+                                    onClick={() => handleOpen(report)}
+                                    className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-full hover:bg-indigo-50"
+                                    title="Sửa báo cáo"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    onClick={() => handleDelete(report.IDBC)}
+                                    className="text-red-600 hover:text-red-900 p-1.5 rounded-full hover:bg-red-50"
+                                    title="Xóa báo cáo"
+                                  >
+                                    <Trash className="h-4 w-4" />
+                                  </button>
+                                  {report['LỊCH SỬ'] && (
+                                    <button
+                                      onClick={() => handleViewHistory(report)}
+                                      className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
+                                      title="Xem lịch sử"
+                                    >
+                                      <AlertCircle className="h-4 w-4" />
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {groupedRecords && groupedRecords.length === 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
+                  <p className="text-gray-500">Không tìm thấy báo cáo nào phù hợp với tiêu chí tìm kiếm</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1212,7 +1485,7 @@ const ReportManagement = () => {
                       value={formatDateForInput(currentReport['NGÀY'])}
                       onChange={(e) => setCurrentReport(prev => ({
                         ...prev,
-                        'NGÀY': e.target.value // luôn lưu dạng yyyy-mm-dd
+                        'NGÀY': e.target.value
                       }))}
                       className="pl-10 p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
                     />
