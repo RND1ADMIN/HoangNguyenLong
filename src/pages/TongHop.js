@@ -23,6 +23,26 @@ const formatNumber = (number) => {
   return new Intl.NumberFormat('vi-VN').format(number);
 };
 
+// ✅ HÀM HELPER MỚI - Tách mã và tên công đoạn
+const splitStageCode = (fullCode) => {
+  if (!fullCode) return { code: '', name: '' };
+  
+  // Tách theo " - " (có dấu cách 2 bên)
+  const parts = fullCode.split(' - ');
+  
+  if (parts.length >= 2) {
+    // Trường hợp: "Bao bì anh - Cưa" hoặc "A - B - C"
+    // code: phần đầu tiên
+    // name: phần còn lại ghép lại
+    const code = parts[0].trim();
+    const name = parts.slice(1).join(' - ').trim();
+    return { code, name };
+  } else {
+    // Trường hợp không có " - ", dùng toàn bộ làm cả code và name
+    return { code: fullCode, name: fullCode };
+  }
+};
+
 const TongHop = () => {
   const [reports, setReports] = useState([]);
   const [teamWorkStages, setTeamWorkStages] = useState([]);
@@ -86,11 +106,14 @@ const TongHop = () => {
     const processedResults = [];
     Object.keys(reportsByDate).sort().forEach(date => {
       const dayReports = reportsByDate[date];
-      
+
       // Group by work stage
       workStageCodes.forEach(stageCode => {
-        const stageReports = dayReports.filter(report => report['CÔNG ĐOẠN'] === stageCode);
+        // ✅ TÁCH MÃ VÀ TÊN CÔNG ĐOẠN
+        const { code: workStageCode, name: workStageName } = splitStageCode(stageCode);
         
+        const stageReports = dayReports.filter(report => report['CÔNG ĐOẠN'] === stageCode);
+
         if (stageReports.length === 0) return;
 
         // Group reports by team (TỔ)
@@ -136,24 +159,27 @@ const TongHop = () => {
         Object.values(teamData).forEach(team => {
           // Use actual staff count or unique staff count, whichever is higher
           team.actualStaffCount = Math.max(team.staffCount, team.staffSet.size);
-          
+
           // Find corresponding work stage for this team and work stage code
-          const workStage = activeStages.find(stage => 
+          const workStage = activeStages.find(stage =>
             stage['TỔ'] === team.team && stage['MÃ CÔNG ĐOẠN'] === stageCode
           );
-          
+
           team.unitPrice = workStage ? parseFloat(workStage['ĐƠN GIÁ NĂNG SUẤT']) || 0 : 0;
           team.totalAmount = team.items.reduce((sum, item) => sum + item.amount, 0);
-          team.unit = workStage ? workStage['ĐƠN VỊ TÍNH'] : 
-                      (team.items.length > 0 ? team.items[0].unit : '');
-          team.workStageName = workStage ? workStage['TÊN CÔNG ĐOẠN'] : stageCode;
+          team.unit = workStage ? workStage['ĐƠN VỊ TÍNH'] :
+            (team.items.length > 0 ? team.items[0].unit : '');
+          
+          // ✅ SỬA: Dùng workStageName đã tách thay vì stageCode
+          team.workStageName = workStage ? workStage['TÊN CÔNG ĐOẠN'] : workStageName;
         });
 
+        // ✅ SỬA: Push với code và name đã tách riêng
         processedResults.push({
           date: date,
           workStage: {
-            code: stageCode,
-            name: Object.values(teamData)[0]?.workStageName || stageCode
+            code: workStageCode,    // Chỉ phần mã
+            name: workStageName     // Chỉ phần tên
           },
           teams: Object.values(teamData),
           totalQuantity: Object.values(teamData).reduce((sum, team) => sum + team.totalQuantity, 0),
@@ -169,19 +195,32 @@ const TongHop = () => {
   // Apply filters
   const filteredData = useMemo(() => {
     return processedData.filter(item => {
-      const itemDate = new Date(item.date);
-      
       // Date filter
       let dateMatch = true;
-      if (filters.startDate) {
-        dateMatch = itemDate >= new Date(filters.startDate);
-      }
-      if (filters.endDate && dateMatch) {
-        dateMatch = itemDate <= new Date(filters.endDate);
+      if (filters.startDate || filters.endDate) {
+        const itemDate = new Date(item.date);
+        itemDate.setHours(0, 0, 0, 0); // Normalize về đầu ngày
+
+        if (filters.startDate && filters.endDate) {
+          const startDate = new Date(filters.startDate);
+          startDate.setHours(0, 0, 0, 0);
+          const endDate = new Date(filters.endDate);
+          endDate.setHours(23, 59, 59, 999); // Cuối ngày
+
+          dateMatch = itemDate >= startDate && itemDate <= endDate;
+        } else if (filters.startDate) {
+          const startDate = new Date(filters.startDate);
+          startDate.setHours(0, 0, 0, 0);
+          dateMatch = itemDate >= startDate;
+        } else if (filters.endDate) {
+          const endDate = new Date(filters.endDate);
+          endDate.setHours(23, 59, 59, 999);
+          dateMatch = itemDate <= endDate;
+        }
       }
 
       // Search filter
-      const searchMatch = !search || 
+      const searchMatch = !search ||
         item.date.includes(search) ||
         item.workStage.name.toLowerCase().includes(search.toLowerCase()) ||
         item.workStage.code.toLowerCase().includes(search.toLowerCase()) ||
@@ -194,7 +233,7 @@ const TongHop = () => {
   const handleFilterDateChange = (field, value) => {
     setFilters(prev => ({
       ...prev,
-      [field]: value ? new Date(value) : null
+      [field]: value || null  // Lưu string hoặc null, KHÔNG convert sang Date
     }));
   };
 
@@ -205,7 +244,7 @@ const TongHop = () => {
       'Tổng khối lượng': item.totalQuantity,
       'Tổng nhân sự': item.totalStaff,
       'Tổng thành tiền': item.totalAmount,
-      'Chi tiết tổ': item.teams.map(team => 
+      'Chi tiết tổ': item.teams.map(team =>
         `${team.team}: ${team.totalQuantity}${team.unit} (${team.actualStaffCount} người) - ${formatNumber(team.totalAmount)} VNĐ`
       ).join('; ')
     }));
@@ -231,7 +270,7 @@ const TongHop = () => {
                 <Filter className="w-4 h-4" />
                 {showFilters ? "Ẩn bộ lọc" : "Bộ lọc"}
               </button>
-              
+
               <button
                 onClick={handleExport}
                 className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 transition-colors shadow-sm"
@@ -358,7 +397,7 @@ const TongHop = () => {
                 ))}
               </tbody>
             </table>
-            
+
             {filteredData.length === 0 && (
               <div className="text-center py-8">
                 <List className="w-12 h-12 text-gray-400 mx-auto mb-4" />

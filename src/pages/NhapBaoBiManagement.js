@@ -154,11 +154,10 @@ const NhapBaoBiManagement = () => {
     });
 
     const [filters, setFilters] = useState({
-        soXe: '',
-        khachHang: '',
+        searchFilter: '',  // Gộp soXe và khachHang
         startDate: null,
         endDate: null,
-        allocationStatus: '' // 'allocated', 'partial', 'unallocated'
+        allocationStatus: ''
     });
 
     // State - modals
@@ -271,42 +270,80 @@ const NhapBaoBiManagement = () => {
     };
 
     // Component hiển thị status badge
+    // Component hiển thị status badge đơn giản theo TỔ
     const AllocationStatusBadge = ({ record }) => {
         const status = getDistributionStatus(record);
 
         if (!status.hasAllocation) {
             return (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                    <Clock className="w-3 h-3 mr-1" />
-                    Chưa phân bổ
-                </span>
+                <div className="flex flex-col gap-1">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Chưa phân bổ
+                    </span>
+                </div>
             );
         }
 
+        // Nhóm và tính tổng khối lượng theo TỔ
+        const groupedByTo = status.relatedReports.reduce((acc, report) => {
+            const to = report['TỔ'] || 'Khác';
+            if (!acc[to]) {
+                acc[to] = 0;
+            }
+            acc[to] += parseFloat(report['KHỐI LƯỢNG'] || 0);
+            return acc;
+        }, {});
+
+        // Format: "CD1: 11.25T, CD2: 30.55T"
+        const toSummary = Object.entries(groupedByTo)
+            .map(([to, total]) => `${to}: ${formatNumber(total)}T`)
+            .join(', ');
+
         if (status.isFullyAllocated) {
             return (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                    <CheckCircle className="w-3 h-3 mr-1" />
-                    Đã phân bổ hết
-                </span>
+                <div className="flex flex-col gap-1">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <CheckCircle className="w-3 h-3 mr-1" />
+                        Đã phân bổ hết
+                    </span>
+                    <div className="text-xs text-indigo-700 font-medium">
+                        {toSummary}
+                    </div>
+                </div>
             );
         }
 
         return (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                <AlertCircle className="w-3 h-3 mr-1" />
-                Phân bổ một phần
-            </span>
+            <div className="flex flex-col gap-1">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    Phân bổ một phần
+                </span>
+                <div className="text-xs text-indigo-700 font-medium">
+                    {toSummary}
+                </div>
+            </div>
         );
     };
 
-    // Component hiển thị chi tiết phân bổ
+    // Component hiển thị chi tiết phân bổ - Nhóm theo TỔ
     const DetailReportsSection = ({ record, isInGroupView = false }) => {
         const status = getDistributionStatus(record);
         const expandedSet = isInGroupView ? expandedGroupDetailGroups : expandedDetailGroups;
         const toggleFunction = isInGroupView ? toggleGroupDetailExpansion : toggleDetailExpansion;
 
         if (!status.hasAllocation) return null;
+
+        // Nhóm báo cáo theo TỔ
+        const groupedByTo = status.relatedReports.reduce((acc, report) => {
+            const to = report['TỔ'] || 'Chưa phân tổ';
+            if (!acc[to]) {
+                acc[to] = [];
+            }
+            acc[to].push(report);
+            return acc;
+        }, {});
 
         return (
             <>
@@ -333,68 +370,95 @@ const NhapBaoBiManagement = () => {
                                 <div className="flex items-center justify-between mb-3">
                                     <h4 className="text-lg font-semibold text-blue-800 flex items-center gap-2">
                                         <Package className="w-5 h-5" />
-                                        Chi tiết phân bổ ({status.totalReports} báo cáo)
+                                        Chi tiết phân bổ ({status.totalReports} báo cáo - {Object.keys(groupedByTo).length} tổ)
                                     </h4>
                                     <div className="text-sm text-blue-600">
                                         Tổng giá trị: <span className="font-bold">{formatCurrency(status.relatedReports.reduce((sum, r) => sum + parseFloat(r['THÀNH TIỀN'] || 0), 0))}</span>
                                     </div>
                                 </div>
 
-                                <div className="overflow-x-auto">
-                                    <table className="min-w-full divide-y divide-blue-200">
-                                        <thead className="bg-blue-100">
-                                            <tr>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Ngày BC</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Tên hàng</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Tổ</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Công đoạn</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Khối lượng</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Nhân sự</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Đơn giá</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Thành tiền</th>
-                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Người nhập</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="bg-white divide-y divide-blue-100">
-                                            {status.relatedReports.map((report, index) => (
-                                                <tr key={report.IDBC} className={`${index % 2 === 0 ? 'bg-white' : 'bg-blue-25'} hover:bg-blue-50 transition-colors`}>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                                                        <div className="flex items-center gap-1">
-                                                            <Clock className="w-3 h-3 text-gray-400" />
-                                                            {new Date(report['NGÀY']).toLocaleDateString('vi-VN')}
+                                {/* Hiển thị theo từng TỔ */}
+                                <div className="space-y-4">
+                                    {Object.entries(groupedByTo).map(([to, reports]) => {
+                                        const totalAmount = reports.reduce((sum, r) => sum + parseFloat(r['THÀNH TIỀN'] || 0), 0);
+                                        const totalQuantity = reports.reduce((sum, r) => sum + parseFloat(r['KHỐI LƯỢNG'] || 0), 0);
+
+                                        return (
+                                            <div key={to} className="bg-white rounded-lg border border-blue-200 overflow-hidden">
+                                                {/* Header của mỗi TỔ */}
+                                                <div className="bg-gradient-to-r from-indigo-100 to-blue-100 px-4 py-3 border-b border-blue-200">
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-sm font-bold">
+                                                                {to}
+                                                            </span>
+                                                            <span className="text-sm text-gray-700">
+                                                                {reports.length} báo cáo
+                                                            </span>
+                                                            <span className="text-sm text-gray-700">
+                                                                Tổng KL: <span className="font-semibold text-purple-600">{formatNumber(totalQuantity)} Tấn</span>
+                                                            </span>
                                                         </div>
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{report['TÊN HÀNG']}</td>
-                                                    <td className="px-3 py-2 whitespace-nowrap">
-                                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
-                                                            {report['TỔ']}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
-                                                        <div className="truncate" title={report['CÔNG ĐOẠN']}>
-                                                            {report['CÔNG ĐOẠN']}
+                                                        <div className="text-sm font-bold text-green-700">
+                                                            {formatCurrency(totalAmount)}
                                                         </div>
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-purple-600">
-                                                        {formatNumber(report['KHỐI LƯỢNG'])}
-                                                        <span className="text-gray-500 text-xs ml-1">{report['ĐƠN VỊ TÍNH']}</span>
-                                                    </td>
-                                                    <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
-                                                        <div className="truncate" title={report['SỐ LƯỢNG NHÂN SỰ']}>
-                                                            {report['SỐ LƯỢNG NHÂN SỰ']}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-green-600 font-medium">
-                                                        {formatCurrency(report['ĐƠN GIÁ'])}
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-bold text-green-700">
-                                                        {formatCurrency(report['THÀNH TIỀN'])}
-                                                    </td>
-                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{report['NGƯỜI NHẬP']}</td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                                    </div>
+                                                </div>
+
+                                                {/* Bảng chi tiết của TỔ */}
+                                                <div className="overflow-x-auto">
+                                                    <table className="min-w-full divide-y divide-blue-200">
+                                                        <thead className="bg-blue-50">
+                                                            <tr>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Ngày BC</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Tên hàng</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Công đoạn</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Khối lượng</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Nhân sự</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Đơn giá</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Thành tiền</th>
+                                                                <th className="px-3 py-2 text-left text-xs font-medium text-blue-700 uppercase">Người nhập</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="bg-white divide-y divide-blue-100">
+                                                            {reports.map((report, index) => (
+                                                                <tr key={report.IDBC} className={`${index % 2 === 0 ? 'bg-white' : 'bg-blue-25'} hover:bg-blue-50 transition-colors`}>
+                                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
+                                                                        <div className="flex items-center gap-1">
+                                                                            <Clock className="w-3 h-3 text-gray-400" />
+                                                                            {new Date(report['NGÀY']).toLocaleDateString('vi-VN')}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">{report['TÊN HÀNG']}</td>
+                                                                    <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
+                                                                        <div className="truncate" title={report['CÔNG ĐOẠN']}>
+                                                                            {report['CÔNG ĐOẠN']}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-purple-600">
+                                                                        {formatNumber(report['KHỐI LƯỢNG'])}
+                                                                        <span className="text-gray-500 text-xs ml-1">{report['ĐƠN VỊ TÍNH']}</span>
+                                                                    </td>
+                                                                    <td className="px-3 py-2 text-sm text-gray-700 max-w-xs">
+                                                                        <div className="truncate" title={report['SỐ LƯỢNG NHÂN SỰ']}>
+                                                                            {report['SỐ LƯỢNG NHÂN SỰ']}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-green-600 font-medium">
+                                                                        {formatCurrency(report['ĐƠN GIÁ'])}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-bold text-green-700">
+                                                                        {formatCurrency(report['THÀNH TIỀN'])}
+                                                                    </td>
+                                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-600">{report['NGƯỜI NHẬP']}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </td>
@@ -518,7 +582,7 @@ const NhapBaoBiManagement = () => {
     const handleFilterDateChange = (field, value) => {
         setFilters(prev => ({
             ...prev,
-            [field]: value || ''
+            [field]: value || null  // Dùng null thay vì ''
         }));
     };
 
@@ -1022,8 +1086,10 @@ const NhapBaoBiManagement = () => {
                 record['KHÁCH HÀNG']?.toLowerCase().includes(search.toLowerCase()) ||
                 record.ID?.toLowerCase().includes(search.toLowerCase());
 
-            const matchesSoXe = !filters.soXe || record['SỐ XE']?.includes(filters.soXe);
-            const matchesKhachHang = !filters.khachHang || record['KHÁCH HÀNG']?.includes(filters.khachHang);
+            // Gộp filter cho Số xe và Khách hàng
+            const matchesSearchFilter = !filters.searchFilter ||
+                record['SỐ XE']?.toLowerCase().includes(filters.searchFilter.toLowerCase()) ||
+                record['KHÁCH HÀNG']?.toLowerCase().includes(filters.searchFilter.toLowerCase());
 
             // Allocation status filter
             let matchesAllocationStatus = true;
@@ -1043,19 +1109,33 @@ const NhapBaoBiManagement = () => {
             // Date filtering
             let dateMatches = true;
             if (filters.startDate || filters.endDate) {
-                const recordDate = parseVNDate(record['NGÀY THÁNG']);
-                const startDate = filters.startDate ? new Date(filters.startDate) : null;
-                const endDate = filters.endDate ? new Date(filters.endDate) : null;
+                const recordDateStr = formatDateForInput(record['NGÀY THÁNG']);
+                if (!recordDateStr) {
+                    dateMatches = false;
+                } else {
+                    const recordDate = new Date(recordDateStr);
+                    recordDate.setHours(0, 0, 0, 0);
 
-                if (startDate && endDate) {
-                    dateMatches = recordDate >= startDate && recordDate <= endDate;
-                } else if (startDate) {
-                    dateMatches = recordDate >= startDate;
-                } else if (endDate) {
-                    dateMatches = recordDate <= endDate;
+                    if (filters.startDate && filters.endDate) {
+                        const startDate = new Date(filters.startDate);
+                        startDate.setHours(0, 0, 0, 0);
+                        const endDate = new Date(filters.endDate);
+                        endDate.setHours(23, 59, 59, 999);
+
+                        dateMatches = recordDate >= startDate && recordDate <= endDate;
+                    } else if (filters.startDate) {
+                        const startDate = new Date(filters.startDate);
+                        startDate.setHours(0, 0, 0, 0);
+                        dateMatches = recordDate >= startDate;
+                    } else if (filters.endDate) {
+                        const endDate = new Date(filters.endDate);
+                        endDate.setHours(23, 59, 59, 999);
+                        dateMatches = recordDate <= endDate;
+                    }
                 }
             }
-            return matchesSearch && matchesSoXe && matchesKhachHang && dateMatches && matchesAllocationStatus;
+
+            return matchesSearch && matchesSearchFilter && dateMatches && matchesAllocationStatus;
         });
 
         // Apply sorting
@@ -1222,26 +1302,17 @@ const NhapBaoBiManagement = () => {
                     {/* Filter Section */}
                     {showFilters && (
                         <div className="mb-6 p-4 border rounded-lg bg-gray-50 animate-fadeIn">
-                            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Số xe</label>
+                            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+                                <div className="col-span-2">
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Tìm kiếm Số xe / Khách hàng
+                                    </label>
                                     <input
                                         type="text"
-                                        value={filters.soXe}
-                                        onChange={(e) => setFilters({ ...filters, soXe: e.target.value })}
+                                        value={filters.searchFilter}
+                                        onChange={(e) => setFilters({ ...filters, searchFilter: e.target.value })}
                                         className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="Tìm theo số xe"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Khách hàng</label>
-                                    <input
-                                        type="text"
-                                        value={filters.khachHang}
-                                        onChange={(e) => setFilters({ ...filters, khachHang: e.target.value })}
-                                        className="w-full p-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                                        placeholder="Tìm theo khách hàng"
+                                        placeholder="Nhập số xe hoặc khách hàng"
                                     />
                                 </div>
 
@@ -1260,40 +1331,40 @@ const NhapBaoBiManagement = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">Khoảng thời gian</label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                                <Calendar className="w-4 h-4 text-gray-500" />
-                                            </div>
-                                            <input
-                                                type="date"
-                                                value={filters.startDate || ''}
-                                                onChange={(e) => handleFilterDateChange('startDate', e.target.value)}
-                                                className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="Từ ngày"
-                                            />
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Từ ngày</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                            <Calendar className="w-4 h-4 text-gray-500" />
                                         </div>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-                                                <Calendar className="w-4 h-4 text-gray-500" />
-                                            </div>
-                                            <input
-                                                type="date"
-                                                value={filters.endDate || ''}
-                                                onChange={(e) => handleFilterDateChange('endDate', e.target.value)}
-                                                className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="Đến ngày"
-                                            />
+                                        <input
+                                            type="date"
+                                            value={filters.startDate || ''}
+                                            onChange={(e) => handleFilterDateChange('startDate', e.target.value)}
+                                            className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
+                                            placeholder="Từ ngày"
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Đến ngày</label>
+                                    <div className="relative">
+                                        <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                            <Calendar className="w-4 h-4 text-gray-500" />
                                         </div>
+                                        <input
+                                            type="date"
+                                            value={filters.endDate || ''}
+                                            onChange={(e) => handleFilterDateChange('endDate', e.target.value)}
+                                            className="pl-10 p-2 border rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500"
+                                            placeholder="Đến ngày"
+                                        />
                                     </div>
                                 </div>
 
                                 <div className="flex items-end">
                                     <button
                                         onClick={() => setFilters({
-                                            soXe: '',
-                                            khachHang: '',
+                                            searchFilter: '',
                                             startDate: null,
                                             endDate: null,
                                             allocationStatus: ''
@@ -1435,7 +1506,19 @@ const NhapBaoBiManagement = () => {
                                                                 </td>
                                                                 <td className="px-4 py-3 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
                                                                     {status.hasAllocation && (
-                                                                        <DetailReportsSection record={record} isInGroupView={false} />
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                toggleDetailExpansion(record.ID);
+                                                                            }}
+                                                                            className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
+                                                                            title={expandedDetailGroups.has(record.ID) ? 'Ẩn chi tiết' : 'Xem chi tiết phân bổ'}
+                                                                        >
+                                                                            {expandedDetailGroups.has(record.ID) ?
+                                                                                <ChevronUp className="h-4 w-4" /> :
+                                                                                <ChevronDown className="h-4 w-4" />
+                                                                            }
+                                                                        </button>
                                                                     )}
                                                                 </td>
                                                                 <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
@@ -1621,7 +1704,19 @@ const NhapBaoBiManagement = () => {
                                                                 </td>
                                                                 <td className="px-4 py-3 whitespace-nowrap text-center" onClick={(e) => e.stopPropagation()}>
                                                                     {status.hasAllocation && (
-                                                                        <DetailReportsSection record={record} isInGroupView={true} />
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                toggleGroupDetailExpansion(record.ID);
+                                                                            }}
+                                                                            className="text-blue-600 hover:text-blue-900 p-1.5 rounded-full hover:bg-blue-50"
+                                                                            title={expandedGroupDetailGroups.has(record.ID) ? 'Ẩn chi tiết' : 'Xem chi tiết phân bổ'}
+                                                                        >
+                                                                            {expandedGroupDetailGroups.has(record.ID) ?
+                                                                                <ChevronUp className="h-4 w-4" /> :
+                                                                                <ChevronDown className="h-4 w-4" />
+                                                                            }
+                                                                        </button>
                                                                     )}
                                                                 </td>
                                                                 <td className="px-4 py-3 whitespace-nowrap text-right text-sm font-medium" onClick={(e) => e.stopPropagation()}>
@@ -1686,7 +1781,7 @@ const NhapBaoBiManagement = () => {
             {/* Detail View Modal - Updated with Chi tiết phân bổ */}
             {showDetailModal && selectedRecord && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-                    <div className="bg-white rounded-xl shadow-xl max-w-7xl w-full p-6 max-h-[90vh] overflow-y-auto">
+                    <div className="bg-white rounded-xl shadow-xl max-w-7xl w-full h-full p-6 overflow-y-auto">
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
                             <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                 <Eye className="h-5 w-5 text-indigo-600" />

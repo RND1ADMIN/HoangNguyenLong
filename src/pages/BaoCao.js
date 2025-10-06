@@ -237,10 +237,11 @@ const ReportManagement = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const [filters, setFilters] = useState({
-    to: '',
-    congDoan: '',
-    startDate: null,
-    endDate: null
+    soXe: '',
+    khachHang: '',
+    startDate: null,  // null thay vì ''
+    endDate: null,    // null thay vì ''
+    allocationStatus: ''
   });
 
   // State - modals
@@ -368,7 +369,7 @@ const ReportManagement = () => {
   const handleFilterDateChange = (field, value) => {
     setFilters(prev => ({
       ...prev,
-      [field]: value || ''
+      [field]: value || null  // Dùng null thay vì ''
     }));
   };
 
@@ -911,7 +912,7 @@ const ReportManagement = () => {
         <div className="bg-white rounded-xl shadow-sm p-5 mb-6 border border-gray-100">
           {/* Header Section */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h1 className="text-2xl font-bold text-gray-800">Tổng hợp năng suất</h1>
+            <h1 className="text-2xl font-bold text-gray-800">Báo cáo sản lượng</h1>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -1043,7 +1044,7 @@ const ReportManagement = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
                 type="text"
-                placeholder="Tìm kiếm theo mã BC, ID nhập bao bì, tên hàng, tổ, công đoạn, người nhập..."
+                placeholder="Tìm kiếm theo ID nhập bao bì, tên hàng, tổ, công đoạn, người nhập..."
                 className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -1075,7 +1076,6 @@ const ReportManagement = () => {
                           className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                         />
                       </th>
-                      <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Mã BC</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID Nhập BB</th>
                       <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
@@ -1107,9 +1107,6 @@ const ReportManagement = () => {
                             }}
                             className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                           />
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-indigo-600">
-                          {report.IDBC}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                           {report['NGÀY'] ? new Date(report['NGÀY']).toLocaleDateString('vi-VN') : 'N/A'}
