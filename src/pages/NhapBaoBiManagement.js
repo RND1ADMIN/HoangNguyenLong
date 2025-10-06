@@ -79,54 +79,75 @@ const calculateThucNhan = (nhapBaoBi) => {
 };
 
 // Improved pagination component
-const Pagination = ({ currentPage, totalPages, onPageChange }) => (
-    <div className="flex justify-center items-center space-x-2 mt-6">
-        <button
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className={`p-2 rounded-md ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:bg-indigo-50'}`}
-        >
-            <ChevronLeft className="h-5 w-5" />
-        </button>
-
-        <div className="flex space-x-1">
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                    pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                } else {
-                    pageNum = currentPage - 2 + i;
-                }
-                return (
-                    <button
-                        key={pageNum}
-                        onClick={() => onPageChange(pageNum)}
-                        className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === pageNum
-                            ? 'bg-indigo-600 text-white'
-                            : 'text-gray-700 hover:bg-indigo-50'
-                            }`}
-                    >
-                        {pageNum}
-                    </button>
-                );
-            })}
+const Pagination = ({ currentPage, totalPages, onPageChange, itemsPerPage, onItemsPerPageChange, totalItems }) => (
+    <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
+        {/* Phần chọn số dòng hiển thị */}
+        <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 whitespace-nowrap">Hiển thị:</label>
+            <select
+                value={itemsPerPage}
+                onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+            >
+                <option value={10}>10 dòng</option>
+                <option value={25}>25 dòng</option>
+                <option value={50}>50 dòng</option>
+                <option value={100}>100 dòng</option>
+            </select>
+            <span className="text-sm text-gray-600">
+                (Tổng: {totalItems} bản ghi)
+            </span>
         </div>
 
-        <button
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className={`p-2 rounded-md ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:bg-indigo-50'}`}
-        >
-            <ChevronRight className="h-5 w-5" />
-        </button>
+        {/* Phần nút phân trang */}
+        <div className="flex justify-center items-center space-x-2">
+            <button
+                onClick={() => onPageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`p-2 rounded-md ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:bg-indigo-50'}`}
+            >
+                <ChevronLeft className="h-5 w-5" />
+            </button>
 
-        <span className="text-sm text-gray-600 ml-2">
-            Trang {currentPage} / {totalPages || 1}
-        </span>
+            <div className="flex space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                        pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                    } else {
+                        pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                        <button
+                            key={pageNum}
+                            onClick={() => onPageChange(pageNum)}
+                            className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === pageNum
+                                ? 'bg-indigo-600 text-white'
+                                : 'text-gray-700 hover:bg-indigo-50'
+                                }`}
+                        >
+                            {pageNum}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <button
+                onClick={() => onPageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`p-2 rounded-md ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:bg-indigo-50'}`}
+            >
+                <ChevronRight className="h-5 w-5" />
+            </button>
+
+            <span className="text-sm text-gray-600 ml-2">
+                Trang {currentPage} / {totalPages || 1}
+            </span>
+        </div>
     </div>
 );
 
@@ -140,7 +161,7 @@ const NhapBaoBiManagement = () => {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
-    const [itemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedRecords, setSelectedRecords] = useState([]);
     const [showFilters, setShowFilters] = useState(false);
@@ -657,6 +678,12 @@ const NhapBaoBiManagement = () => {
         setOpen(false);
         setCurrentRecord(emptyRecord);
     }, [emptyRecord]);
+
+    // Thêm handler cho việc thay đổi số dòng
+    const handleItemsPerPageChange = (newItemsPerPage) => {
+        setItemsPerPage(newItemsPerPage);
+        setCurrentPage(1); // Reset về trang 1 khi thay đổi số dòng
+    };
 
     // Form handlers
     const handleInputChange = useCallback((field, value) => {
@@ -1773,6 +1800,9 @@ const NhapBaoBiManagement = () => {
                             currentPage={currentPage}
                             totalPages={totalPages}
                             onPageChange={setCurrentPage}
+                            itemsPerPage={itemsPerPage}
+                            onItemsPerPageChange={handleItemsPerPageChange}
+                            totalItems={filteredData.length}
                         />
                     )}
                 </div>

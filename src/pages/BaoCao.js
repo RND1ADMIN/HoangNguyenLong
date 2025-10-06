@@ -185,51 +185,72 @@ const StatisticCards = ({ data }) => {
   );
 };
 
-const Pagination = ({ currentPage, totalPages, onPageChange }) => (
-  <div className="flex justify-center items-center space-x-2 mt-6">
-    <button
-      onClick={() => onPageChange(currentPage - 1)}
-      disabled={currentPage === 1}
-      className={`p-2 rounded-md ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:bg-indigo-50'}`}
-    >
-      <ChevronLeft className="h-5 w-5" />
-    </button>
-    <div className="flex space-x-1">
-      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-        let pageNum;
-        if (totalPages <= 5) {
-          pageNum = i + 1;
-        } else if (currentPage <= 3) {
-          pageNum = i + 1;
-        } else if (currentPage >= totalPages - 2) {
-          pageNum = totalPages - 4 + i;
-        } else {
-          pageNum = currentPage - 2 + i;
-        }
-        return (
-          <button
-            key={pageNum}
-            onClick={() => onPageChange(pageNum)}
-            className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === pageNum
-              ? 'bg-indigo-600 text-white'
-              : 'text-gray-700 hover:bg-indigo-50'
-              }`}
-          >
-            {pageNum}
-          </button>
-        );
-      })}
+const Pagination = ({ currentPage, totalPages, onPageChange, itemsPerPage, onItemsPerPageChange, totalItems }) => (
+  <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
+    {/* Phần chọn số dòng hiển thị */}
+    <div className="flex items-center gap-2">
+      <label className="text-sm text-gray-600 whitespace-nowrap">Hiển thị:</label>
+      <select
+        value={itemsPerPage}
+        onChange={(e) => onItemsPerPageChange(Number(e.target.value))}
+        className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+      >
+        <option value={10}>10 dòng</option>
+        <option value={25}>25 dòng</option>
+        <option value={50}>50 dòng</option>
+        <option value={100}>100 dòng</option>
+      </select>
+      <span className="text-sm text-gray-600">
+        (Tổng: {totalItems} bản ghi)
+      </span>
     </div>
-    <button
-      onClick={() => onPageChange(currentPage + 1)}
-      disabled={currentPage === totalPages}
-      className={`p-2 rounded-md ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:bg-indigo-50'}`}
-    >
-      <ChevronRight className="h-5 w-5" />
-    </button>
-    <span className="text-sm text-gray-600 ml-2">
-      Trang {currentPage} / {totalPages || 1}
-    </span>
+
+    {/* Phần nút phân trang */}
+    <div className="flex justify-center items-center space-x-2">
+      <button
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+        className={`p-2 rounded-md ${currentPage === 1 ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:bg-indigo-50'}`}
+      >
+        <ChevronLeft className="h-5 w-5" />
+      </button>
+      <div className="flex space-x-1">
+        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+          let pageNum;
+          if (totalPages <= 5) {
+            pageNum = i + 1;
+          } else if (currentPage <= 3) {
+            pageNum = i + 1;
+          } else if (currentPage >= totalPages - 2) {
+            pageNum = totalPages - 4 + i;
+          } else {
+            pageNum = currentPage - 2 + i;
+          }
+          return (
+            <button
+              key={pageNum}
+              onClick={() => onPageChange(pageNum)}
+              className={`w-8 h-8 flex items-center justify-center rounded-md ${currentPage === pageNum
+                ? 'bg-indigo-600 text-white'
+                : 'text-gray-700 hover:bg-indigo-50'
+                }`}
+            >
+              {pageNum}
+            </button>
+          );
+        })}
+      </div>
+      <button
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+        className={`p-2 rounded-md ${currentPage === totalPages ? 'text-gray-400 cursor-not-allowed' : 'text-indigo-600 hover:bg-indigo-50'}`}
+      >
+        <ChevronRight className="h-5 w-5" />
+      </button>
+      <span className="text-sm text-gray-600 ml-2">
+        Trang {currentPage} / {totalPages || 1}
+      </span>
+    </div>
   </div>
 );
 
@@ -246,7 +267,7 @@ const ReportManagement = () => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedReports, setSelectedReports] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -534,6 +555,12 @@ const ReportManagement = () => {
       return updatedReport;
     });
   }, []);
+
+  // Thêm vào phần handlers
+  const handleItemsPerPageChange = (newItemsPerPage) => {
+    setItemsPerPage(newItemsPerPage);
+    setCurrentPage(1); // Reset về trang 1 khi thay đổi số dòng
+  };
 
   const handleDateChange = useCallback((dateStr) => {
     setCurrentReport(prev => ({
@@ -1168,7 +1195,6 @@ const ReportManagement = () => {
                             />
                           </th>
                           <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Ngày</th>
-                          <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID Nhập BB</th>
                           <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
                           <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
                           <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
@@ -1201,9 +1227,6 @@ const ReportManagement = () => {
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
                               {report['NGÀY'] ? new Date(report['NGÀY']).toLocaleDateString('vi-VN') : 'N/A'}
-                            </td>
-                            <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
-                              {report['ID_NHAPBAOBI']}
                             </td>
                             <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
                             <td className="px-4 py-3 whitespace-nowrap">
@@ -1269,6 +1292,9 @@ const ReportManagement = () => {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={setCurrentPage}
+                itemsPerPage={itemsPerPage}
+                onItemsPerPageChange={handleItemsPerPageChange}
+                totalItems={filteredReports.length}
               />
             </>
           ) : (
@@ -1367,7 +1393,6 @@ const ReportManagement = () => {
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                           <tr>
-                            <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">ID Nhập BB</th>
                             <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tên hàng</th>
                             <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Tổ</th>
                             <th className="px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider text-left">Công đoạn</th>
@@ -1383,9 +1408,6 @@ const ReportManagement = () => {
                         <tbody className="bg-white divide-y divide-gray-200">
                           {group.records.map(report => (
                             <tr key={report.IDBC} className="hover:bg-gray-50 transition-colors">
-                              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700 font-medium text-purple-600">
-                                {report['ID_NHAPBAOBI']}
-                              </td>
                               <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">{report['TÊN HÀNG']}</td>
                               <td className="px-4 py-3 whitespace-nowrap">
                                 <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-medium">
