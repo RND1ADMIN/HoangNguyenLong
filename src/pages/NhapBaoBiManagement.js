@@ -291,7 +291,6 @@ const NhapBaoBiManagement = () => {
     };
 
     // Component hiển thị status badge
-    // Component hiển thị status badge đơn giản theo TỔ
     const AllocationStatusBadge = ({ record }) => {
         const status = getDistributionStatus(record);
 
@@ -302,6 +301,13 @@ const NhapBaoBiManagement = () => {
                         <Clock className="w-3 h-3 mr-1" />
                         Chưa phân bổ
                     </span>
+                    {(status.baiAnh > 0 || status.baiEm > 0) && (
+                        <div className="text-xs text-gray-600">
+                            {status.baiAnh > 0 && `Bãi BBA: ${formatNumber(status.baiAnh)}T`}
+                            {status.baiAnh > 0 && status.baiEm > 0 && ', '}
+                            {status.baiEm > 0 && `Bãi BBE: ${formatNumber(status.baiEm)}T`}
+                        </div>
+                    )}
                 </div>
             );
         }
@@ -316,7 +322,7 @@ const NhapBaoBiManagement = () => {
             return acc;
         }, {});
 
-        // Format: "CD1: 11.25T, CD2: 30.55T"
+        // Format: "CD1: 12.25T"
         const toSummary = Object.entries(groupedByTo)
             .map(([to, total]) => `${to}: ${formatNumber(total)}T`)
             .join(', ');
@@ -344,6 +350,13 @@ const NhapBaoBiManagement = () => {
                 <div className="text-xs text-indigo-700 font-medium">
                     {toSummary}
                 </div>
+                {(status.baiAnh > 0 || status.baiEm > 0) && (
+                    <div className="text-xs text-yellow-700 font-medium">
+                        {status.baiAnh > 0 && `Bãi BBA: ${formatNumber(status.baiAnh)}T`}
+                        {status.baiAnh > 0 && status.baiEm > 0 && ', '}
+                        {status.baiEm > 0 && `Bãi BBE: ${formatNumber(status.baiEm)}T`}
+                    </div>
+                )}
             </div>
         );
     };
