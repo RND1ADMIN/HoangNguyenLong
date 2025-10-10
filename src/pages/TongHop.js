@@ -857,6 +857,7 @@ const ByDateView = ({ data }) => {
 };
 
 // Component for Team View - ĐÃ SỬA THEO YÊU CẦU
+// Component for Team View - ĐÃ SỬA gộp thành 1 hàng
 const ByTeamView = ({ data }) => {
   const [expandedTeams, setExpandedTeams] = useState({});
   const [expandedStages, setExpandedStages] = useState({});
@@ -879,37 +880,31 @@ const ByTeamView = ({ data }) => {
     <div className="space-y-4">
       {data.map((teamData, index) => (
         <div key={index} className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
-          {/* Team Header - Giảm độ nổi bật */}
+          {/* Team Header - Gộp thành 1 hàng */}
           <div
             className="bg-gradient-to-r from-indigo-50 to-blue-50 p-4 cursor-pointer hover:from-indigo-100 hover:to-blue-100 transition-all border-b border-gray-200"
             onClick={() => toggleTeam(teamData.team)}
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4 flex-1">
+              <div className="flex items-center gap-4">
                 <div className="bg-indigo-100 p-2 rounded-lg">
                   <Users className="w-5 h-5 text-indigo-600" />
                 </div>
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-800">{teamData.team}</h4>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {teamData.stages.length} công đoạn • {teamData.totalStaff} nhân sự
-                  </p>
-                </div>
+                <h4 className="text-lg font-semibold text-gray-800">{teamData.team}</h4>
+                <span className="text-sm text-gray-600">•</span>
+                <span className="text-sm text-gray-600">{teamData.stages.length} công đoạn</span>
+                <span className="text-sm text-gray-600">•</span>
+                <span className="text-sm text-gray-600">{teamData.totalStaff} nhân sự</span>
               </div>
 
-              <div className="flex items-center gap-6 text-gray-700">
+              <div className="flex items-center gap-4">
                 <div className="text-right">
-                  <p className="text-xs text-gray-500">Tổng khối lượng</p>
-                  <p className="text-lg font-semibold">{formatNumber(teamData.totalQuantity)}</p>
-                </div>
-
-                <div className="text-right">
-                  <p className="text-xs text-gray-500">Tổng thành tiền</p>
-                  <p className="text-lg font-semibold text-green-600">{formatNumber(teamData.totalAmount)} ₫</p>
+                  <span className="text-sm text-gray-500">Tổng thành tiền: </span>
+                  <span className="text-lg font-semibold text-green-600">{formatNumber(teamData.totalAmount)} ₫</span>
                 </div>
 
                 <ChevronDown
-                  className={`w-5 h-5 transition-transform ${expandedTeams[teamData.team] ? 'rotate-180' : ''}`}
+                  className={`w-5 h-5 text-gray-600 transition-transform ${expandedTeams[teamData.team] ? 'rotate-180' : ''}`}
                 />
               </div>
             </div>
@@ -924,7 +919,7 @@ const ByTeamView = ({ data }) => {
                   const stageKey = `${teamData.team}-${stage.stageCode}`;
                   return (
                     <div key={stageIndex} className="border border-gray-200 rounded-lg overflow-hidden bg-white">
-                      {/* Stage Header - Thu gọn thành 1 dòng */}
+                      {/* Stage Header */}
                       <div
                         className="bg-gray-50 p-3 cursor-pointer hover:bg-gray-100 transition-colors"
                         onClick={() => toggleStage(stageKey)}
