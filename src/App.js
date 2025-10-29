@@ -12,6 +12,8 @@ import Users from './pages/UserManagement';
 import ReportManagement from './pages/BaoCao';
 import TongHop from './pages/TongHop';
 import XuatNhapKhoForm from './pages/XuatNhapKhoForm';
+import QuyCachManagement from './pages/QuyCachManagement';
+import GiaBanManagement from './pages/GiaBanManagement';
 import DMHHManagement from './pages/DMHHManagement';
 import XuatNhapKhoManager from './pages/XuatNhapKhoManager';
 import CongDoanManagement from './pages/CongDoan';
@@ -53,6 +55,8 @@ function App() {
                   <Route path="/users" element={<Users />} />
                   <Route path="/xuatnhapfrom" element={<XuatNhapKhoForm />} />
                   <Route path="/xuatnhapfrom/:maPhieu" element={<XuatNhapKhoForm />} />
+                  <Route path="/quycach" element={<QuyCachManagement />} />
+                  <Route path="/giaban" element={<GiaBanManagement />} />
                   <Route path="/dmhh" element={<DMHHManagement />} />
                   <Route path="/xuatnhapkho" element={<XuatNhapKhoManager />} />
                   <Route path="/tonkho" element={<TonKhoManager />} />

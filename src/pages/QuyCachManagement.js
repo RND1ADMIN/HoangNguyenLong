@@ -1,21 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, Filter, X, Package, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash, Search, Filter, X, Ruler, RefreshCw, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Package } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
 
-const DMHHManagement = () => {
+const QuyCachManagement = () => {
     // State Management
-    const [dmhhItems, setDmhhItems] = useState([]);
-    const [quyChachItems, setQuyChachItems] = useState([]);
-    const [groupedQuyChach, setGroupedQuyChach] = useState([]);
+    const [quyCachItems, setQuyCachItems] = useState([]);
     const [currentItem, setCurrentItem] = useState({
-        'NHOM_HANG': '',
+        'IQ_QC': '',
         'DAY': '',
         'RONG': '',
         'DAI': '',
-        'CHATLUONG': '',
-        'DONGIA_HIEULUC': ''
+        'TIEU_CHUAN': ''
     });
     const [showModal, setShowModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -25,131 +22,65 @@ const DMHHManagement = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
     const [isEditMode, setIsEditMode] = useState(false);
-    const [filterChatLuong, setFilterChatLuong] = useState('TẤT CẢ');
     const [isLoading, setIsLoading] = useState(false);
-    
-    // State cho dropdown tìm kiếm
-    const [quyChachSearch, setQuyChachSearch] = useState('');
-    const [showQuyChachDropdown, setShowQuyChachDropdown] = useState(false);
-    const [originalNhomHang, setOriginalNhomHang] = useState(''); // Lưu NHOM_HANG gốc khi edit
+    const [filterTieuChuan, setFilterTieuChuan] = useState('TẤT CẢ');
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
-    // Format currency VND
-    const formatCurrency = (amount) => {
-        if (!amount || amount === 0) return '0 ₫';
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(amount);
-    };
-
     // Fetch data
-    const fetchDMHH = async () => {
+    const fetchQuyCach = async () => {
         try {
             setIsLoading(true);
-            const response = await authUtils.apiRequestKHO('DMHH', 'Find', {});
-            setDmhhItems(response);
+            const response = await authUtils.apiRequestKHO('CD_QUYCACH', 'Find', {});
+            setQuyCachItems(response);
         } catch (error) {
-            console.error('Error fetching DMHH list:', error);
-            toast.error('Lỗi khi tải danh mục hàng hóa');
+            console.error('Error fetching quy cach list:', error);
+            toast.error('Lỗi khi tải danh sách quy cách');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const fetchQuyChach = async () => {
-        try {
-            const response = await authUtils.apiRequestKHO('CD_QUYCACH', 'Find', {});
-            setQuyChachItems(response);
-            
-            // Nhóm quy cách theo format: "DAY*RONG*DAI(TIEU_CHUAN)"
-            const grouped = response.map(item => ({
-                ...item,
-                'DISPLAY_NAME': `${item['DAY']}*${item['RONG']}*${item['DAI']} (${item['TIEU_CHUAN'] || 'Không xác định'})`
-            }));
-            
-            setGroupedQuyChach(grouped);
-        } catch (error) {
-            console.error('Error fetching quy cach list:', error);
-            toast.error('Lỗi khi tải quy cách');
-        }
-    };
-
     useEffect(() => {
-        fetchDMHH();
-        fetchQuyChach();
+        fetchQuyCach();
     }, []);
-
-    // Filter quy cách theo search
-    const filteredQuyChach = groupedQuyChach.filter(item =>
-        item['DISPLAY_NAME'].toLowerCase().includes(quyChachSearch.toLowerCase())
-    );
 
     // Modal handlers
     const handleOpenModal = (item = null) => {
         if (item) {
             setIsEditMode(true);
-            setOriginalNhomHang(item['NHOM_HANG']); // Lưu NHOM_HANG gốc
             setCurrentItem({
-                'NHOM_HANG': item['NHOM_HANG'] || '',
+                'IQ_QC': item['IQ_QC'] || '',
                 'DAY': item['DAY'] || '',
                 'RONG': item['RONG'] || '',
                 'DAI': item['DAI'] || '',
-                'CHATLUONG': item['CHATLUONG'] || '',
-                'DONGIA_HIEULUC': item['DONGIA_HIEULUC'] || ''
+                'TIEU_CHUAN': item['TIEU_CHUAN'] || ''
             });
-            setQuyChachSearch(item['NHOM_HANG'] || '');
         } else {
             setIsEditMode(false);
-            setOriginalNhomHang('');
             setCurrentItem({
-                'NHOM_HANG': '',
+                'IQ_QC': '',
                 'DAY': '',
                 'RONG': '',
                 'DAI': '',
-                'CHATLUONG': '',
-                'DONGIA_HIEULUC': ''
+                'TIEU_CHUAN': ''
             });
-            setQuyChachSearch('');
         }
         setShowModal(true);
-        setShowQuyChachDropdown(false);
     };
 
     const handleCloseModal = () => {
         setShowModal(false);
         setIsEditMode(false);
-        setOriginalNhomHang('');
         setCurrentItem({
-            'NHOM_HANG': '',
+            'IQ_QC': '',
             'DAY': '',
             'RONG': '',
             'DAI': '',
-            'CHATLUONG': '',
-            'DONGIA_HIEULUC': ''
+            'TIEU_CHUAN': ''
         });
-        setQuyChachSearch('');
-        setShowQuyChachDropdown(false);
-    };
-
-    // Handle quy cach selection - Tự động điền thông tin
-    const handleQuyChachSelect = (selectedItem) => {
-        setCurrentItem(prev => ({
-            ...prev,
-            'NHOM_HANG': selectedItem['DISPLAY_NAME'],
-            'DAY': selectedItem['DAY'] || '',
-            'RONG': selectedItem['RONG'] || '',
-            'DAI': selectedItem['DAI'] || '',
-            'CHATLUONG': selectedItem['TIEU_CHUAN'] || ''
-        }));
-        setQuyChachSearch(selectedItem['DISPLAY_NAME']);
-        setShowQuyChachDropdown(false);
-        toast.info('Đã tự động điền thông tin từ quy cách', { autoClose: 2000 });
     };
 
     // Form handlers
@@ -162,23 +93,18 @@ const DMHHManagement = () => {
 
     const validateItem = (item) => {
         const errors = [];
-        
-        if (!item['NHOM_HANG']) {
-            errors.push('Nhóm hàng không được để trống');
+        if (!item['DAY'] || isNaN(item['DAY']) || parseFloat(item['DAY']) <= 0) {
+            errors.push('Dày phải là số dương');
         }
-        
-        if (!item['DAY']) {
-            errors.push('Dày không được để trống');
+        if (!item['RONG'] || isNaN(item['RONG']) || parseFloat(item['RONG']) <= 0) {
+            errors.push('Rộng phải là số dương');
         }
-        
-        if (!item['RONG']) {
-            errors.push('Rộng không được để trống');
+        if (!item['DAI'] || isNaN(item['DAI']) || parseFloat(item['DAI']) <= 0) {
+            errors.push('Dài phải là số dương');
         }
-        
-        if (!item['DAI']) {
-            errors.push('Dài không được để trống');
+        if (!item['TIEU_CHUAN'] || item['TIEU_CHUAN'].trim() === '') {
+            errors.push('Tiêu chuẩn không được để trống');
         }
-
         return errors;
     };
 
@@ -195,68 +121,34 @@ const DMHHManagement = () => {
                 return;
             }
 
-            // Prepare item to save
+            // Chuyển đổi các giá trị số
             const itemToSave = {
-                'NHOM_HANG': currentItem['NHOM_HANG'],
-                'DAY': currentItem['DAY'],
-                'RONG': currentItem['RONG'],
-                'DAI': currentItem['DAI'],
-                'CHATLUONG': currentItem['CHATLUONG'],
-                'DONGIA_HIEULUC': currentItem['DONGIA_HIEULUC']
+                ...currentItem,
+                'DAY': parseFloat(currentItem['DAY']),
+                'RONG': parseFloat(currentItem['RONG']),
+                'DAI': parseFloat(currentItem['DAI'])
             };
 
             if (isEditMode) {
-                // Edit existing item - Kiểm tra nếu đổi NHOM_HANG
-                if (originalNhomHang !== itemToSave['NHOM_HANG']) {
-                    // Kiểm tra NHOM_HANG mới có tồn tại không
-                    const existingItem = dmhhItems.find(
-                        item => item['NHOM_HANG'] === itemToSave['NHOM_HANG']
-                    );
-                    
-                    if (existingItem) {
-                        toast.error('Nhóm hàng mới này đã tồn tại!');
-                        setIsSubmitting(false);
-                        return;
-                    }
-
-                    // Xóa item cũ và thêm item mới
-                    await authUtils.apiRequestKHO('DMHH', 'Delete', {
-                        "Rows": [{ "NHOM_HANG": originalNhomHang }]
-                    });
-                    await authUtils.apiRequestKHO('DMHH', 'Add', {
-                        "Rows": [itemToSave]
-                    });
-                    toast.success('Cập nhật hàng hóa thành công!');
-                } else {
-                    // Cập nhật bình thường
-                    await authUtils.apiRequestKHO('DMHH', 'Edit', {
-                        "Rows": [itemToSave]
-                    });
-                    toast.success('Cập nhật hàng hóa thành công!');
-                }
-            } else {
-                // Create new item - Kiểm tra trùng NHOM_HANG
-                const existingItem = dmhhItems.find(
-                    item => item['NHOM_HANG'] === itemToSave['NHOM_HANG']
-                );
-                
-                if (existingItem) {
-                    toast.error('Nhóm hàng này đã tồn tại!');
-                    setIsSubmitting(false);
-                    return;
-                }
-
-                await authUtils.apiRequestKHO('DMHH', 'Add', {
+                // Edit existing item
+                await authUtils.apiRequestKHO('CD_QUYCACH', 'Edit', {
                     "Rows": [itemToSave]
                 });
-                toast.success('Thêm hàng hóa mới thành công!');
+                toast.success('Cập nhật quy cách thành công!');
+            } else {
+                // Create new item - không cần gửi IQ_QC vì sẽ tự động tạo
+                const { IQ_QC, ...newItem } = itemToSave;
+                await authUtils.apiRequestKHO('CD_QUYCACH', 'Add', {
+                    "Rows": [newItem]
+                });
+                toast.success('Thêm quy cách mới thành công!');
             }
 
-            await fetchDMHH();
+            await fetchQuyCach();
             handleCloseModal();
         } catch (error) {
-            console.error('Error saving DMHH:', error);
-            toast.error('Có lỗi xảy ra: ' + (error.message || 'Không thể lưu hàng hóa'));
+            console.error('Error saving quy cach:', error);
+            toast.error('Có lỗi xảy ra: ' + (error.message || 'Không thể lưu quy cách'));
         } finally {
             setIsSubmitting(false);
         }
@@ -277,15 +169,15 @@ const DMHHManagement = () => {
         if (!itemToDelete) return;
 
         try {
-            await authUtils.apiRequestKHO('DMHH', 'Delete', {
-                "Rows": [{ "NHOM_HANG": itemToDelete['NHOM_HANG'] }]
+            await authUtils.apiRequestKHO('CD_QUYCACH', 'Delete', {
+                "Rows": [{ "IQ_QC": itemToDelete['IQ_QC'] }]
             });
-            toast.success('Xóa hàng hóa thành công!');
-            await fetchDMHH();
+            toast.success('Xóa quy cách thành công!');
+            await fetchQuyCach();
             handleCloseDeleteConfirmation();
         } catch (error) {
-            console.error('Error deleting DMHH:', error);
-            toast.error('Có lỗi xảy ra khi xóa hàng hóa');
+            console.error('Error deleting quy cach:', error);
+            toast.error('Có lỗi xảy ra khi xóa quy cách');
         }
     };
 
@@ -299,14 +191,14 @@ const DMHHManagement = () => {
     };
 
     const getSortedItems = useCallback(() => {
-        const sortableItems = [...dmhhItems];
+        const sortableItems = [...quyCachItems];
         if (sortConfig.key) {
             sortableItems.sort((a, b) => {
                 const keyA = a[sortConfig.key] || '';
                 const keyB = b[sortConfig.key] || '';
 
-                // Handle numeric sorting for DONGIA_HIEULUC
-                if (sortConfig.key === 'DONGIA_HIEULUC') {
+                // Handle numeric sorting
+                if (['DAY', 'RONG', 'DAI', 'IQ_QC'].includes(sortConfig.key)) {
                     const numA = parseFloat(keyA) || 0;
                     const numB = parseFloat(keyB) || 0;
                     return sortConfig.direction === 'ascending' ? numA - numB : numB - numA;
@@ -322,20 +214,20 @@ const DMHHManagement = () => {
             });
         }
         return sortableItems;
-    }, [dmhhItems, sortConfig]);
+    }, [quyCachItems, sortConfig]);
 
     // Filtering
     const filteredItems = getSortedItems().filter(item => {
         const matchesSearch =
-            (item['NHOM_HANG']?.toLowerCase().includes(search.toLowerCase()) ||
-                item['CHATLUONG']?.toLowerCase().includes(search.toLowerCase()) ||
+            (item['IQ_QC']?.toString().toLowerCase().includes(search.toLowerCase()) ||
+                item['TIEU_CHUAN']?.toLowerCase().includes(search.toLowerCase()) ||
                 item['DAY']?.toString().includes(search) ||
                 item['RONG']?.toString().includes(search) ||
                 item['DAI']?.toString().includes(search));
 
-        const matchesChatLuong = filterChatLuong === 'TẤT CẢ' || item['CHATLUONG'] === filterChatLuong;
+        const matchesTieuChuan = filterTieuChuan === 'TẤT CẢ' || item['TIEU_CHUAN'] === filterTieuChuan;
 
-        return matchesSearch && matchesChatLuong;
+        return matchesSearch && matchesTieuChuan;
     });
 
     // Pagination logic
@@ -347,7 +239,7 @@ const DMHHManagement = () => {
     // Reset to first page when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, filterChatLuong, itemsPerPage]);
+    }, [search, filterTieuChuan, itemsPerPage]);
 
     // Pagination handlers
     const goToFirstPage = () => setCurrentPage(1);
@@ -392,19 +284,29 @@ const DMHHManagement = () => {
             return <span className="text-gray-400 ml-1">⇅</span>;
         }
         return sortConfig.direction === 'ascending' ? 
-            <span className="text-blue-600 ml-1">↑</span> : 
-            <span className="text-blue-600 ml-1">↓</span>;
+            <span className="text-indigo-600 ml-1">↑</span> : 
+            <span className="text-indigo-600 ml-1">↓</span>;
     };
 
-    // Get unique chat luong list
-    const chatLuongList = [...new Set(dmhhItems.map(item => item['CHATLUONG']).filter(Boolean))];
+    // Format dimension display
+    const formatDimension = (day, rong, dai) => {
+        return `${day || 0} × ${rong || 0} × ${dai || 0}`;
+    };
+
+    // Get unique tieu chuan list
+    const tieuChuanList = [...new Set(quyCachItems.map(item => item['TIEU_CHUAN']).filter(Boolean))];
 
     // Refresh data
     const handleRefresh = async () => {
         toast.info('Đang tải lại dữ liệu...');
-        await fetchDMHH();
-        await fetchQuyChach();
+        await fetchQuyCach();
         toast.success('Đã tải lại dữ liệu thành công!');
+    };
+
+    // Calculate volume
+    const calculateVolume = (day, rong, dai) => {
+        const volume = (parseFloat(day) || 0) * (parseFloat(rong) || 0) * (parseFloat(dai) || 0);
+        return volume.toLocaleString('vi-VN');
     };
 
     return (
@@ -414,12 +316,12 @@ const DMHHManagement = () => {
                     {/* Header Section */}
                     <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
                         <div className="flex items-center gap-3">
-                            <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md">
-                                <Package className="w-6 h-6 text-white" />
+                            <div className="p-3 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl shadow-md">
+                                <Ruler className="w-7 h-7 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-800">Danh Mục Hàng Hóa</h1>
-                                <p className="text-sm text-gray-500 mt-1">Quản lý thông tin hàng hóa và giá bán</p>
+                                <h1 className="text-2xl font-bold text-gray-800">Cài Đặt Quy Cách</h1>
+                                <p className="text-sm text-gray-500 mt-1">Quản lý kích thước và tiêu chuẩn sản phẩm</p>
                             </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -435,7 +337,7 @@ const DMHHManagement = () => {
                                 onClick={() => setShowFilters(!showFilters)}
                                 className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm hover:shadow ${
                                     showFilters 
-                                        ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                                        ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' 
                                         : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
                                 }`}
                             >
@@ -444,10 +346,10 @@ const DMHHManagement = () => {
                             </button>
                             <button
                                 onClick={() => handleOpenModal()}
-                                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                className="bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                             >
                                 <Plus className="w-4 h-4" />
-                                Thêm hàng hóa
+                                Thêm quy cách
                             </button>
                         </div>
                     </div>
@@ -459,8 +361,8 @@ const DMHHManagement = () => {
                                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                                 <input
                                     type="text"
-                                    placeholder="Tìm kiếm theo nhóm hàng, chất lượng, kích thước..."
-                                    className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+                                    placeholder="Tìm kiếm theo ID, tiêu chuẩn hoặc kích thước..."
+                                    className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all shadow-sm"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
@@ -469,28 +371,28 @@ const DMHHManagement = () => {
                             <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-5 rounded-xl border border-gray-200 shadow-sm">
                                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                                     <Filter className="w-4 h-4" />
-                                    Lọc theo chất lượng:
+                                    Lọc theo tiêu chuẩn:
                                 </h3>
                                 <div className="flex flex-wrap gap-2">
                                     <button
-                                        onClick={() => setFilterChatLuong('TẤT CẢ')}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filterChatLuong === 'TẤT CẢ'
-                                            ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                                        onClick={() => setFilterTieuChuan('TẤT CẢ')}
+                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filterTieuChuan === 'TẤT CẢ'
+                                            ? 'bg-indigo-600 text-white shadow-md transform scale-105'
                                             : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                                             }`}
                                     >
-                                        Tất cả ({dmhhItems.length})
+                                        Tất cả ({quyCachItems.length})
                                     </button>
-                                    {chatLuongList.map((chatLuong) => (
+                                    {tieuChuanList.map((tieuChuan) => (
                                         <button
-                                            key={chatLuong}
-                                            onClick={() => setFilterChatLuong(chatLuong)}
-                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filterChatLuong === chatLuong
-                                                ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                                            key={tieuChuan}
+                                            onClick={() => setFilterTieuChuan(tieuChuan)}
+                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filterTieuChuan === tieuChuan
+                                                ? 'bg-indigo-600 text-white shadow-md transform scale-105'
                                                 : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                                                 }`}
                                         >
-                                            {chatLuong} ({dmhhItems.filter(item => item['CHATLUONG'] === chatLuong).length})
+                                            {tieuChuan} ({quyCachItems.filter(item => item['TIEU_CHUAN'] === tieuChuan).length})
                                         </button>
                                     ))}
                                 </div>
@@ -499,15 +401,15 @@ const DMHHManagement = () => {
                     )}
 
                     {/* Statistics cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                         <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-sm font-medium text-blue-700 mb-1">Tổng số hàng hóa</h3>
-                                    <p className="text-3xl font-bold text-blue-900">{dmhhItems.length}</p>
+                                    <h3 className="text-sm font-medium text-blue-700 mb-1">Tổng số quy cách</h3>
+                                    <p className="text-3xl font-bold text-blue-900">{quyCachItems.length}</p>
                                 </div>
                                 <div className="p-3 bg-blue-200 rounded-lg">
-                                    <Package className="w-6 h-6 text-blue-700" />
+                                    <Ruler className="w-6 h-6 text-blue-700" />
                                 </div>
                             </div>
                         </div>
@@ -515,15 +417,23 @@ const DMHHManagement = () => {
                         <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-sm font-medium text-green-700 mb-1">Có giá hiệu lực</h3>
-                                    <p className="text-3xl font-bold text-green-900">
-                                        {dmhhItems.filter(item => item['DONGIA_HIEULUC'] && item['DONGIA_HIEULUC'] > 0).length}
-                                    </p>
+                                    <h3 className="text-sm font-medium text-green-700 mb-1">Kết quả tìm kiếm</h3>
+                                    <p className="text-3xl font-bold text-green-900">{filteredItems.length}</p>
                                 </div>
                                 <div className="p-3 bg-green-200 rounded-lg">
-                                    <svg className="w-6 h-6 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
+                                    <Search className="w-6 h-6 text-green-700" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-sm font-medium text-purple-700 mb-1">Tiêu chuẩn</h3>
+                                    <p className="text-3xl font-bold text-purple-900">{tieuChuanList.length}</p>
+                                </div>
+                                <div className="p-3 bg-purple-200 rounded-lg">
+                                    <Package className="w-6 h-6 text-purple-700" />
                                 </div>
                             </div>
                         </div>
@@ -531,15 +441,11 @@ const DMHHManagement = () => {
                         <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-sm font-medium text-orange-700 mb-1">Chưa có giá</h3>
-                                    <p className="text-3xl font-bold text-orange-900">
-                                        {dmhhItems.filter(item => !item['DONGIA_HIEULUC'] || item['DONGIA_HIEULUC'] === 0).length}
-                                    </p>
+                                    <h3 className="text-sm font-medium text-orange-700 mb-1">Trang hiện tại</h3>
+                                    <p className="text-3xl font-bold text-orange-900">{currentPage}/{totalPages || 1}</p>
                                 </div>
                                 <div className="p-3 bg-orange-200 rounded-lg">
-                                    <svg className="w-6 h-6 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                    </svg>
+                                    <Info className="w-6 h-6 text-orange-700" />
                                 </div>
                             </div>
                         </div>
@@ -552,7 +458,7 @@ const DMHHManagement = () => {
                             <select
                                 value={itemsPerPage}
                                 onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm bg-white"
                             >
                                 <option value={5}>5 mục</option>
                                 <option value={10}>10 mục</option>
@@ -571,7 +477,7 @@ const DMHHManagement = () => {
                         {isLoading ? (
                             <div className="flex items-center justify-center py-20">
                                 <div className="text-center">
-                                    <RefreshCw className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
+                                    <RefreshCw className="w-12 h-12 text-indigo-600 animate-spin mx-auto mb-4" />
                                     <p className="text-gray-600">Đang tải dữ liệu...</p>
                                 </div>
                             </div>
@@ -581,44 +487,43 @@ const DMHHManagement = () => {
                                     <tr>
                                         <th scope="col"
                                             className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
-                                            onClick={() => requestSort('NHOM_HANG')}>
+                                            onClick={() => requestSort('IQ_QC')}>
                                             <div className="flex items-center gap-1">
-                                                Nhóm hàng {getSortIcon('NHOM_HANG')}
+                                                ID {getSortIcon('IQ_QC')}
                                             </div>
                                         </th>
                                         <th scope="col"
                                             className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
                                             onClick={() => requestSort('DAY')}>
                                             <div className="flex items-center gap-1">
-                                                Dày {getSortIcon('DAY')}
+                                                Dày (mm) {getSortIcon('DAY')}
                                             </div>
                                         </th>
                                         <th scope="col"
                                             className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
                                             onClick={() => requestSort('RONG')}>
                                             <div className="flex items-center gap-1">
-                                                Rộng {getSortIcon('RONG')}
+                                                Rộng (mm) {getSortIcon('RONG')}
                                             </div>
                                         </th>
                                         <th scope="col"
                                             className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
                                             onClick={() => requestSort('DAI')}>
                                             <div className="flex items-center gap-1">
-                                                Dài {getSortIcon('DAI')}
+                                                Dài (mm) {getSortIcon('DAI')}
                                             </div>
+                                        </th>
+                                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                            Kích thước (D×R×D)
+                                        </th>
+                                        <th scope="col" className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                                            Thể tích (mm³)
                                         </th>
                                         <th scope="col"
                                             className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
-                                            onClick={() => requestSort('CHATLUONG')}>
+                                            onClick={() => requestSort('TIEU_CHUAN')}>
                                             <div className="flex items-center gap-1">
-                                                Chất lượng {getSortIcon('CHATLUONG')}
-                                            </div>
-                                        </th>
-                                        <th scope="col"
-                                            className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
-                                            onClick={() => requestSort('DONGIA_HIEULUC')}>
-                                            <div className="flex items-center gap-1">
-                                                Đơn giá hiệu lực {getSortIcon('DONGIA_HIEULUC')}
+                                                Tiêu chuẩn {getSortIcon('TIEU_CHUAN')}
                                             </div>
                                         </th>
                                         <th scope="col" className="px-4 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider text-center">
@@ -629,10 +534,10 @@ const DMHHManagement = () => {
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {currentItems.length > 0 ? (
                                         currentItems.map((item, index) => (
-                                            <tr key={item['NHOM_HANG']} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                            <tr key={item['IQ_QC']} className={`hover:bg-indigo-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
                                                 <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className="px-3 py-1.5 bg-gradient-to-r from-indigo-100 to-indigo-200 text-indigo-800 rounded-lg text-sm font-semibold shadow-sm">
-                                                        {item['NHOM_HANG']}
+                                                    <span className="px-3 py-1.5 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 rounded-lg text-sm font-bold shadow-sm">
+                                                        #{item['IQ_QC']}
                                                     </span>
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -644,33 +549,34 @@ const DMHHManagement = () => {
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                                                     {item['DAI']}
                                                 </td>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className="px-3 py-1.5 bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 rounded-lg text-sm font-medium shadow-sm">
-                                                        {item['CHATLUONG'] || '—'}
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                    <span className="px-3 py-1.5 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 rounded-lg font-mono font-semibold shadow-sm">
+                                                        {formatDimension(item['DAY'], item['RONG'], item['DAI'])}
                                                     </span>
                                                 </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm">
-                                                    {item['DONGIA_HIEULUC'] && item['DONGIA_HIEULUC'] > 0 ? (
-                                                        <span className="font-bold text-green-600 text-base">
-                                                            {formatCurrency(item['DONGIA_HIEULUC'])}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-gray-400 italic">Chưa có giá</span>
-                                                    )}
+                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-700">
+                                                    <span className="px-3 py-1.5 bg-gradient-to-r from-green-100 to-green-200 text-green-800 rounded-lg font-mono text-xs font-medium shadow-sm">
+                                                        {calculateVolume(item['DAY'], item['RONG'], item['DAI'])}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-sm text-gray-900">
+                                                    <span className="px-3 py-1.5 bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 rounded-lg text-xs font-semibold shadow-sm">
+                                                        {item['TIEU_CHUAN']}
+                                                    </span>
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center">
                                                     <div className="flex justify-center space-x-2">
                                                         <button
                                                             onClick={() => handleOpenModal(item)}
                                                             className="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-100 transition-all transform hover:scale-110"
-                                                            title="Sửa hàng hóa"
+                                                            title="Sửa quy cách"
                                                         >
                                                             <Edit className="h-5 w-5" />
                                                         </button>
                                                         <button
                                                             onClick={() => handleOpenDeleteConfirmation(item)}
                                                             className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition-all transform hover:scale-110"
-                                                            title="Xóa hàng hóa"
+                                                            title="Xóa quy cách"
                                                         >
                                                             <Trash className="h-5 w-5" />
                                                         </button>
@@ -680,10 +586,10 @@ const DMHHManagement = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-12 text-center">
+                                            <td colSpan="8" className="px-6 py-12 text-center">
                                                 <div className="flex flex-col items-center justify-center text-gray-500">
-                                                    <Package className="w-16 h-16 text-gray-300 mb-4" />
-                                                    <p className="text-lg font-medium">Không tìm thấy hàng hóa nào</p>
+                                                    <Ruler className="w-16 h-16 text-gray-300 mb-4" />
+                                                    <p className="text-lg font-medium">Không tìm thấy quy cách nào</p>
                                                     <p className="text-sm mt-1">Thử thay đổi bộ lọc hoặc tìm kiếm</p>
                                                 </div>
                                             </td>
@@ -738,7 +644,7 @@ const DMHHManagement = () => {
                                                 onClick={() => goToPage(page)}
                                                 className={`min-w-[40px] px-3 py-2 rounded-lg border font-medium transition-all ${
                                                     currentPage === page
-                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
+                                                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md transform scale-105'
                                                         : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
                                                 }`}
                                             >
@@ -785,10 +691,10 @@ const DMHHManagement = () => {
                     <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-6 animate-fadeIn">
                         <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
                             <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
-                                <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Package className="w-6 h-6 text-blue-600" />
+                                <div className="p-2 bg-indigo-100 rounded-lg">
+                                    <Ruler className="w-6 h-6 text-indigo-600" />
                                 </div>
-                                {isEditMode ? 'Cập nhật hàng hóa' : 'Thêm hàng hóa mới'}
+                                {isEditMode ? 'Cập nhật quy cách' : 'Thêm quy cách mới'}
                             </h2>
                             <button
                                 onClick={handleCloseModal}
@@ -799,177 +705,105 @@ const DMHHManagement = () => {
                         </div>
 
                         <div className="space-y-5">
-                            {/* Chọn nhóm hàng với tìm kiếm */}
+                            {isEditMode && (
+                                <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 shadow-sm">
+                                    <p className="text-sm text-blue-700 flex items-center gap-2">
+                                        <Info className="w-4 h-4" />
+                                        <span className="font-medium">ID quy cách:</span> 
+                                        <span className="px-2 py-1 bg-blue-200 text-blue-900 rounded-lg font-bold">#{currentItem['IQ_QC']}</span>
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Dày (mm) <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={currentItem['DAY']}
+                                        onChange={(e) => handleInputChange('DAY', e.target.value)}
+                                        className="p-3 border border-gray-300 rounded-xl w-full focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                        placeholder="Nhập dày"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Rộng (mm) <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={currentItem['RONG']}
+                                        onChange={(e) => handleInputChange('RONG', e.target.value)}
+                                        className="p-3 border border-gray-300 rounded-xl w-full focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                        placeholder="Nhập rộng"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                        Dài (mm) <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={currentItem['DAI']}
+                                        onChange={(e) => handleInputChange('DAI', e.target.value)}
+                                        className="p-3 border border-gray-300 rounded-xl w-full focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                        placeholder="Nhập dài"
+                                        required
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Preview kích thước */}
+                            {(currentItem['DAY'] || currentItem['RONG'] || currentItem['DAI']) && (
+                                <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-5 shadow-sm">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <p className="text-sm text-gray-600 mb-2 flex items-center gap-2">
+                                                <Ruler className="w-4 h-4" />
+                                                Kích thước:
+                                            </p>
+                                            <p className="text-xl font-mono font-bold text-gray-800 bg-white px-4 py-2 rounded-lg shadow-sm">
+                                                {formatDimension(currentItem['DAY'], currentItem['RONG'], currentItem['DAI'])} mm
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-sm text-gray-600 mb-2 flex items-center gap-2">
+                                                <Package className="w-4 h-4" />
+                                                Thể tích:
+                                            </p>
+                                            <p className="text-xl font-mono font-bold text-green-700 bg-white px-4 py-2 rounded-lg shadow-sm">
+                                                {calculateVolume(currentItem['DAY'], currentItem['RONG'], currentItem['DAI'])} mm³
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Nhóm hàng (Quy cách) <span className="text-red-500">*</span>
+                                    Tiêu chuẩn <span className="text-red-500">*</span>
                                 </label>
-                                <div className="relative">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
-                                        <input
-                                            type="text"
-                                            value={quyChachSearch}
-                                            onChange={(e) => {
-                                                setQuyChachSearch(e.target.value);
-                                                setShowQuyChachDropdown(true);
-                                            }}
-                                            onFocus={() => setShowQuyChachDropdown(true)}
-                                            placeholder="Tìm kiếm quy cách..."
-                                            className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                            disabled={isEditMode}
-                                        />
-                                        {quyChachSearch && !isEditMode && (
-                                            <button
-                                                onClick={() => {
-                                                    setQuyChachSearch('');
-                                                    setCurrentItem(prev => ({
-                                                        ...prev,
-                                                        'NHOM_HANG': '',
-                                                        'DAY': '',
-                                                        'RONG': '',
-                                                        'DAI': '',
-                                                        'CHATLUONG': ''
-                                                    }));
-                                                }}
-                                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                <X className="h-5 w-5" />
-                                            </button>
-                                        )}
-                                    </div>
-                                    
-                                    {/* Dropdown list */}
-                                    {showQuyChachDropdown && !isEditMode && filteredQuyChach.length > 0 && (
-                                        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                                            {filteredQuyChach.map((item, index) => (
-                                                <div
-                                                    key={index}
-                                                    onClick={() => handleQuyChachSelect(item)}
-                                                    className="px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-sm font-medium text-gray-800">
-                                                            {item['DISPLAY_NAME']}
-                                                        </span>
-                                                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                                            {item['DAY']} × {item['RONG']} × {item['DAI']}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    
-                                    {showQuyChachDropdown && !isEditMode && quyChachSearch && filteredQuyChach.length === 0 && (
-                                        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-300 rounded-xl shadow-lg p-4">
-                                            <p className="text-sm text-gray-500 text-center">Không tìm thấy quy cách phù hợp</p>
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                {isEditMode && (
-                                    <p className="text-xs text-orange-600 mt-2 flex items-center gap-1">
-                                        <Info className="w-3 h-3" />
-                                        Không thể thay đổi nhóm hàng khi chỉnh sửa (Khóa chính)
-                                    </p>
-                                )}
-                                {!isEditMode && (
-                                    <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                                        <Info className="w-3 h-3" />
-                                        Nhập để tìm kiếm và chọn quy cách - Thông tin sẽ tự động điền
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Thông tin tự động điền */}
-                            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-5 shadow-sm">
-                                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <Info className="w-5 h-5 text-blue-500" />
-                                    Thông tin tự động từ quy cách
-                                </h3>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2">
-                                            Dày <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={currentItem['DAY']}
-                                            readOnly
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100 text-gray-700 font-medium"
-                                            placeholder="Auto"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2">
-                                            Rộng <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={currentItem['RONG']}
-                                            readOnly
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100 text-gray-700 font-medium"
-                                            placeholder="Auto"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2">
-                                            Dài <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={currentItem['DAI']}
-                                            readOnly
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100 text-gray-700 font-medium"
-                                            placeholder="Auto"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2">
-                                            Chất lượng
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={currentItem['CHATLUONG']}
-                                            readOnly
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100 text-gray-700 font-medium"
-                                            placeholder="Auto"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Đơn giá hiệu lực - Chỉ hiển thị */}
-                            <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl p-5 shadow-sm">
-                                <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                    </svg>
-                                    Đơn giá hiệu lực
-                                </label>
-                                <div className="flex items-center gap-3">
-                                    {currentItem['DONGIA_HIEULUC'] && currentItem['DONGIA_HIEULUC'] > 0 ? (
-                                        <>
-                                            <span className="text-3xl font-bold text-green-700">
-                                                {formatCurrency(currentItem['DONGIA_HIEULUC'])}
-                                            </span>
-                                            <span className="text-xs text-gray-600 bg-white px-3 py-1.5 rounded-lg shadow-sm">
-                                                Từ Cài đặt giá bán
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <span className="text-gray-500 italic flex items-center gap-2">
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            Chưa có giá hiệu lực. Vui lòng cài đặt giá bán.
-                                        </span>
-                                    )}
-                                </div>
+                                <input
+                                    type="text"
+                                    value={currentItem['TIEU_CHUAN']}
+                                    onChange={(e) => handleInputChange('TIEU_CHUAN', e.target.value)}
+                                    className="p-3 border border-gray-300 rounded-xl w-full focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                    placeholder="Nhập tiêu chuẩn (VD: TCVN, ISO, ASTM...)"
+                                    required
+                                />
+                                <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
+                                    <Info className="w-3 h-3" />
+                                    Ví dụ: TCVN 1651-1:2018, ISO 9001, ASTM A36
+                                </p>
                             </div>
 
                             {/* Note */}
@@ -977,8 +811,8 @@ const DMHHManagement = () => {
                                 <p className="text-sm text-yellow-800 flex items-start gap-2">
                                     <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
                                     <span>
-                                        <strong>Lưu ý:</strong> Đơn giá hiệu lực được tự động cập nhật từ trang "Cài đặt giá bán" 
-                                        khi có giá mới được áp dụng cho nhóm hàng này. NHOM_HANG là khóa chính của bảng.
+                                        <strong>Lưu ý:</strong> Tất cả kích thước được tính bằng milimét (mm). 
+                                        Đảm bảo nhập đúng đơn vị để tính toán chính xác.
                                     </span>
                                 </p>
                             </div>
@@ -997,9 +831,9 @@ const DMHHManagement = () => {
                             <button
                                 onClick={handleSaveItem}
                                 disabled={isSubmitting}
-                                className={`px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl ${isSubmitting
+                                className={`px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-xl ${isSubmitting
                                     ? 'opacity-50 cursor-not-allowed'
-                                    : 'hover:from-blue-700 hover:to-blue-800 hover:shadow-lg transform hover:-translate-y-0.5'
+                                    : 'hover:from-indigo-700 hover:to-indigo-800 hover:shadow-lg transform hover:-translate-y-0.5'
                                     } flex items-center gap-2 transition-all shadow-md font-medium`}
                             >
                                 {isSubmitting ? (
@@ -1015,7 +849,7 @@ const DMHHManagement = () => {
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                         </svg>
-                                        Lưu hàng hóa
+                                        Lưu quy cách
                                     </>
                                 )}
                             </button>
@@ -1046,33 +880,33 @@ const DMHHManagement = () => {
                         <div className="space-y-5">
                             <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-xl p-5">
                                 <p className="text-red-700 mb-3 font-medium">
-                                    Bạn có chắc chắn muốn xóa hàng hóa này?
+                                    Bạn có chắc chắn muốn xóa quy cách này?
                                 </p>
                                 <div className="bg-white rounded-lg p-4 mt-3 space-y-2.5 shadow-sm">
                                     <p className="text-sm text-gray-700 flex items-center gap-2">
-                                        <span className="font-semibold min-w-[100px]">Nhóm hàng:</span>
-                                        <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded text-xs font-medium">
-                                            {itemToDelete['NHOM_HANG']}
+                                        <span className="font-semibold min-w-[100px]">ID:</span>
+                                        <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs font-bold">
+                                            #{itemToDelete['IQ_QC']}
                                         </span>
                                     </p>
                                     <p className="text-sm text-gray-700 flex items-center gap-2">
                                         <span className="font-semibold min-w-[100px]">Kích thước:</span>
-                                        <span>{itemToDelete['DAY']} × {itemToDelete['RONG']} × {itemToDelete['DAI']}</span>
-                                    </p>
-                                    <p className="text-sm text-gray-700 flex items-center gap-2">
-                                        <span className="font-semibold min-w-[100px]">Chất lượng:</span>
-                                        <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
-                                            {itemToDelete['CHATLUONG'] || '—'}
+                                        <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs font-mono font-semibold">
+                                            {formatDimension(itemToDelete['DAY'], itemToDelete['RONG'], itemToDelete['DAI'])} mm
                                         </span>
                                     </p>
-                                    {itemToDelete['DONGIA_HIEULUC'] && itemToDelete['DONGIA_HIEULUC'] > 0 && (
-                                        <p className="text-sm text-gray-700 flex items-center gap-2">
-                                            <span className="font-semibold min-w-[100px]">Giá hiệu lực:</span>
-                                            <span className="font-bold text-green-600">
-                                                {formatCurrency(itemToDelete['DONGIA_HIEULUC'])}
-                                            </span>
-                                        </p>
-                                    )}
+                                    <p className="text-sm text-gray-700 flex items-center gap-2">
+                                        <span className="font-semibold min-w-[100px]">Thể tích:</span>
+                                        <span className="px-2 py-1 bg-green-100 text-green-800 rounded text-xs font-mono">
+                                            {calculateVolume(itemToDelete['DAY'], itemToDelete['RONG'], itemToDelete['DAI'])} mm³
+                                        </span>
+                                    </p>
+                                    <p className="text-sm text-gray-700 flex items-center gap-2">
+                                        <span className="font-semibold min-w-[100px]">Tiêu chuẩn:</span>
+                                        <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">
+                                            {itemToDelete['TIEU_CHUAN']}
+                                        </span>
+                                    </p>
                                 </div>
                                 <p className="text-sm text-red-600 mt-4 flex items-center gap-2 font-medium">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1094,7 +928,7 @@ const DMHHManagement = () => {
                                     className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 flex items-center gap-2 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                                 >
                                     <Trash className="h-4 w-4" />
-                                    Xóa hàng hóa
+                                    Xóa quy cách
                                 </button>
                             </div>
                         </div>
@@ -1132,29 +966,9 @@ const DMHHManagement = () => {
                 .animate-fadeIn {
                     animation: fadeIn 0.2s ease-out;
                 }
-
-                /* Custom scrollbar for dropdown */
-                .overflow-y-auto::-webkit-scrollbar {
-                    width: 8px;
-                }
-
-                .overflow-y-auto::-webkit-scrollbar-track {
-                    background: #f1f1f1;
-                    border-radius: 10px;
-                }
-
-                .overflow-y-auto::-webkit-scrollbar-thumb {
-                    background: #888;
-                    border-radius: 10px;
-                }
-
-                .overflow-y-auto::-webkit-scrollbar-thumb:hover {
-                    background: #555;
-                }
             `}</style>
         </div>
     );
 };
 
-export default DMHHManagement;
-
+export default QuyCachManagement;

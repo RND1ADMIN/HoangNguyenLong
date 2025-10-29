@@ -27,6 +27,18 @@ const Home = () => {
             color: 'bg-blue-500',
             items: [
                 {
+                    title: 'Cài đặt quy cách',
+                    icon: Settings,
+                    path: '/quycach',
+                    color: 'bg-blue-400'
+                },
+                {
+                    title: 'Cài đặt giá bán',
+                    icon: Settings,
+                    path: '/giaban',
+                    color: 'bg-blue-400'
+                },
+                {
                     title: 'Quản lý hàng hóa',
                     icon: FileBox,
                     path: '/dmhh',

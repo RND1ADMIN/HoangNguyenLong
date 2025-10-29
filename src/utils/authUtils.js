@@ -12,7 +12,30 @@ class AuthUtils {
                 },
                 body: JSON.stringify({
                     Action: action,
-                    
+
+                    select,
+                    ...data
+                })
+            });
+            if (!response.ok) throw new Error('Network response was not ok');
+            return await response.json();
+        } catch (error) {
+            console.error('API request failed:', error);
+            throw error;
+        }
+    }
+
+    async apiRequestKHO(tableName, action, data, select = {}) {
+        try {
+            const response = await fetch(`https://www.appsheet.com/api/v2/apps/1ecc49ef-8804-4f2b-aab8-aa83acf0790e/tables/${tableName}/Action`, {
+                method: 'POST',
+                headers: {
+                    'ApplicationAccessKey': "V2-LWjCY-vxfL0-XUkMH-hJh5b-ZpHzv-WZRkZ-VObOF-veTA9",
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    Action: action,
+
                     select,
                     ...data
                 })
@@ -84,7 +107,7 @@ class AuthUtils {
             throw new Error('Vui lòng nhập đầy đủ thông tin đăng nhập!');
         }
 
-        const result = await this.apiRequest('DSNV', 'Find',{
+        const result = await this.apiRequest('DSNV', 'Find', {
             Properties: {
                 Selector: `Filter(DSNV, and( [username] = "${username}" , [password] = "${password}"))`
             }
@@ -109,28 +132,28 @@ class AuthUtils {
         if (!file) {
             throw new Error('Không tìm thấy file');
         }
-    
+
         if (file.size > config.UPLOAD.MAX_SIZE) {
             throw new Error(`Kích thước file không được vượt quá ${config.UPLOAD.MAX_SIZE / 1024 / 1024}MB`);
         }
-    
+
         if (!config.UPLOAD.ALLOWED_TYPES.includes(file.type)) {
             throw new Error('Định dạng file không được hỗ trợ');
         }
-    
+
         try {
             // Convert file to base64 if needed
             const base64Image = await this.getImageAsBase64(file);
-            
+
             // Cloudinary configuration
             const CLOUDINARY_CLOUD_NAME = config.CLOUD_NAME || 'duv9pccwi';
             const CLOUDINARY_UPLOAD_PRESET = config.UPLOAD_PRESET || 'poalupload';
-            
+
             // Prepare form data
             const formData = new FormData();
             formData.append('file', base64Image);
             formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-            
+
             // Make request to Cloudinary
             const response = await fetch(
                 `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`,
@@ -139,17 +162,17 @@ class AuthUtils {
                     body: formData
                 }
             );
-    
+
             if (!response.ok) {
                 throw new Error('Upload failed: ' + response.statusText);
             }
-    
+
             const data = await response.json();
-    
+
             if (!data.secure_url) {
                 throw new Error('Invalid response from Cloudinary');
             }
-    
+
             return {
                 success: true,
                 url: data.secure_url,
