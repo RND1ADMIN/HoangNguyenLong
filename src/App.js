@@ -15,6 +15,8 @@ import XuatNhapKhoForm from './pages/XuatNhapKhoForm';
 // import QuyCachManagement from './pages/QuyCachManagement';
 import GiaBanManagement from './pages/GiaBanManagement';
 import DMHHManagement from './pages/DMHHManagement';
+import DSKHManagement from './pages/DSKHManagement';
+import HopDongNguyenTacManagement from './pages/HopDongNguyenTacManagement';
 import XuatNhapKhoManager from './pages/XuatNhapKhoManager';
 import CongDoanManagement from './pages/CongDoan';
 import CongDoanDonGiaManagement from './pages/CongDoanDonGiaManagement';
@@ -58,6 +60,8 @@ function App() {
                   {/* <Route path="/quycach" element={<QuyCachManagement />} /> */}
                   <Route path="/giaban" element={<GiaBanManagement />} />
                   <Route path="/dmhh" element={<DMHHManagement />} />
+                  <Route path="/dskh" element={<DSKHManagement />} />
+                  <Route path="/hopdongnguyentac" element={<HopDongNguyenTacManagement />} />
                   <Route path="/xuatnhapkho" element={<XuatNhapKhoManager />} />
                   <Route path="/tonkho" element={<TonKhoManager />} />
                   <Route path="/baocaoreport" element={<Baocaoreport />} />

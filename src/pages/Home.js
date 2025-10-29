@@ -9,6 +9,7 @@ import {
     ChartArea,
     ChartPie,
     User,
+    File,
     UtensilsCrossed,
     Receipt,
     Wallet,
@@ -111,6 +112,18 @@ const Home = () => {
                     icon: User,
                     path: '/users',
                     color: 'bg-red-500'
+                },
+                {
+                    title: 'Quản lý khách hàng',
+                    icon: User,
+                    path: '/dskh',
+                    color: 'bg-blue-400'
+                },
+                {
+                    title: 'Hợp đồng nguyên tắc',
+                    icon: File,
+                    path: '/hopdongnguyentac',
+                    color: 'bg-blue-400'
                 }
             ]
         }

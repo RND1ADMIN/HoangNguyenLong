@@ -860,15 +860,7 @@ const GiaBanManagement = () => {
                             </button>
                         </div>
 
-                        <div className="space-y-5">
-                            {isEditMode && (
-                                <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4">
-                                    <p className="text-sm text-blue-700 flex items-center gap-2">
-                                        <Info className="w-4 h-4" />
-                                        <span className="font-medium">ID:</span> #{currentItem['ID']}
-                                    </p>
-                                </div>
-                            )}
+                        <div className="space-y-2">
 
                             <div>
                                 <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -961,9 +953,9 @@ const GiaBanManagement = () => {
                                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-4">
                                     <p className="text-sm text-gray-700 mb-3 font-semibold flex items-center gap-2">
                                         <Info className="w-4 h-4" />
-                                        Trạng thái dự kiến:
+                                        Trạng thái dự kiến: {getStatusBadge(currentItem['HIEULUC_TU'], currentItem['HIEULUC_DEN'])}
                                     </p>
-                                    {getStatusBadge(currentItem['HIEULUC_TU'], currentItem['HIEULUC_DEN'])}
+                                    
 
                                     {/* Thông báo về việc cập nhật DONGIA_HIEULUC */}
                                     <div className="mt-3 pt-3 border-t border-gray-300">
