@@ -7,8 +7,6 @@ import authUtils from '../utils/authUtils';
 const DMHHManagement = () => {
     // State Management
     const [dmhhItems, setDmhhItems] = useState([]);
-    const [quyChachItems, setQuyChachItems] = useState([]);
-    const [groupedQuyChach, setGroupedQuyChach] = useState([]);
     const [currentItem, setCurrentItem] = useState({
         'NHOM_HANG': '',
         'DAY': '',
@@ -27,10 +25,6 @@ const DMHHManagement = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [filterChatLuong, setFilterChatLuong] = useState('TẤT CẢ');
     const [isLoading, setIsLoading] = useState(false);
-    
-    // State cho dropdown tìm kiếm
-    const [quyChachSearch, setQuyChachSearch] = useState('');
-    const [showQuyChachDropdown, setShowQuyChachDropdown] = useState(false);
     const [originalNhomHang, setOriginalNhomHang] = useState(''); // Lưu NHOM_HANG gốc khi edit
 
     // Pagination states
@@ -48,6 +42,13 @@ const DMHHManagement = () => {
         }).format(amount);
     };
 
+    // Tự động tạo NHOM_HANG từ các thông tin đã nhập
+    const generateNhomHang = (day, rong, dai, chatluong) => {
+        if (!day || !rong || !dai) return '';
+        const chatLuongPart = chatluong ? ` (${chatluong})` : '';
+        return `${day}*${rong}*${dai}${chatLuongPart}`;
+    };
+
     // Fetch data
     const fetchDMHH = async () => {
         try {
@@ -62,33 +63,27 @@ const DMHHManagement = () => {
         }
     };
 
-    const fetchQuyChach = async () => {
-        try {
-            const response = await authUtils.apiRequestKHO('CD_QUYCACH', 'Find', {});
-            setQuyChachItems(response);
-            
-            // Nhóm quy cách theo format: "DAY*RONG*DAI(TIEU_CHUAN)"
-            const grouped = response.map(item => ({
-                ...item,
-                'DISPLAY_NAME': `${item['DAY']}*${item['RONG']}*${item['DAI']} (${item['TIEU_CHUAN'] || 'Không xác định'})`
-            }));
-            
-            setGroupedQuyChach(grouped);
-        } catch (error) {
-            console.error('Error fetching quy cach list:', error);
-            toast.error('Lỗi khi tải quy cách');
-        }
-    };
-
     useEffect(() => {
         fetchDMHH();
-        fetchQuyChach();
     }, []);
 
-    // Filter quy cách theo search
-    const filteredQuyChach = groupedQuyChach.filter(item =>
-        item['DISPLAY_NAME'].toLowerCase().includes(quyChachSearch.toLowerCase())
-    );
+    // Tự động cập nhật NHOM_HANG khi các trường thay đổi
+    useEffect(() => {
+        if (!isEditMode) {
+            const newNhomHang = generateNhomHang(
+                currentItem['DAY'],
+                currentItem['RONG'],
+                currentItem['DAI'],
+                currentItem['CHATLUONG']
+            );
+            if (newNhomHang && newNhomHang !== currentItem['NHOM_HANG']) {
+                setCurrentItem(prev => ({
+                    ...prev,
+                    'NHOM_HANG': newNhomHang
+                }));
+            }
+        }
+    }, [currentItem['DAY'], currentItem['RONG'], currentItem['DAI'], currentItem['CHATLUONG'], isEditMode]);
 
     // Modal handlers
     const handleOpenModal = (item = null) => {
@@ -103,7 +98,6 @@ const DMHHManagement = () => {
                 'CHATLUONG': item['CHATLUONG'] || '',
                 'DONGIA_HIEULUC': item['DONGIA_HIEULUC'] || ''
             });
-            setQuyChachSearch(item['NHOM_HANG'] || '');
         } else {
             setIsEditMode(false);
             setOriginalNhomHang('');
@@ -115,10 +109,8 @@ const DMHHManagement = () => {
                 'CHATLUONG': '',
                 'DONGIA_HIEULUC': ''
             });
-            setQuyChachSearch('');
         }
         setShowModal(true);
-        setShowQuyChachDropdown(false);
     };
 
     const handleCloseModal = () => {
@@ -133,23 +125,6 @@ const DMHHManagement = () => {
             'CHATLUONG': '',
             'DONGIA_HIEULUC': ''
         });
-        setQuyChachSearch('');
-        setShowQuyChachDropdown(false);
-    };
-
-    // Handle quy cach selection - Tự động điền thông tin
-    const handleQuyChachSelect = (selectedItem) => {
-        setCurrentItem(prev => ({
-            ...prev,
-            'NHOM_HANG': selectedItem['DISPLAY_NAME'],
-            'DAY': selectedItem['DAY'] || '',
-            'RONG': selectedItem['RONG'] || '',
-            'DAI': selectedItem['DAI'] || '',
-            'CHATLUONG': selectedItem['TIEU_CHUAN'] || ''
-        }));
-        setQuyChachSearch(selectedItem['DISPLAY_NAME']);
-        setShowQuyChachDropdown(false);
-        toast.info('Đã tự động điền thông tin từ quy cách', { autoClose: 2000 });
     };
 
     // Form handlers
@@ -163,10 +138,6 @@ const DMHHManagement = () => {
     const validateItem = (item) => {
         const errors = [];
         
-        if (!item['NHOM_HANG']) {
-            errors.push('Nhóm hàng không được để trống');
-        }
-        
         if (!item['DAY']) {
             errors.push('Dày không được để trống');
         }
@@ -177,6 +148,10 @@ const DMHHManagement = () => {
         
         if (!item['DAI']) {
             errors.push('Dài không được để trống');
+        }
+
+        if (!item['NHOM_HANG']) {
+            errors.push('Nhóm hàng không được tạo. Vui lòng kiểm tra lại thông tin');
         }
 
         return errors;
@@ -207,10 +182,17 @@ const DMHHManagement = () => {
 
             if (isEditMode) {
                 // Edit existing item - Kiểm tra nếu đổi NHOM_HANG
-                if (originalNhomHang !== itemToSave['NHOM_HANG']) {
+                const newNhomHang = generateNhomHang(
+                    itemToSave['DAY'],
+                    itemToSave['RONG'],
+                    itemToSave['DAI'],
+                    itemToSave['CHATLUONG']
+                );
+                
+                if (originalNhomHang !== newNhomHang) {
                     // Kiểm tra NHOM_HANG mới có tồn tại không
                     const existingItem = dmhhItems.find(
-                        item => item['NHOM_HANG'] === itemToSave['NHOM_HANG']
+                        item => item['NHOM_HANG'] === newNhomHang
                     );
                     
                     if (existingItem) {
@@ -223,6 +205,9 @@ const DMHHManagement = () => {
                     await authUtils.apiRequestKHO('DMHH', 'Delete', {
                         "Rows": [{ "NHOM_HANG": originalNhomHang }]
                     });
+                    
+                    itemToSave['NHOM_HANG'] = newNhomHang;
+                    
                     await authUtils.apiRequestKHO('DMHH', 'Add', {
                         "Rows": [itemToSave]
                     });
@@ -403,7 +388,6 @@ const DMHHManagement = () => {
     const handleRefresh = async () => {
         toast.info('Đang tải lại dữ liệu...');
         await fetchDMHH();
-        await fetchQuyChach();
         toast.success('Đã tải lại dữ liệu thành công!');
     };
 
@@ -799,148 +783,94 @@ const DMHHManagement = () => {
                         </div>
 
                         <div className="space-y-5">
-                            {/* Chọn nhóm hàng với tìm kiếm */}
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Nhóm hàng (Quy cách) <span className="text-red-500">*</span>
-                                </label>
-                                <div className="relative">
-                                    <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400 z-10" />
-                                        <input
-                                            type="text"
-                                            value={quyChachSearch}
-                                            onChange={(e) => {
-                                                setQuyChachSearch(e.target.value);
-                                                setShowQuyChachDropdown(true);
-                                            }}
-                                            onFocus={() => setShowQuyChachDropdown(true)}
-                                            placeholder="Tìm kiếm quy cách..."
-                                            className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                            disabled={isEditMode}
-                                        />
-                                        {quyChachSearch && !isEditMode && (
-                                            <button
-                                                onClick={() => {
-                                                    setQuyChachSearch('');
-                                                    setCurrentItem(prev => ({
-                                                        ...prev,
-                                                        'NHOM_HANG': '',
-                                                        'DAY': '',
-                                                        'RONG': '',
-                                                        'DAI': '',
-                                                        'CHATLUONG': ''
-                                                    }));
-                                                }}
-                                                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                <X className="h-5 w-5" />
-                                            </button>
-                                        )}
-                                    </div>
-                                    
-                                    {/* Dropdown list */}
-                                    {showQuyChachDropdown && !isEditMode && filteredQuyChach.length > 0 && (
-                                        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-300 rounded-xl shadow-lg max-h-60 overflow-y-auto">
-                                            {filteredQuyChach.map((item, index) => (
-                                                <div
-                                                    key={index}
-                                                    onClick={() => handleQuyChachSelect(item)}
-                                                    className="px-4 py-3 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-sm font-medium text-gray-800">
-                                                            {item['DISPLAY_NAME']}
-                                                        </span>
-                                                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                                                            {item['DAY']} × {item['RONG']} × {item['DAI']}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                    
-                                    {showQuyChachDropdown && !isEditMode && quyChachSearch && filteredQuyChach.length === 0 && (
-                                        <div className="absolute z-50 w-full mt-2 bg-white border border-gray-300 rounded-xl shadow-lg p-4">
-                                            <p className="text-sm text-gray-500 text-center">Không tìm thấy quy cách phù hợp</p>
-                                        </div>
-                                    )}
-                                </div>
-                                
-                                {isEditMode && (
-                                    <p className="text-xs text-orange-600 mt-2 flex items-center gap-1">
-                                        <Info className="w-3 h-3" />
-                                        Không thể thay đổi nhóm hàng khi chỉnh sửa (Khóa chính)
-                                    </p>
-                                )}
-                                {!isEditMode && (
-                                    <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                                        <Info className="w-3 h-3" />
-                                        Nhập để tìm kiếm và chọn quy cách - Thông tin sẽ tự động điền
-                                    </p>
-                                )}
-                            </div>
-
-                            {/* Thông tin tự động điền */}
-                            <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-5 shadow-sm">
+                            {/* Thông tin nhập liệu */}
+                            <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-5 shadow-sm">
                                 <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
                                     <Info className="w-5 h-5 text-blue-500" />
-                                    Thông tin tự động từ quy cách
+                                    Thông tin kích thước và chất lượng
                                 </h3>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-2">
                                             Dày <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             value={currentItem['DAY']}
-                                            readOnly
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100 text-gray-700 font-medium"
-                                            placeholder="Auto"
+                                            onChange={(e) => handleInputChange('DAY', e.target.value)}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            placeholder="Nhập dày"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-2">
                                             Rộng <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             value={currentItem['RONG']}
-                                            readOnly
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100 text-gray-700 font-medium"
-                                            placeholder="Auto"
+                                            onChange={(e) => handleInputChange('RONG', e.target.value)}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            placeholder="Nhập rộng"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-2">
                                             Dài <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             value={currentItem['DAI']}
-                                            readOnly
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100 text-gray-700 font-medium"
-                                            placeholder="Auto"
+                                            onChange={(e) => handleInputChange('DAI', e.target.value)}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            placeholder="Nhập dài"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-600 mb-2">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-2">
                                             Chất lượng
                                         </label>
                                         <input
                                             type="text"
                                             value={currentItem['CHATLUONG']}
-                                            readOnly
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full bg-gray-100 text-gray-700 font-medium"
-                                            placeholder="Auto"
+                                            onChange={(e) => handleInputChange('CHATLUONG', e.target.value)}
+                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            placeholder="Nhập chất lượng"
                                         />
                                     </div>
                                 </div>
+                            </div>
+
+                            {/* Nhóm hàng tự động */}
+                            <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-5 shadow-sm">
+                                <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <Package className="w-5 h-5 text-purple-600" />
+                                    Nhóm hàng (Tự động tạo)
+                                </label>
+                                <div className="bg-white rounded-lg p-4 border-2 border-purple-300">
+                                    {currentItem['NHOM_HANG'] ? (
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xl font-bold text-purple-700">
+                                                {currentItem['NHOM_HANG']}
+                                            </span>
+                                            <span className="text-xs text-gray-600 bg-purple-100 px-3 py-1.5 rounded-lg">
+                                                Tự động từ thông tin trên
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-gray-400 italic flex items-center gap-2">
+                                            <Info className="w-5 h-5" />
+                                            Nhập đầy đủ thông tin để tạo nhóm hàng
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-purple-600 mt-3 flex items-center gap-1">
+                                    <Info className="w-3 h-3" />
+                                    Format: Dày*Rộng*Dài (Chất lượng)
+                                </p>
                             </div>
 
                             {/* Đơn giá hiệu lực - Chỉ hiển thị */}
@@ -977,8 +907,8 @@ const DMHHManagement = () => {
                                 <p className="text-sm text-yellow-800 flex items-start gap-2">
                                     <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
                                     <span>
-                                        <strong>Lưu ý:</strong> Đơn giá hiệu lực được tự động cập nhật từ trang "Cài đặt giá bán" 
-                                        khi có giá mới được áp dụng cho nhóm hàng này. NHOM_HANG là khóa chính của bảng.
+                                        <strong>Lưu ý:</strong> Nhóm hàng sẽ được tự động tạo theo format: <strong>Dày*Rộng*Dài (Chất lượng)</strong>. 
+                                        Đơn giá hiệu lực được tự động cập nhật từ trang "Cài đặt giá bán" khi có giá mới được áp dụng.
                                     </span>
                                 </p>
                             </div>
@@ -1133,7 +1063,7 @@ const DMHHManagement = () => {
                     animation: fadeIn 0.2s ease-out;
                 }
 
-                /* Custom scrollbar for dropdown */
+                /* Custom scrollbar */
                 .overflow-y-auto::-webkit-scrollbar {
                     width: 8px;
                 }
@@ -1157,4 +1087,3 @@ const DMHHManagement = () => {
 };
 
 export default DMHHManagement;
-

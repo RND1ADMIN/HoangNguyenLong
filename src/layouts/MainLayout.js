@@ -133,7 +133,7 @@ const MainLayout = ({ children }) => {
             icon: Package,
             color: 'text-blue-600',
             items: [
-                { text: 'Cài đặt quy cách', icon: FileBox, path: '/quycach' },
+                // { text: 'Cài đặt quy cách', icon: FileBox, path: '/quycach' },
                 { text: 'Cài đặt giá bán', icon: FileBox, path: '/giaban' },
                 { text: 'Quản lý hàng hóa', icon: FileBox, path: '/dmhh' },
                 { text: 'Quản lý xuất nhập kho', icon: Table, path: '/xuatnhapkho' },

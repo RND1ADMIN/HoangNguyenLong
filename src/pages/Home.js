@@ -26,12 +26,12 @@ const Home = () => {
             icon: Package,
             color: 'bg-blue-500',
             items: [
-                {
-                    title: 'Cài đặt quy cách',
-                    icon: Settings,
-                    path: '/quycach',
-                    color: 'bg-blue-400'
-                },
+                // {
+                //     title: 'Cài đặt quy cách',
+                //     icon: Settings,
+                //     path: '/quycach',
+                //     color: 'bg-blue-400'
+                // },
                 {
                     title: 'Cài đặt giá bán',
                     icon: Settings,
