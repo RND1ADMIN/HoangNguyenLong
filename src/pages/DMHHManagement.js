@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, Filter, X, Package, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash, Search, Filter, X, Package, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, AlertTriangle, Archive, Eye, Calendar, DollarSign, Layers } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
@@ -7,6 +7,7 @@ import authUtils from '../utils/authUtils';
 const DMHHManagement = () => {
     // State Management
     const [dmhhItems, setDmhhItems] = useState([]);
+    const [tonKho, setTonKho] = useState([]);
     const [currentItem, setCurrentItem] = useState({
         'NHOM_HANG': '',
         'DAY': '',
@@ -15,6 +16,8 @@ const DMHHManagement = () => {
         'DONGIA_HIEULUC': ''
     });
     const [showModal, setShowModal] = useState(false);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [selectedItemDetail, setSelectedItemDetail] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [search, setSearch] = useState('');
     const [showDeleteConfirmation, setShowDeleteConfirmation] = useState(false);
@@ -23,7 +26,7 @@ const DMHHManagement = () => {
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
     const [isEditMode, setIsEditMode] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [originalNhomHang, setOriginalNhomHang] = useState(''); // Lưu NHOM_HANG gốc khi edit
+    const [originalNhomHang, setOriginalNhomHang] = useState('');
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -40,10 +43,49 @@ const DMHHManagement = () => {
         }).format(amount);
     };
 
+    // Format date
+    const formatDate = (dateString) => {
+        if (!dateString) return 'N/A';
+        const date = new Date(dateString);
+        return date.toLocaleDateString('vi-VN', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
     // Tự động tạo NHOM_HANG từ các thông tin đã nhập
     const generateNhomHang = (day, rong, dai) => {
         if (!day || !rong || !dai) return '';
         return `${day}*${rong}*${dai}`;
+    };
+
+    // Tính tồn kho cho từng nhóm hàng
+    const getTonKhoByNhomHang = (nhomHang) => {
+        const kienTon = tonKho.filter(item =>
+            item['NHOM_HANG'] === nhomHang &&
+            item['NGHIEP_VU'] === 'NHAP'
+        );
+        return kienTon.length;
+    };
+
+    // Tính tổng khối lượng tồn kho
+    const getTongKhoiLuongTon = (nhomHang) => {
+        const kienTon = tonKho.filter(item =>
+            item['NHOM_HANG'] === nhomHang &&
+            item['NGHIEP_VU'] === 'NHAP'
+        );
+        return kienTon.reduce((sum, item) => sum + (parseFloat(item['SO_KHOI']) || 0), 0);
+    };
+
+    // Lấy danh sách kiện tồn kho chi tiết
+    const getChiTietTonKho = (nhomHang) => {
+        return tonKho.filter(item =>
+            item['NHOM_HANG'] === nhomHang &&
+            item['NGHIEP_VU'] === 'NHAP'
+        );
     };
 
     // Fetch data
@@ -60,8 +102,19 @@ const DMHHManagement = () => {
         }
     };
 
+    const fetchTonKho = async () => {
+        try {
+            const response = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
+            setTonKho(response);
+        } catch (error) {
+            console.error('Error fetching ton kho:', error);
+            toast.error('Lỗi khi tải tồn kho');
+        }
+    };
+
     useEffect(() => {
         fetchDMHH();
+        fetchTonKho();
     }, []);
 
     // Tự động cập nhật NHOM_HANG khi các trường thay đổi
@@ -85,7 +138,7 @@ const DMHHManagement = () => {
     const handleOpenModal = (item = null) => {
         if (item) {
             setIsEditMode(true);
-            setOriginalNhomHang(item['NHOM_HANG']); // Lưu NHOM_HANG gốc
+            setOriginalNhomHang(item['NHOM_HANG']);
             setCurrentItem({
                 'NHOM_HANG': item['NHOM_HANG'] || '',
                 'DAY': item['DAY'] || '',
@@ -120,6 +173,17 @@ const DMHHManagement = () => {
         });
     };
 
+    // Detail modal handlers
+    const handleOpenDetailModal = (item) => {
+        setSelectedItemDetail(item);
+        setShowDetailModal(true);
+    };
+
+    const handleCloseDetailModal = () => {
+        setShowDetailModal(false);
+        setSelectedItemDetail(null);
+    };
+
     // Form handlers
     const handleInputChange = (field, value) => {
         setCurrentItem(prev => ({
@@ -130,15 +194,15 @@ const DMHHManagement = () => {
 
     const validateItem = (item) => {
         const errors = [];
-        
+
         if (!item['DAY']) {
             errors.push('Dày không được để trống');
         }
-        
+
         if (!item['RONG']) {
             errors.push('Rộng không được để trống');
         }
-        
+
         if (!item['DAI']) {
             errors.push('Dài không được để trống');
         }
@@ -163,7 +227,6 @@ const DMHHManagement = () => {
                 return;
             }
 
-            // Prepare item to save
             const itemToSave = {
                 'NHOM_HANG': currentItem['NHOM_HANG'],
                 'DAY': currentItem['DAY'],
@@ -173,49 +236,51 @@ const DMHHManagement = () => {
             };
 
             if (isEditMode) {
-                // Edit existing item - Kiểm tra nếu đổi NHOM_HANG
                 const newNhomHang = generateNhomHang(
                     itemToSave['DAY'],
                     itemToSave['RONG'],
                     itemToSave['DAI']
                 );
-                
+
                 if (originalNhomHang !== newNhomHang) {
-                    // Kiểm tra NHOM_HANG mới có tồn tại không
+                    const soKienTon = getTonKhoByNhomHang(originalNhomHang);
+                    if (soKienTon > 0) {
+                        toast.error(`Không thể thay đổi kích thước! Nhóm hàng này còn ${soKienTon} kiện tồn kho.`);
+                        setIsSubmitting(false);
+                        return;
+                    }
+
                     const existingItem = dmhhItems.find(
                         item => item['NHOM_HANG'] === newNhomHang
                     );
-                    
+
                     if (existingItem) {
                         toast.error('Nhóm hàng mới này đã tồn tại!');
                         setIsSubmitting(false);
                         return;
                     }
 
-                    // Xóa item cũ và thêm item mới
                     await authUtils.apiRequestKHO('DMHH', 'Delete', {
                         "Rows": [{ "NHOM_HANG": originalNhomHang }]
                     });
-                    
+
                     itemToSave['NHOM_HANG'] = newNhomHang;
-                    
+
                     await authUtils.apiRequestKHO('DMHH', 'Add', {
                         "Rows": [itemToSave]
                     });
                     toast.success('Cập nhật hàng hóa thành công!');
                 } else {
-                    // Cập nhật bình thường
                     await authUtils.apiRequestKHO('DMHH', 'Edit', {
                         "Rows": [itemToSave]
                     });
                     toast.success('Cập nhật hàng hóa thành công!');
                 }
             } else {
-                // Create new item - Kiểm tra trùng NHOM_HANG
                 const existingItem = dmhhItems.find(
                     item => item['NHOM_HANG'] === itemToSave['NHOM_HANG']
                 );
-                
+
                 if (existingItem) {
                     toast.error('Nhóm hàng này đã tồn tại!');
                     setIsSubmitting(false);
@@ -239,7 +304,17 @@ const DMHHManagement = () => {
     };
 
     // Delete handlers
-    const handleOpenDeleteConfirmation = (item) => {
+    const handleOpenDeleteConfirmation = (item, e) => {
+        e.stopPropagation();
+        const soKienTon = getTonKhoByNhomHang(item['NHOM_HANG']);
+        if (soKienTon > 0) {
+            toast.error(
+                `Không thể xóa! Nhóm hàng "${item['NHOM_HANG']}" còn ${soKienTon} kiện tồn kho.`,
+                { autoClose: 5000 }
+            );
+            return;
+        }
+
         setItemToDelete(item);
         setShowDeleteConfirmation(true);
     };
@@ -253,6 +328,13 @@ const DMHHManagement = () => {
         if (!itemToDelete) return;
 
         try {
+            const soKienTon = getTonKhoByNhomHang(itemToDelete['NHOM_HANG']);
+            if (soKienTon > 0) {
+                toast.error(`Không thể xóa! Nhóm hàng này còn ${soKienTon} kiện tồn kho.`);
+                handleCloseDeleteConfirmation();
+                return;
+            }
+
             await authUtils.apiRequestKHO('DMHH', 'Delete', {
                 "Rows": [{ "NHOM_HANG": itemToDelete['NHOM_HANG'] }]
             });
@@ -281,7 +363,6 @@ const DMHHManagement = () => {
                 const keyA = a[sortConfig.key] || '';
                 const keyB = b[sortConfig.key] || '';
 
-                // Handle numeric sorting for DONGIA_HIEULUC
                 if (sortConfig.key === 'DONGIA_HIEULUC') {
                     const numA = parseFloat(keyA) || 0;
                     const numB = parseFloat(keyB) || 0;
@@ -317,7 +398,6 @@ const DMHHManagement = () => {
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
     const currentItems = filteredItems.slice(indexOfFirstItem, indexOfLastItem);
 
-    // Reset to first page when filters change
     useEffect(() => {
         setCurrentPage(1);
     }, [search, itemsPerPage]);
@@ -329,11 +409,10 @@ const DMHHManagement = () => {
     const goToPrevPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
     const goToPage = (page) => setCurrentPage(page);
 
-    // Get page numbers to display
     const getPageNumbers = () => {
         const pages = [];
         const maxPagesToShow = 5;
-        
+
         if (totalPages <= maxPagesToShow) {
             for (let i = 1; i <= totalPages; i++) {
                 pages.push(i);
@@ -355,46 +434,47 @@ const DMHHManagement = () => {
                 pages.push(totalPages);
             }
         }
-        
+
         return pages;
     };
 
-    // Get sort direction icon
     const getSortIcon = (key) => {
         if (sortConfig.key !== key) {
             return <span className="text-gray-400 ml-1">⇅</span>;
         }
-        return sortConfig.direction === 'ascending' ? 
-            <span className="text-blue-600 ml-1">↑</span> : 
+        return sortConfig.direction === 'ascending' ?
+            <span className="text-blue-600 ml-1">↑</span> :
             <span className="text-blue-600 ml-1">↓</span>;
     };
 
-    // Refresh data
     const handleRefresh = async () => {
         toast.info('Đang tải lại dữ liệu...');
         await fetchDMHH();
+        await fetchTonKho();
         toast.success('Đã tải lại dữ liệu thành công!');
     };
 
+    const tongKienTon = tonKho.filter(item => item['NGHIEP_VU'] === 'NHAP').length;
+
     return (
-        <div className="p-4 md:p-6 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
+        <div className="p-3 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
             <div className="mx-auto">
-                <div className="bg-white rounded-2xl shadow-lg p-6 mb-6 border border-gray-100">
+                <div className="bg-white rounded-xl shadow-sm p-4 mb-4 border border-gray-100">
                     {/* Header Section */}
-                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl shadow-md">
-                                <Package className="w-6 h-6 text-white" />
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 gap-3">
+                        <div className="flex items-center gap-2">
+                            <div className="p-2 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg shadow-sm">
+                                <Package className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-800">Danh Mục Hàng Hóa</h1>
-                                <p className="text-sm text-gray-500 mt-1">Quản lý thông tin hàng hóa và giá bán</p>
+                                <h1 className="text-xl font-bold text-gray-800">Danh Mục Hàng Hóa</h1>
+                                <p className="text-xs text-gray-500 mt-0.5">Quản lý thông tin hàng hóa và giá bán</p>
                             </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
                             <button
                                 onClick={handleRefresh}
-                                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 flex items-center gap-2 transition-all shadow-sm hover:shadow"
+                                className="px-3 py-1.5 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:border-gray-400 flex items-center gap-1.5 transition-all shadow-sm text-sm"
                                 title="Tải lại dữ liệu"
                             >
                                 <RefreshCw className="w-4 h-4" />
@@ -402,18 +482,17 @@ const DMHHManagement = () => {
                             </button>
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
-                                className={`px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-sm hover:shadow ${
-                                    showFilters 
-                                        ? 'bg-blue-50 text-blue-700 border border-blue-200' 
-                                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                                }`}
+                                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm text-sm ${showFilters
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                    }`}
                             >
                                 <Filter className="w-4 h-4" />
                                 {showFilters ? "Ẩn bộ lọc" : "Bộ lọc"}
                             </button>
                             <button
                                 onClick={() => handleOpenModal()}
-                                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-2 rounded-xl flex items-center gap-2 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm text-sm"
                             >
                                 <Plus className="w-4 h-4" />
                                 Thêm hàng hóa
@@ -423,13 +502,13 @@ const DMHHManagement = () => {
 
                     {/* Search and Filter Section */}
                     {showFilters && (
-                        <div className="mb-6 space-y-4 animate-fadeIn">
+                        <div className="mb-3 animate-fadeIn">
                             <div className="relative">
-                                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <input
                                     type="text"
                                     placeholder="Tìm kiếm theo nhóm hàng, kích thước..."
-                                    className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
+                                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm text-sm"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
@@ -438,60 +517,73 @@ const DMHHManagement = () => {
                     )}
 
                     {/* Statistics cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 shadow-sm">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-sm font-medium text-blue-700 mb-1">Tổng số hàng hóa</h3>
-                                    <p className="text-3xl font-bold text-blue-900">{dmhhItems.length}</p>
+                                    <h3 className="text-xs font-medium text-blue-700 mb-0.5">Tổng số hàng hóa</h3>
+                                    <p className="text-2xl font-bold text-blue-900">{dmhhItems.length}</p>
                                 </div>
-                                <div className="p-3 bg-blue-200 rounded-lg">
-                                    <Package className="w-6 h-6 text-blue-700" />
+                                <div className="p-2 bg-blue-200 rounded-lg">
+                                    <Package className="w-5 h-5 text-blue-700" />
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-3 shadow-sm">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-sm font-medium text-green-700 mb-1">Có giá hiệu lực</h3>
-                                    <p className="text-3xl font-bold text-green-900">
+                                    <h3 className="text-xs font-medium text-green-700 mb-0.5">Có giá hiệu lực</h3>
+                                    <p className="text-2xl font-bold text-green-900">
                                         {dmhhItems.filter(item => item['DONGIA_HIEULUC'] && item['DONGIA_HIEULUC'] > 0).length}
                                     </p>
                                 </div>
-                                <div className="p-3 bg-green-200 rounded-lg">
-                                    <svg className="w-6 h-6 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className="p-2 bg-green-200 rounded-lg">
+                                    <svg className="w-5 h-5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-3 shadow-sm">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-sm font-medium text-orange-700 mb-1">Chưa có giá</h3>
-                                    <p className="text-3xl font-bold text-orange-900">
+                                    <h3 className="text-xs font-medium text-orange-700 mb-0.5">Chưa có giá</h3>
+                                    <p className="text-2xl font-bold text-orange-900">
                                         {dmhhItems.filter(item => !item['DONGIA_HIEULUC'] || item['DONGIA_HIEULUC'] === 0).length}
                                     </p>
                                 </div>
-                                <div className="p-3 bg-orange-200 rounded-lg">
-                                    <svg className="w-6 h-6 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <div className="p-2 bg-orange-200 rounded-lg">
+                                    <svg className="w-5 h-5 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                     </svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3 shadow-sm">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xs font-medium text-purple-700 mb-0.5">Tổng tồn kho</h3>
+                                    <p className="text-2xl font-bold text-purple-900">{tongKienTon} <span className="text-xs text-purple-600 mt-0.5">kiện</span></p>
+                                    
+                                </div>
+                                <div className="p-2 bg-purple-200 rounded-lg">
+                                    <Archive className="w-5 h-5 text-purple-700" />
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     {/* Items per page selector */}
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-3">
                         <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-600 font-medium">Hiển thị:</label>
+                            <label className="text-xs text-gray-600 font-medium">Hiển thị:</label>
                             <select
                                 value={itemsPerPage}
                                 onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                                className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                                className="px-2 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs bg-white"
                             >
                                 <option value={5}>5 mục</option>
                                 <option value={10}>10 mục</option>
@@ -500,18 +592,18 @@ const DMHHManagement = () => {
                                 <option value={100}>100 mục</option>
                             </select>
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-xs text-gray-600">
                             Hiển thị <span className="font-semibold text-gray-800">{indexOfFirstItem + 1}</span> - <span className="font-semibold text-gray-800">{Math.min(indexOfLastItem, filteredItems.length)}</span> trong tổng số <span className="font-semibold text-gray-800">{filteredItems.length}</span> mục
                         </div>
                     </div>
 
                     {/* Table Section */}
-                    <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+                    <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
                         {isLoading ? (
-                            <div className="flex items-center justify-center py-20">
+                            <div className="flex items-center justify-center py-12">
                                 <div className="text-center">
-                                    <RefreshCw className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-                                    <p className="text-gray-600">Đang tải dữ liệu...</p>
+                                    <RefreshCw className="w-10 h-10 text-blue-600 animate-spin mx-auto mb-3" />
+                                    <p className="text-gray-600 text-sm">Đang tải dữ liệu...</p>
                                 </div>
                             </div>
                         ) : (
@@ -519,99 +611,133 @@ const DMHHManagement = () => {
                                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                                     <tr>
                                         <th scope="col"
-                                            className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
+                                            className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
                                             onClick={() => requestSort('NHOM_HANG')}>
                                             <div className="flex items-center gap-1">
                                                 Nhóm hàng {getSortIcon('NHOM_HANG')}
                                             </div>
                                         </th>
                                         <th scope="col"
-                                            className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
+                                            className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
                                             onClick={() => requestSort('DAY')}>
                                             <div className="flex items-center gap-1">
                                                 Dày {getSortIcon('DAY')}
                                             </div>
                                         </th>
                                         <th scope="col"
-                                            className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
+                                            className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
                                             onClick={() => requestSort('RONG')}>
                                             <div className="flex items-center gap-1">
                                                 Rộng {getSortIcon('RONG')}
                                             </div>
                                         </th>
                                         <th scope="col"
-                                            className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
+                                            className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
                                             onClick={() => requestSort('DAI')}>
                                             <div className="flex items-center gap-1">
                                                 Dài {getSortIcon('DAI')}
                                             </div>
                                         </th>
                                         <th scope="col"
-                                            className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
+                                            className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
                                             onClick={() => requestSort('DONGIA_HIEULUC')}>
                                             <div className="flex items-center gap-1">
                                                 Đơn giá hiệu lực {getSortIcon('DONGIA_HIEULUC')}
                                             </div>
                                         </th>
-                                        <th scope="col" className="px-4 py-3 text-xs font-bold text-gray-700 uppercase tracking-wider text-center">
+                                        <th scope="col" className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider text-center">
+                                            Tồn kho
+                                        </th>
+                                        <th scope="col" className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider text-center">
                                             Thao tác
                                         </th>
                                     </tr>
                                 </thead>
                                 <tbody className="bg-white divide-y divide-gray-200">
                                     {currentItems.length > 0 ? (
-                                        currentItems.map((item, index) => (
-                                            <tr key={item['NHOM_HANG']} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className="px-3 py-1.5 bg-gradient-to-r from-indigo-100 to-indigo-200 text-indigo-800 rounded-lg text-sm font-semibold shadow-sm">
-                                                        {item['NHOM_HANG']}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    {item['DAY']}
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    {item['RONG']}
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                    {item['DAI']}
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm">
-                                                    {item['DONGIA_HIEULUC'] && item['DONGIA_HIEULUC'] > 0 ? (
-                                                        <span className="font-bold text-green-600 text-base">
-                                                            {formatCurrency(item['DONGIA_HIEULUC'])}
+                                        currentItems.map((item, index) => {
+                                            const soKienTon = getTonKhoByNhomHang(item['NHOM_HANG']);
+                                            const tongKhoiLuong = getTongKhoiLuongTon(item['NHOM_HANG']);
+                                            const coTonKho = soKienTon > 0;
+
+                                            return (
+                                                <tr
+                                                    key={item['NHOM_HANG']}
+                                                    onClick={() => handleOpenDetailModal(item)}
+                                                    className={`cursor-pointer hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}
+                                                >
+                                                    <td className="px-3 py-2 whitespace-nowrap">
+                                                        <span className="px-2 py-1 bg-gradient-to-r from-indigo-100 to-indigo-200 text-indigo-800 rounded-lg text-xs font-semibold">
+                                                            {item['NHOM_HANG']}
                                                         </span>
-                                                    ) : (
-                                                        <span className="text-gray-400 italic">Chưa có giá</span>
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center">
-                                                    <div className="flex justify-center space-x-2">
-                                                        <button
-                                                            onClick={() => handleOpenModal(item)}
-                                                            className="text-indigo-600 hover:text-indigo-900 p-2 rounded-lg hover:bg-indigo-100 transition-all transform hover:scale-110"
-                                                            title="Sửa hàng hóa"
-                                                        >
-                                                            <Edit className="h-5 w-5" />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleOpenDeleteConfirmation(item)}
-                                                            className="text-red-600 hover:text-red-900 p-2 rounded-lg hover:bg-red-100 transition-all transform hover:scale-110"
-                                                            title="Xóa hàng hóa"
-                                                        >
-                                                            <Trash className="h-5 w-5" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))
+                                                    </td>
+                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        {item['DAY']}
+                                                    </td>
+                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        {item['RONG']}
+                                                    </td>
+                                                    <td className="px-3 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        {item['DAI']}
+                                                    </td>
+                                                    <td className="px-3 py-2 whitespace-nowrap text-sm">
+                                                        {item['DONGIA_HIEULUC'] && item['DONGIA_HIEULUC'] > 0 ? (
+                                                            <span className="font-bold text-green-600">
+                                                                {formatCurrency(item['DONGIA_HIEULUC'])}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-400 italic text-xs">Chưa có giá</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2 whitespace-nowrap text-center">
+                                                        {coTonKho ? (
+                                                            <div className="flex flex-col items-center">
+                                                                <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs font-bold">
+                                                                    {soKienTon} kiện
+                                                                </span>
+                                                                <span className="text-xs text-gray-600 mt-0.5">
+                                                                    {tongKhoiLuong.toFixed(3)} m³
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-gray-400 italic text-xs">Không tồn</span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
+                                                        <div className="flex justify-center space-x-1">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleOpenModal(item);
+                                                                }}
+                                                                className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-lg hover:bg-indigo-100 transition-all"
+                                                                title="Sửa hàng hóa"
+                                                            >
+                                                                <Edit className="h-4 w-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => handleOpenDeleteConfirmation(item, e)}
+                                                                disabled={coTonKho}
+                                                                className={`p-1.5 rounded-lg transition-all ${coTonKho
+                                                                    ? 'text-gray-400 cursor-not-allowed opacity-50'
+                                                                    : 'text-red-600 hover:text-red-900 hover:bg-red-100'
+                                                                    }`}
+                                                                title={coTonKho ? `Không thể xóa (còn ${soKienTon} kiện tồn)` : 'Xóa hàng hóa'}
+                                                            >
+                                                                <Trash className="h-4 w-4" />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
                                     ) : (
                                         <tr>
-                                            <td colSpan="6" className="px-6 py-12 text-center">
+                                            <td colSpan="7" className="px-6 py-8 text-center">
                                                 <div className="flex flex-col items-center justify-center text-gray-500">
-                                                    <Package className="w-16 h-16 text-gray-300 mb-4" />
-                                                    <p className="text-lg font-medium">Không tìm thấy hàng hóa nào</p>
-                                                    <p className="text-sm mt-1">Thử thay đổi bộ lọc hoặc tìm kiếm</p>
+                                                    <Package className="w-12 h-12 text-gray-300 mb-3" />
+                                                    <p className="text-base font-medium">Không tìm thấy hàng hóa nào</p>
+                                                    <p className="text-xs mt-1">Thử thay đổi bộ lọc hoặc tìm kiếm</p>
                                                 </div>
                                             </td>
                                         </tr>
@@ -623,51 +749,48 @@ const DMHHManagement = () => {
 
                     {/* Pagination */}
                     {filteredItems.length > 0 && (
-                        <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div className="text-sm text-gray-600">
+                        <div className="mt-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+                            <div className="text-xs text-gray-600">
                                 Trang <span className="font-semibold text-gray-800">{currentPage}</span> / <span className="font-semibold text-gray-800">{totalPages}</span>
                             </div>
-                            
-                            <div className="flex items-center gap-2">
+
+                            <div className="flex items-center gap-1">
                                 <button
                                     onClick={goToFirstPage}
                                     disabled={currentPage === 1}
-                                    className={`p-2 rounded-lg border transition-all ${
-                                        currentPage === 1
-                                            ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                                            : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
-                                    }`}
+                                    className={`p-1.5 rounded-lg border transition-all ${currentPage === 1
+                                        ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+                                        }`}
                                     title="Trang đầu"
                                 >
-                                    <ChevronsLeft className="w-5 h-5" />
+                                    <ChevronsLeft className="w-4 h-4" />
                                 </button>
-                                
+
                                 <button
                                     onClick={goToPrevPage}
                                     disabled={currentPage === 1}
-                                    className={`p-2 rounded-lg border transition-all ${
-                                        currentPage === 1
-                                            ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                                            : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
-                                    }`}
+                                    className={`p-1.5 rounded-lg border transition-all ${currentPage === 1
+                                        ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+                                        }`}
                                     title="Trang trước"
                                 >
-                                    <ChevronLeft className="w-5 h-5" />
+                                    <ChevronLeft className="w-4 h-4" />
                                 </button>
 
                                 <div className="flex items-center gap-1">
                                     {getPageNumbers().map((page, index) => (
                                         page === '...' ? (
-                                            <span key={`ellipsis-${index}`} className="px-3 py-2 text-gray-500">...</span>
+                                            <span key={`ellipsis-${index}`} className="px-2 py-1 text-gray-500 text-xs">...</span>
                                         ) : (
                                             <button
                                                 key={page}
                                                 onClick={() => goToPage(page)}
-                                                className={`min-w-[40px] px-3 py-2 rounded-lg border font-medium transition-all ${
-                                                    currentPage === page
-                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105'
-                                                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
-                                                }`}
+                                                className={`min-w-[32px] px-2 py-1 rounded-lg border font-medium transition-all text-xs ${currentPage === page
+                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                                                    : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+                                                    }`}
                                             >
                                                 {page}
                                             </button>
@@ -678,27 +801,25 @@ const DMHHManagement = () => {
                                 <button
                                     onClick={goToNextPage}
                                     disabled={currentPage === totalPages}
-                                    className={`p-2 rounded-lg border transition-all ${
-                                        currentPage === totalPages
-                                            ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                                            : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
-                                    }`}
+                                    className={`p-1.5 rounded-lg border transition-all ${currentPage === totalPages
+                                        ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+                                        }`}
                                     title="Trang sau"
                                 >
-                                    <ChevronRight className="w-5 h-5" />
+                                    <ChevronRight className="w-4 h-4" />
                                 </button>
-                                
+
                                 <button
                                     onClick={goToLastPage}
                                     disabled={currentPage === totalPages}
-                                    className={`p-2 rounded-lg border transition-all ${
-                                        currentPage === totalPages
-                                            ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                                            : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
-                                    }`}
+                                    className={`p-1.5 rounded-lg border transition-all ${currentPage === totalPages
+                                        ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                                        : 'border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400'
+                                        }`}
                                     title="Trang cuối"
                                 >
-                                    <ChevronsRight className="w-5 h-5" />
+                                    <ChevronsRight className="w-4 h-4" />
                                 </button>
                             </div>
                         </div>
@@ -706,68 +827,234 @@ const DMHHManagement = () => {
                 </div>
             </div>
 
+            {/* Detail Modal - XEM CHI TIẾT */}
+            {showDetailModal && selectedItemDetail && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full p-5 animate-fadeIn max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-4">
+                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                <div className="p-2 bg-blue-100 rounded-lg">
+                                    <Eye className="w-5 h-5 text-blue-600" />
+                                </div>
+                                Chi tiết hàng hóa
+                            </h2>
+                            <button
+                                onClick={handleCloseDetailModal}
+                                className="text-gray-500 hover:text-gray-700 focus:outline-none p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {/* Thông tin cơ bản */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Thông tin sản phẩm */}
+                                <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4 shadow-sm">
+                                    <h3 className="text-base font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                                        <Package className="w-4 h-4" />
+                                        Thông tin sản phẩm
+                                    </h3>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center bg-white rounded-lg p-2">
+                                            <span className="text-xs font-medium text-gray-600">Nhóm hàng:</span>
+                                            <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded text-xs font-bold">
+                                                {selectedItemDetail['NHOM_HANG']}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between items-center bg-white rounded-lg p-2">
+                                            <span className="text-xs font-medium text-gray-600">Dày:</span>
+                                            <span className="text-xs font-bold text-gray-800">{selectedItemDetail['DAY']}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center bg-white rounded-lg p-2">
+                                            <span className="text-xs font-medium text-gray-600">Rộng:</span>
+                                            <span className="text-xs font-bold text-gray-800">{selectedItemDetail['RONG']}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center bg-white rounded-lg p-2">
+                                            <span className="text-xs font-medium text-gray-600">Dài:</span>
+                                            <span className="text-xs font-bold text-gray-800">{selectedItemDetail['DAI']}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Giá và tồn kho */}
+                                <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-4 shadow-sm">
+                                    <h3 className="text-base font-semibold text-green-800 mb-3 flex items-center gap-2">
+                                        <DollarSign className="w-4 h-4" />
+                                        Giá & Tồn kho
+                                    </h3>
+                                    <div className="space-y-2">
+                                        <div className="bg-white rounded-lg p-3">
+                                            <span className="text-xs font-medium text-gray-600 block mb-1.5">Đơn giá hiệu lực:</span>
+                                            {selectedItemDetail['DONGIA_HIEULUC'] && selectedItemDetail['DONGIA_HIEULUC'] > 0 ? (
+                                                <span className="text-xl font-bold text-green-600">
+                                                    {formatCurrency(selectedItemDetail['DONGIA_HIEULUC'])}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-400 italic text-xs">Chưa có giá</span>
+                                            )}
+                                        </div>
+                                        <div className="bg-white rounded-lg p-3">
+                                            <span className="text-xs font-medium text-gray-600 block mb-1.5">Tồn kho:</span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xl font-bold text-purple-600">
+                                                    {getTonKhoByNhomHang(selectedItemDetail['NHOM_HANG'])} kiện
+                                                </span>
+                                                <span className="text-xs text-gray-600">
+                                                    ({getTongKhoiLuongTon(selectedItemDetail['NHOM_HANG']).toFixed(3)} m³)
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Chi tiết tồn kho */}
+                            {getTonKhoByNhomHang(selectedItemDetail['NHOM_HANG']) > 0 && (
+                                <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-4 shadow-sm">
+                                    <h3 className="text-base font-semibold text-purple-800 mb-3 flex items-center gap-2">
+                                        <Layers className="w-4 h-4" />
+                                        Chi tiết kiện hàng tồn kho ({getTonKhoByNhomHang(selectedItemDetail['NHOM_HANG'])} kiện)
+                                    </h3>
+                                    <div className="bg-white rounded-lg overflow-hidden">
+                                        <div className="max-h-80 overflow-y-auto">
+                                            <table className="min-w-full divide-y divide-gray-200">
+                                                <thead className="bg-purple-100 sticky top-0">
+                                                    <tr>
+                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">STT</th>
+                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Số phiếu</th>
+                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Số kiện</th>
+                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Số khối (m³)</th>
+                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Ngày nhập</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-200">
+                                                    {getChiTietTonKho(selectedItemDetail['NHOM_HANG']).map((kien, index) => (
+                                                        <tr key={index} className="hover:bg-purple-50 transition-colors">
+                                                            <td className="px-3 py-2 text-xs text-gray-900">{index + 1}</td>
+                                                            <td className="px-3 py-2 text-xs font-medium text-blue-600">{kien['SOPHIEU']}</td>
+                                                            <td className="px-3 py-2 text-xs text-gray-900">{kien['SO_KIEN']}</td>
+                                                            <td className="px-3 py-2 text-xs font-bold text-green-600">
+                                                                {parseFloat(kien['SO_KHOI']).toFixed(3)}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-xs text-gray-600">
+                                                                {formatDate(kien['NGAY_CT'])}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                                <tfoot className="bg-purple-100">
+                                                    <tr>
+                                                        <td colSpan="2" className="px-3 py-2 text-xs font-bold text-purple-800">Tổng cộng:</td>
+                                                        <td className="px-3 py-2 text-xs font-bold text-purple-800">
+                                                            {getTonKhoByNhomHang(selectedItemDetail['NHOM_HANG'])} kiện
+                                                        </td>
+                                                        <td className="px-3 py-2 text-xs font-bold text-purple-800">
+                                                            {getTongKhoiLuongTon(selectedItemDetail['NHOM_HANG']).toFixed(3)} m³
+                                                        </td>
+                                                        <td></td>
+                                                    </tr>
+                                                </tfoot>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {getTonKhoByNhomHang(selectedItemDetail['NHOM_HANG']) === 0 && (
+                                <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-6 text-center">
+                                    <Archive className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                                    <p className="text-gray-500 font-medium text-sm">Không có kiện hàng tồn kho</p>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Footer buttons */}
+                        <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-gray-200">
+                            <button
+                                onClick={handleCloseDetailModal}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm flex items-center gap-1.5 text-sm"
+                            >
+                                <X className="h-4 w-4" />
+                                Đóng
+                            </button>
+                            <button
+                                onClick={() => {
+                                    handleCloseDetailModal();
+                                    handleOpenModal(selectedItemDetail);
+                                }}
+                                className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 flex items-center gap-1.5 transition-all shadow-sm text-sm"
+                            >
+                                <Edit className="h-4 w-4" />
+                                Chỉnh sửa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Add/Edit Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-6 animate-fadeIn">
-                        <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
-                            <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full p-5 animate-fadeIn">
+                        <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-4">
+                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                 <div className="p-2 bg-blue-100 rounded-lg">
-                                    <Package className="w-6 h-6 text-blue-600" />
+                                    <Package className="w-5 h-5 text-blue-600" />
                                 </div>
                                 {isEditMode ? 'Cập nhật hàng hóa' : 'Thêm hàng hóa mới'}
                             </h2>
                             <button
                                 onClick={handleCloseModal}
-                                className="text-gray-500 hover:text-gray-700 focus:outline-none p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="text-gray-500 hover:text-gray-700 focus:outline-none p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                             >
-                                <X className="h-6 w-6" />
+                                <X className="h-5 w-5" />
                             </button>
                         </div>
 
-                        <div className="space-y-5">
+                        <div className="space-y-4">
                             {/* Thông tin nhập liệu */}
-                            <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-5 shadow-sm">
-                                <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                                    <Info className="w-5 h-5 text-blue-500" />
+                            <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4 shadow-sm">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <Info className="w-4 h-4 text-blue-500" />
                                     Thông tin kích thước
                                 </h3>
-                                <div className="grid grid-cols-3 gap-4">
+                                <div className="grid grid-cols-3 gap-3">
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-2">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                             Dày <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             value={currentItem['DAY']}
                                             onChange={(e) => handleInputChange('DAY', e.target.value)}
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                                             placeholder="Nhập dày"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-2">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                             Rộng <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             value={currentItem['RONG']}
                                             onChange={(e) => handleInputChange('RONG', e.target.value)}
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                                             placeholder="Nhập rộng"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-2">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                             Dài <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             value={currentItem['DAI']}
                                             onChange={(e) => handleInputChange('DAI', e.target.value)}
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                                             placeholder="Nhập dài"
                                         />
                                     </div>
@@ -775,55 +1062,55 @@ const DMHHManagement = () => {
                             </div>
 
                             {/* Nhóm hàng tự động */}
-                            <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-xl p-5 shadow-sm">
-                                <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <Package className="w-5 h-5 text-purple-600" />
+                            <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-4 shadow-sm">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                    <Package className="w-4 h-4 text-purple-600" />
                                     Nhóm hàng (Tự động tạo)
                                 </label>
-                                <div className="bg-white rounded-lg p-4 border-2 border-purple-300">
+                                <div className="bg-white rounded-lg p-3 border-2 border-purple-300">
                                     {currentItem['NHOM_HANG'] ? (
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xl font-bold text-purple-700">
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-lg font-bold text-purple-700">
                                                 {currentItem['NHOM_HANG']}
                                             </span>
-                                            <span className="text-xs text-gray-600 bg-purple-100 px-3 py-1.5 rounded-lg">
+                                            <span className="text-xs text-gray-600 bg-purple-100 px-2 py-1 rounded">
                                                 Tự động từ thông tin trên
                                             </span>
                                         </div>
                                     ) : (
-                                        <span className="text-gray-400 italic flex items-center gap-2">
-                                            <Info className="w-5 h-5" />
+                                        <span className="text-gray-400 italic flex items-center gap-2 text-sm">
+                                            <Info className="w-4 h-4" />
                                             Nhập đầy đủ thông tin để tạo nhóm hàng
                                         </span>
                                     )}
                                 </div>
-                                <p className="text-xs text-purple-600 mt-3 flex items-center gap-1">
+                                <p className="text-xs text-purple-600 mt-2 flex items-center gap-1">
                                     <Info className="w-3 h-3" />
                                     Format: Dày*Rộng*Dài
                                 </p>
                             </div>
 
                             {/* Đơn giá hiệu lực - Chỉ hiển thị */}
-                            <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl p-5 shadow-sm">
-                                <label className="block text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg p-4 shadow-sm">
+                                <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                    <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
                                     Đơn giá hiệu lực
                                 </label>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
                                     {currentItem['DONGIA_HIEULUC'] && currentItem['DONGIA_HIEULUC'] > 0 ? (
                                         <>
-                                            <span className="text-3xl font-bold text-green-700">
+                                            <span className="text-2xl font-bold text-green-700">
                                                 {formatCurrency(currentItem['DONGIA_HIEULUC'])}
                                             </span>
-                                            <span className="text-xs text-gray-600 bg-white px-3 py-1.5 rounded-lg shadow-sm">
+                                            <span className="text-xs text-gray-600 bg-white px-2 py-1 rounded shadow-sm">
                                                 Từ Cài đặt giá bán
                                             </span>
                                         </>
                                     ) : (
-                                        <span className="text-gray-500 italic flex items-center gap-2">
-                                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <span className="text-gray-500 italic flex items-center gap-2 text-sm">
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                             </svg>
                                             Chưa có giá hiệu lực. Vui lòng cài đặt giá bán.
@@ -832,23 +1119,61 @@ const DMHHManagement = () => {
                                 </div>
                             </div>
 
+                            {/* Hiển thị tồn kho nếu đang edit */}
+                            {isEditMode && originalNhomHang && (
+                                <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-4 shadow-sm">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                                        <Archive className="w-4 h-4 text-purple-600" />
+                                        Tồn kho hiện tại
+                                    </label>
+                                    <div className="bg-white rounded-lg p-3 border-2 border-purple-300">
+                                        {getTonKhoByNhomHang(originalNhomHang) > 0 ? (
+                                            <div className="flex items-center justify-between">
+                                                <div>
+                                                    <span className="text-xl font-bold text-purple-700">
+                                                        {getTonKhoByNhomHang(originalNhomHang)} kiện
+                                                    </span>
+                                                    <p className="text-xs text-gray-600 mt-0.5">
+                                                        Tổng: {getTongKhoiLuongTon(originalNhomHang).toFixed(3)} m³
+                                                    </p>
+                                                </div>
+                                                <div className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs font-medium flex items-center gap-1">
+                                                    <AlertTriangle className="w-3 h-3" />
+                                                    Không thể đổi kích thước
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-500 italic flex items-center gap-2 text-sm">
+                                                <Info className="w-4 h-4" />
+                                                Không có tồn kho
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Note */}
-                            <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 rounded-xl p-4">
-                                <p className="text-sm text-yellow-800 flex items-start gap-2">
-                                    <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                            <div className="bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 rounded-lg p-3">
+                                <p className="text-xs text-yellow-800 flex items-start gap-2">
+                                    <Info className="w-4 h-4 mt-0.5 flex-shrink-0" />
                                     <span>
-                                        <strong>Lưu ý:</strong> Nhóm hàng sẽ được tự động tạo theo format: <strong>Dày*Rộng*Dài</strong>. 
+                                        <strong>Lưu ý:</strong> Nhóm hàng sẽ được tự động tạo theo format: <strong>Dày*Rộng*Dài</strong>.
                                         Đơn giá hiệu lực được tự động cập nhật từ trang "Cài đặt giá bán" khi có giá mới được áp dụng.
+                                        {isEditMode && getTonKhoByNhomHang(originalNhomHang) > 0 && (
+                                            <span className="block mt-1.5 text-red-600 font-semibold">
+                                                ⚠️ Không thể thay đổi kích thước khi còn hàng tồn kho!
+                                            </span>
+                                        )}
                                     </span>
                                 </p>
                             </div>
                         </div>
 
                         {/* Footer with buttons */}
-                        <div className="flex justify-end gap-3 pt-6 mt-6 border-t border-gray-200">
+                        <div className="flex justify-end gap-2 pt-4 mt-4 border-t border-gray-200">
                             <button
                                 onClick={handleCloseModal}
-                                className="px-5 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm flex items-center gap-2"
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm flex items-center gap-1.5 text-sm"
                                 disabled={isSubmitting}
                             >
                                 <X className="h-4 w-4" />
@@ -857,14 +1182,14 @@ const DMHHManagement = () => {
                             <button
                                 onClick={handleSaveItem}
                                 disabled={isSubmitting}
-                                className={`px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl ${isSubmitting
+                                className={`px-5 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg ${isSubmitting
                                     ? 'opacity-50 cursor-not-allowed'
-                                    : 'hover:from-blue-700 hover:to-blue-800 hover:shadow-lg transform hover:-translate-y-0.5'
-                                    } flex items-center gap-2 transition-all shadow-md font-medium`}
+                                    : 'hover:from-blue-700 hover:to-blue-800 hover:shadow-md'
+                                    } flex items-center gap-1.5 transition-all shadow-sm font-medium text-sm`}
                             >
                                 {isSubmitting ? (
                                     <>
-                                        <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
@@ -872,7 +1197,7 @@ const DMHHManagement = () => {
                                     </>
                                 ) : (
                                     <>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                         </svg>
                                         Lưu hàng hóa
@@ -887,65 +1212,65 @@ const DMHHManagement = () => {
             {/* Delete Confirmation Modal */}
             {showDeleteConfirmation && itemToDelete && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 animate-fadeIn">
-                        <div className="flex justify-between items-center border-b border-gray-200 pb-4 mb-5">
-                            <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-5 animate-fadeIn">
+                        <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-4">
+                            <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                                 <div className="p-2 bg-red-100 rounded-lg">
-                                    <Trash className="w-5 h-5 text-red-600" />
+                                    <Trash className="w-4 h-4 text-red-600" />
                                 </div>
                                 Xác nhận xóa
                             </h2>
                             <button
                                 onClick={handleCloseDeleteConfirmation}
-                                className="text-gray-500 hover:text-gray-700 focus:outline-none p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                                className="text-gray-500 hover:text-gray-700 focus:outline-none p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                             >
-                                <X className="h-5 w-5" />
+                                <X className="h-4 w-4" />
                             </button>
                         </div>
 
-                        <div className="space-y-5">
-                            <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-xl p-5">
-                                <p className="text-red-700 mb-3 font-medium">
+                        <div className="space-y-4">
+                            <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-lg p-4">
+                                <p className="text-red-700 mb-2 font-medium text-sm">
                                     Bạn có chắc chắn muốn xóa hàng hóa này?
                                 </p>
-                                <div className="bg-white rounded-lg p-4 mt-3 space-y-2.5 shadow-sm">
-                                    <p className="text-sm text-gray-700 flex items-center gap-2">
-                                        <span className="font-semibold min-w-[100px]">Nhóm hàng:</span>
-                                        <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded text-xs font-medium">
+                                <div className="bg-white rounded-lg p-3 mt-2 space-y-2 shadow-sm">
+                                    <p className="text-xs text-gray-700 flex items-center gap-2">
+                                        <span className="font-semibold min-w-[90px]">Nhóm hàng:</span>
+                                        <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded text-xs font-medium">
                                             {itemToDelete['NHOM_HANG']}
                                         </span>
                                     </p>
-                                    <p className="text-sm text-gray-700 flex items-center gap-2">
-                                        <span className="font-semibold min-w-[100px]">Kích thước:</span>
+                                    <p className="text-xs text-gray-700 flex items-center gap-2">
+                                        <span className="font-semibold min-w-[90px]">Kích thước:</span>
                                         <span>{itemToDelete['DAY']} × {itemToDelete['RONG']} × {itemToDelete['DAI']}</span>
                                     </p>
                                     {itemToDelete['DONGIA_HIEULUC'] && itemToDelete['DONGIA_HIEULUC'] > 0 && (
-                                        <p className="text-sm text-gray-700 flex items-center gap-2">
-                                            <span className="font-semibold min-w-[100px]">Giá hiệu lực:</span>
+                                        <p className="text-xs text-gray-700 flex items-center gap-2">
+                                            <span className="font-semibold min-w-[90px]">Giá hiệu lực:</span>
                                             <span className="font-bold text-green-600">
                                                 {formatCurrency(itemToDelete['DONGIA_HIEULUC'])}
                                             </span>
                                         </p>
                                     )}
                                 </div>
-                                <p className="text-sm text-red-600 mt-4 flex items-center gap-2 font-medium">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <p className="text-xs text-red-600 mt-3 flex items-center gap-2 font-medium">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                     </svg>
                                     Hành động này không thể hoàn tác.
                                 </p>
                             </div>
 
-                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                            <div className="flex justify-end gap-2 pt-3 border-t border-gray-200">
                                 <button
                                     onClick={handleCloseDeleteConfirmation}
-                                    className="px-5 py-2.5 border border-gray-300 rounded-xl text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm"
+                                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm text-sm"
                                 >
                                     Hủy
                                 </button>
                                 <button
                                     onClick={handleDeleteItem}
-                                    className="px-5 py-2.5 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 flex items-center gap-2 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                                    className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 flex items-center gap-1.5 transition-all shadow-sm text-sm"
                                 >
                                     <Trash className="h-4 w-4" />
                                     Xóa hàng hóa
@@ -1011,3 +1336,4 @@ const DMHHManagement = () => {
 };
 
 export default DMHHManagement;
+
