@@ -28,7 +28,8 @@ const XuatNhapKhoManagement = () => {
   const [currentChiTiet, setCurrentChiTiet] = useState({
     'NHOM_HANG': '',
     'SO_KIEN': '',
-    'DONGIA': 0
+    'DONGIA': 0,
+    'CHATLUONG': '' // Thêm trường chất lượng để người dùng nhập
   });
 
   const [showModal, setShowModal] = useState(false);
@@ -240,6 +241,7 @@ const XuatNhapKhoManagement = () => {
       ...prev,
       'NHOM_HANG': nhomHang,
       'DONGIA': nhomHangInfo?.['DONGIA_HIEULUC'] || 0
+      // Không tự động set CHATLUONG nữa
     }));
     setShowNhomHangDropdown(false);
 
@@ -326,7 +328,7 @@ const XuatNhapKhoManagement = () => {
         'DAI': selectedNhomHangInfo?.['DAI'] || '',
         'THANH': '',
         'SO_KHOI': 0,
-        'CHATLUONG': selectedNhomHangInfo?.['CHATLUONG'] || '',
+        'CHATLUONG': currentChiTiet['CHATLUONG'] || '', // Lấy từ input người dùng nhập
         'DOI_HANG_KHO': '',
         'DONGIA': 0,
         'THANHTIEN': 0,
@@ -341,7 +343,8 @@ const XuatNhapKhoManagement = () => {
     setCurrentChiTiet({
       'NHOM_HANG': '',
       'SO_KIEN': '',
-      'DONGIA': 0
+      'DONGIA': 0,
+      'CHATLUONG': ''
     });
     setNhomHangSearchTerm('');
     setSelectedNhomHangInfo(null);
@@ -462,7 +465,6 @@ const XuatNhapKhoManagement = () => {
 
   const loadChiTiet = async (soPhieu) => {
     try {
-      // Cách 2: Query tất cả rồi filter
       const response = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
       const filtered = response.filter(item => item['SOPHIEU'] === soPhieu);
       setChiTietList(filtered);
@@ -493,7 +495,8 @@ const XuatNhapKhoManagement = () => {
     setCurrentChiTiet({
       'NHOM_HANG': '',
       'SO_KIEN': '',
-      'DONGIA': 0
+      'DONGIA': 0,
+      'CHATLUONG': ''
     });
     setNhomHangSearchTerm('');
     setSelectedNhomHangInfo(null);
@@ -598,44 +601,52 @@ const XuatNhapKhoManagement = () => {
             return;
           }
 
+          // Xóa phiếu cũ
           await authUtils.apiRequestKHO('XUATNHAPKHO', 'Delete', {
             "Rows": [{ "SOPHIEU": originalSoPhieu }]
           });
 
+          // Xóa chi tiết cũ
           await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
             "Rows": [{ "SOPHIEU": originalSoPhieu }]
           });
 
+          // Thêm phiếu mới
           await authUtils.apiRequestKHO('XUATNHAPKHO', 'Add', {
             "Rows": [phieuToSave]
           });
 
-          for (const chiTiet of chiTietList) {
-            chiTiet['SOPHIEU'] = phieuToSave['SOPHIEU'];
-            await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
-              "Rows": [chiTiet]
-            });
-          }
+          // Thêm tất cả chi tiết một lần
+          const chiTietToSave = chiTietList.map(chiTiet => ({
+            ...chiTiet,
+            'SOPHIEU': phieuToSave['SOPHIEU']
+          }));
+
+          await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
+            "Rows": chiTietToSave
+          });
 
           toast.success('Cập nhật phiếu thành công!');
         } else {
+          // Cập nhật phiếu
           await authUtils.apiRequestKHO('XUATNHAPKHO', 'Edit', {
             "Rows": [phieuToSave]
           });
 
+          // Xóa chi tiết cũ
           await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
             "Rows": [{ "SOPHIEU": phieuToSave['SOPHIEU'] }]
           });
 
-          for (const chiTiet of chiTietList) {
-            await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
-              "Rows": [chiTiet]
-            });
-          }
+          // Thêm tất cả chi tiết mới một lần
+          await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
+            "Rows": chiTietList
+          });
 
           toast.success('Cập nhật phiếu thành công!');
         }
       } else {
+        // Tạo mới
         const existingPhieu = phieuList.find(
           p => p['SOPHIEU'] === phieuToSave['SOPHIEU']
         );
@@ -646,15 +657,15 @@ const XuatNhapKhoManagement = () => {
           return;
         }
 
+        // Thêm phiếu mới
         await authUtils.apiRequestKHO('XUATNHAPKHO', 'Add', {
           "Rows": [phieuToSave]
         });
 
-        for (const chiTiet of chiTietList) {
-          await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
-            "Rows": [chiTiet]
-          });
-        }
+        // Thêm tất cả chi tiết một lần
+        await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
+          "Rows": chiTietList
+        });
 
         toast.success('Thêm phiếu mới thành công!');
       }
@@ -669,6 +680,7 @@ const XuatNhapKhoManagement = () => {
       setIsSubmitting(false);
     }
   };
+
 
   // Delete handlers
   const handleOpenDeleteConfirmation = (phieu) => {
@@ -1364,7 +1376,8 @@ const XuatNhapKhoManagement = () => {
                           setCurrentChiTiet({
                             'NHOM_HANG': '',
                             'SO_KIEN': '',
-                            'DONGIA': 0
+                            'DONGIA': 0,
+                            'CHATLUONG': ''
                           });
                         }}
                         className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
@@ -1493,7 +1506,7 @@ const XuatNhapKhoManagement = () => {
                       <TrendingDown className="w-4 h-4 text-green-500" />
                       Thêm chi tiết nhập kho
                     </h3>
-                    <div className=" grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       <div ref={nhomHangDropdownRef}>
                         <label className="block text-xs font-semibold text-gray-700 mb-1">
                           Nhóm hàng <span className="text-red-500">*</span>
@@ -1521,13 +1534,26 @@ const XuatNhapKhoManagement = () => {
                                     {item['NHOM_HANG']}
                                   </div>
                                   <div className="text-xs text-gray-500 mt-0.5">
-                                    {item['DAY']} x {item['RONG']} x {item['DAI']} - {item['CHATLUONG']}
+                                    {item['DAY']} x {item['RONG']} x {item['DAI']}
                                   </div>
                                 </div>
                               ))}
                             </div>
                           )}
                         </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Chất lượng
+                        </label>
+                        <input
+                          type="text"
+                          value={currentChiTiet['CHATLUONG']}
+                          onChange={(e) => setCurrentChiTiet(prev => ({ ...prev, 'CHATLUONG': e.target.value }))}
+                          className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm"
+                          placeholder="Nhập chất lượng"
+                        />
                       </div>
 
                       <div>
@@ -1545,19 +1571,18 @@ const XuatNhapKhoManagement = () => {
                       </div>
 
                       {selectedNhomHangInfo && (
-                        <div className="p-2 bg-white rounded-lg border border-green-200">
+                        <div className="col-span-full p-2 bg-white rounded-lg border border-green-200">
                           <p className="text-xs text-gray-600">
                             <strong>Thông tin:</strong> Dày: {selectedNhomHangInfo['DAY']}mm,
                             Rộng: {selectedNhomHangInfo['RONG']}mm,
-                            Dài: {selectedNhomHangInfo['DAI']}mm,
-                            Chất lượng: {selectedNhomHangInfo['CHATLUONG']}
+                            Dài: {selectedNhomHangInfo['DAI']}mm
                           </p>
                         </div>
                       )}
 
                       <button
                         onClick={handleAddChiTietNhap}
-                        className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-md hover:shadow-lg text-sm font-medium"
+                        className="col-span-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-md hover:shadow-lg text-sm font-medium"
                       >
                         <Plus className="w-4 h-4" />
                         Thêm kiện vào danh sách
@@ -1645,6 +1670,11 @@ const XuatNhapKhoManagement = () => {
                                     <span className="text-xs text-gray-500 ml-2">
                                       {kien['THANH']} thanh - {parseFloat(kien['SO_KHOI']).toFixed(3)} m³
                                     </span>
+                                    {kien['CHATLUONG'] && (
+                                      <span className="text-xs text-purple-600 ml-2 bg-purple-100 px-1.5 py-0.5 rounded">
+                                        {kien['CHATLUONG']}
+                                      </span>
+                                    )}
                                   </div>
                                   <Plus className="w-4 h-4 text-blue-600" />
                                 </div>
@@ -1681,6 +1711,7 @@ const XuatNhapKhoManagement = () => {
                             <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">STT</th>
                             <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Nhóm hàng</th>
                             <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Mã kiện</th>
+                            <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Chất lượng</th>
                             {currentPhieu['NGHIEP_VU'] === 'NHAP' && (
                               <>
                                 <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Số thanh</th>
@@ -1706,6 +1737,21 @@ const XuatNhapKhoManagement = () => {
                               <td className="px-2 py-1.5 text-xs">{index + 1}</td>
                               <td className="px-2 py-1.5 text-xs font-medium">{item['NHOM_HANG']}</td>
                               <td className="px-2 py-1.5 text-xs">{item['MA_KIEN']}</td>
+                              <td className="px-2 py-1.5 text-xs">
+                                {currentPhieu['NGHIEP_VU'] === 'NHAP' ? (
+                                  <input
+                                    type="text"
+                                    value={item['CHATLUONG']}
+                                    onChange={(e) => handleUpdateChiTietField(index, 'CHATLUONG', e.target.value)}
+                                    className="w-24 p-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-green-500"
+                                    placeholder="Chất lượng"
+                                  />
+                                ) : (
+                                  <span className="text-xs text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded">
+                                    {item['CHATLUONG'] || '—'}
+                                  </span>
+                                )}
+                              </td>
 
                               {currentPhieu['NGHIEP_VU'] === 'NHAP' ? (
                                 <>
@@ -1927,6 +1973,7 @@ const XuatNhapKhoManagement = () => {
                         <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">Nhóm hàng</th>
                         <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">Mã kiện</th>
                         <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">Kích thước</th>
+                        <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">Chất lượng</th>
                         <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">Số thanh</th>
                         {currentPhieu['NGHIEP_VU'] === 'NHAP' && (
                           <th className="px-2 py-2 text-left text-xs font-bold text-gray-700">Đội hàng khô</th>
@@ -1947,6 +1994,13 @@ const XuatNhapKhoManagement = () => {
                           <td className="px-2 py-2 text-xs font-medium">{item['NHOM_HANG']}</td>
                           <td className="px-2 py-2 text-xs">{item['MA_KIEN']}</td>
                           <td className="px-2 py-2 text-xs">{item['DAY']}x{item['RONG']}x{item['DAI']}</td>
+                          <td className="px-2 py-2 text-xs">
+                            {item['CHATLUONG'] ? (
+                              <span className="text-xs text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded">
+                                {item['CHATLUONG']}
+                              </span>
+                            ) : '—'}
+                          </td>
                           <td className="px-2 py-2 text-xs">{item['THANH']}</td>
                           {currentPhieu['NGHIEP_VU'] === 'NHAP' && (
                             <td className="px-2 py-2 text-xs">{item['DOI_HANG_KHO'] || '—'}</td>

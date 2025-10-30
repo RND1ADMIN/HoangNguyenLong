@@ -12,7 +12,6 @@ const DMHHManagement = () => {
         'DAY': '',
         'RONG': '',
         'DAI': '',
-        'CHATLUONG': '',
         'DONGIA_HIEULUC': ''
     });
     const [showModal, setShowModal] = useState(false);
@@ -23,7 +22,6 @@ const DMHHManagement = () => {
     const [showFilters, setShowFilters] = useState(false);
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'ascending' });
     const [isEditMode, setIsEditMode] = useState(false);
-    const [filterChatLuong, setFilterChatLuong] = useState('TẤT CẢ');
     const [isLoading, setIsLoading] = useState(false);
     const [originalNhomHang, setOriginalNhomHang] = useState(''); // Lưu NHOM_HANG gốc khi edit
 
@@ -43,10 +41,9 @@ const DMHHManagement = () => {
     };
 
     // Tự động tạo NHOM_HANG từ các thông tin đã nhập
-    const generateNhomHang = (day, rong, dai, chatluong) => {
+    const generateNhomHang = (day, rong, dai) => {
         if (!day || !rong || !dai) return '';
-        const chatLuongPart = chatluong ? ` (${chatluong})` : '';
-        return `${day}*${rong}*${dai}${chatLuongPart}`;
+        return `${day}*${rong}*${dai}`;
     };
 
     // Fetch data
@@ -73,8 +70,7 @@ const DMHHManagement = () => {
             const newNhomHang = generateNhomHang(
                 currentItem['DAY'],
                 currentItem['RONG'],
-                currentItem['DAI'],
-                currentItem['CHATLUONG']
+                currentItem['DAI']
             );
             if (newNhomHang && newNhomHang !== currentItem['NHOM_HANG']) {
                 setCurrentItem(prev => ({
@@ -83,7 +79,7 @@ const DMHHManagement = () => {
                 }));
             }
         }
-    }, [currentItem['DAY'], currentItem['RONG'], currentItem['DAI'], currentItem['CHATLUONG'], isEditMode]);
+    }, [currentItem['DAY'], currentItem['RONG'], currentItem['DAI'], isEditMode]);
 
     // Modal handlers
     const handleOpenModal = (item = null) => {
@@ -95,7 +91,6 @@ const DMHHManagement = () => {
                 'DAY': item['DAY'] || '',
                 'RONG': item['RONG'] || '',
                 'DAI': item['DAI'] || '',
-                'CHATLUONG': item['CHATLUONG'] || '',
                 'DONGIA_HIEULUC': item['DONGIA_HIEULUC'] || ''
             });
         } else {
@@ -106,7 +101,6 @@ const DMHHManagement = () => {
                 'DAY': '',
                 'RONG': '',
                 'DAI': '',
-                'CHATLUONG': '',
                 'DONGIA_HIEULUC': ''
             });
         }
@@ -122,7 +116,6 @@ const DMHHManagement = () => {
             'DAY': '',
             'RONG': '',
             'DAI': '',
-            'CHATLUONG': '',
             'DONGIA_HIEULUC': ''
         });
     };
@@ -176,7 +169,6 @@ const DMHHManagement = () => {
                 'DAY': currentItem['DAY'],
                 'RONG': currentItem['RONG'],
                 'DAI': currentItem['DAI'],
-                'CHATLUONG': currentItem['CHATLUONG'],
                 'DONGIA_HIEULUC': currentItem['DONGIA_HIEULUC']
             };
 
@@ -185,8 +177,7 @@ const DMHHManagement = () => {
                 const newNhomHang = generateNhomHang(
                     itemToSave['DAY'],
                     itemToSave['RONG'],
-                    itemToSave['DAI'],
-                    itemToSave['CHATLUONG']
+                    itemToSave['DAI']
                 );
                 
                 if (originalNhomHang !== newNhomHang) {
@@ -313,14 +304,11 @@ const DMHHManagement = () => {
     const filteredItems = getSortedItems().filter(item => {
         const matchesSearch =
             (item['NHOM_HANG']?.toLowerCase().includes(search.toLowerCase()) ||
-                item['CHATLUONG']?.toLowerCase().includes(search.toLowerCase()) ||
                 item['DAY']?.toString().includes(search) ||
                 item['RONG']?.toString().includes(search) ||
                 item['DAI']?.toString().includes(search));
 
-        const matchesChatLuong = filterChatLuong === 'TẤT CẢ' || item['CHATLUONG'] === filterChatLuong;
-
-        return matchesSearch && matchesChatLuong;
+        return matchesSearch;
     });
 
     // Pagination logic
@@ -332,7 +320,7 @@ const DMHHManagement = () => {
     // Reset to first page when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, filterChatLuong, itemsPerPage]);
+    }, [search, itemsPerPage]);
 
     // Pagination handlers
     const goToFirstPage = () => setCurrentPage(1);
@@ -380,9 +368,6 @@ const DMHHManagement = () => {
             <span className="text-blue-600 ml-1">↑</span> : 
             <span className="text-blue-600 ml-1">↓</span>;
     };
-
-    // Get unique chat luong list
-    const chatLuongList = [...new Set(dmhhItems.map(item => item['CHATLUONG']).filter(Boolean))];
 
     // Refresh data
     const handleRefresh = async () => {
@@ -443,41 +428,11 @@ const DMHHManagement = () => {
                                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                                 <input
                                     type="text"
-                                    placeholder="Tìm kiếm theo nhóm hàng, chất lượng, kích thước..."
+                                    placeholder="Tìm kiếm theo nhóm hàng, kích thước..."
                                     className="w-full pl-12 pr-4 py-3.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
-                            </div>
-
-                            <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-5 rounded-xl border border-gray-200 shadow-sm">
-                                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                                    <Filter className="w-4 h-4" />
-                                    Lọc theo chất lượng:
-                                </h3>
-                                <div className="flex flex-wrap gap-2">
-                                    <button
-                                        onClick={() => setFilterChatLuong('TẤT CẢ')}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filterChatLuong === 'TẤT CẢ'
-                                            ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                                            : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-                                            }`}
-                                    >
-                                        Tất cả ({dmhhItems.length})
-                                    </button>
-                                    {chatLuongList.map((chatLuong) => (
-                                        <button
-                                            key={chatLuong}
-                                            onClick={() => setFilterChatLuong(chatLuong)}
-                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${filterChatLuong === chatLuong
-                                                ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                                                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50 hover:border-gray-400'
-                                                }`}
-                                        >
-                                            {chatLuong} ({dmhhItems.filter(item => item['CHATLUONG'] === chatLuong).length})
-                                        </button>
-                                    ))}
-                                </div>
                             </div>
                         </div>
                     )}
@@ -593,13 +548,6 @@ const DMHHManagement = () => {
                                         </th>
                                         <th scope="col"
                                             className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
-                                            onClick={() => requestSort('CHATLUONG')}>
-                                            <div className="flex items-center gap-1">
-                                                Chất lượng {getSortIcon('CHATLUONG')}
-                                            </div>
-                                        </th>
-                                        <th scope="col"
-                                            className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors"
                                             onClick={() => requestSort('DONGIA_HIEULUC')}>
                                             <div className="flex items-center gap-1">
                                                 Đơn giá hiệu lực {getSortIcon('DONGIA_HIEULUC')}
@@ -627,11 +575,6 @@ const DMHHManagement = () => {
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
                                                     {item['DAI']}
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className="px-3 py-1.5 bg-gradient-to-r from-purple-100 to-purple-200 text-purple-800 rounded-lg text-sm font-medium shadow-sm">
-                                                        {item['CHATLUONG'] || '—'}
-                                                    </span>
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap text-sm">
                                                     {item['DONGIA_HIEULUC'] && item['DONGIA_HIEULUC'] > 0 ? (
@@ -664,7 +607,7 @@ const DMHHManagement = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-12 text-center">
+                                            <td colSpan="6" className="px-6 py-12 text-center">
                                                 <div className="flex flex-col items-center justify-center text-gray-500">
                                                     <Package className="w-16 h-16 text-gray-300 mb-4" />
                                                     <p className="text-lg font-medium">Không tìm thấy hàng hóa nào</p>
@@ -787,9 +730,9 @@ const DMHHManagement = () => {
                             <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl p-5 shadow-sm">
                                 <h3 className="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-2">
                                     <Info className="w-5 h-5 text-blue-500" />
-                                    Thông tin kích thước và chất lượng
+                                    Thông tin kích thước
                                 </h3>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div className="grid grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-700 mb-2">
                                             Dày <span className="text-red-500">*</span>
@@ -828,19 +771,6 @@ const DMHHManagement = () => {
                                             placeholder="Nhập dài"
                                         />
                                     </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-2">
-                                            Chất lượng
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={currentItem['CHATLUONG']}
-                                            onChange={(e) => handleInputChange('CHATLUONG', e.target.value)}
-                                            className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                                            placeholder="Nhập chất lượng"
-                                        />
-                                    </div>
                                 </div>
                             </div>
 
@@ -869,7 +799,7 @@ const DMHHManagement = () => {
                                 </div>
                                 <p className="text-xs text-purple-600 mt-3 flex items-center gap-1">
                                     <Info className="w-3 h-3" />
-                                    Format: Dày*Rộng*Dài (Chất lượng)
+                                    Format: Dày*Rộng*Dài
                                 </p>
                             </div>
 
@@ -907,7 +837,7 @@ const DMHHManagement = () => {
                                 <p className="text-sm text-yellow-800 flex items-start gap-2">
                                     <Info className="w-5 h-5 mt-0.5 flex-shrink-0" />
                                     <span>
-                                        <strong>Lưu ý:</strong> Nhóm hàng sẽ được tự động tạo theo format: <strong>Dày*Rộng*Dài (Chất lượng)</strong>. 
+                                        <strong>Lưu ý:</strong> Nhóm hàng sẽ được tự động tạo theo format: <strong>Dày*Rộng*Dài</strong>. 
                                         Đơn giá hiệu lực được tự động cập nhật từ trang "Cài đặt giá bán" khi có giá mới được áp dụng.
                                     </span>
                                 </p>
@@ -988,12 +918,6 @@ const DMHHManagement = () => {
                                     <p className="text-sm text-gray-700 flex items-center gap-2">
                                         <span className="font-semibold min-w-[100px]">Kích thước:</span>
                                         <span>{itemToDelete['DAY']} × {itemToDelete['RONG']} × {itemToDelete['DAI']}</span>
-                                    </p>
-                                    <p className="text-sm text-gray-700 flex items-center gap-2">
-                                        <span className="font-semibold min-w-[100px]">Chất lượng:</span>
-                                        <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs">
-                                            {itemToDelete['CHATLUONG'] || '—'}
-                                        </span>
                                     </p>
                                     {itemToDelete['DONGIA_HIEULUC'] && itemToDelete['DONGIA_HIEULUC'] > 0 && (
                                         <p className="text-sm text-gray-700 flex items-center gap-2">
