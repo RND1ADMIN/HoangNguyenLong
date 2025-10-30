@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Edit, Trash, Search, Filter, X, Package, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Calendar, TrendingUp, TrendingDown, DollarSign, Weight, FileText, ChevronDown, Save, Minus, AlertCircle, Eye } from 'lucide-react';
+import { Plus, Edit, Trash, Search, Filter, X, Package, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Calendar, TrendingUp, TrendingDown, DollarSign, Weight, FileText, ChevronDown, Save, Minus, AlertCircle, Eye, Printer } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
@@ -29,7 +29,7 @@ const XuatNhapKhoManagement = () => {
     'NHOM_HANG': '',
     'SO_KIEN': '',
     'DONGIA': 0,
-    'CHATLUONG': '' // Thêm trường chất lượng để người dùng nhập
+    'CHATLUONG': ''
   });
 
   const [showModal, setShowModal] = useState(false);
@@ -65,6 +65,367 @@ const XuatNhapKhoManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  // Print function
+  const handlePrintPhieu = async (phieu) => {
+    try {
+      // Load chi tiết if not already loaded
+      let chiTiet = chiTietList;
+      if (phieu['SOPHIEU'] !== currentPhieu['SOPHIEU']) {
+        const response = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
+        chiTiet = response.filter(item => item['SOPHIEU'] === phieu['SOPHIEU']);
+      }
+
+      // Format date
+      const date = new Date(phieu['NGAYNHAP_XUAT']);
+      const day = date.getDate();
+      const month = date.getMonth() + 1;
+      const year = date.getFullYear();
+
+      // Group chi tiết by DOI_HANG_KHO and specifications for summary
+      const groupedByDoi = {};
+      chiTiet.forEach(item => {
+        const doiHangKho = item['DOI_HANG_KHO'] || 'Chưa phân đội';
+        const chatLuong = item['CHATLUONG'] || '';
+        const kichThuoc = `${item['DAY']}x${item['RONG']}x${item['DAI']}`;
+
+        const key = `${doiHangKho}_${chatLuong}_${kichThuoc}`;
+
+        if (!groupedByDoi[key]) {
+          groupedByDoi[key] = {
+            doiHangKho: doiHangKho,
+            chatluong: chatLuong,
+            day: item['DAY'],
+            rong: item['RONG'],
+            dai: item['DAI'],
+            soKien: 0,
+            tongKhoi: 0
+          };
+        }
+        groupedByDoi[key].soKien += 1;
+        groupedByDoi[key].tongKhoi += parseFloat(item['SO_KHOI'] || 0);
+      });
+
+      // Sort groups by DOI_HANG_KHO
+      const sortedGroups = Object.values(groupedByDoi).sort((a, b) => {
+        return a.doiHangKho.localeCompare(b.doiHangKho);
+      });
+
+      // Create print content
+      const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>Phiếu ${phieu['NGHIEP_VU'] === 'NHAP' ? 'Nhập' : 'Xuất'} Kho - ${phieu['SOPHIEU']}</title>
+        <style>
+          @page {
+            size: A4;
+            margin: 10mm;
+          }
+          
+          * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+          }
+          
+          body {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 12pt;
+            line-height: 1.3;
+            color: #000;
+          }
+          
+          .container {
+            width: 100%;
+            max-width: 210mm;
+            margin: 0 auto;
+            padding: 5mm;
+          }
+          
+          .header {
+            text-align: center;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 10px;
+          }
+          
+          .header h1 {
+            font-size: 18pt;
+            font-weight: bold;
+            margin-bottom: 5px;
+            text-transform: uppercase;
+          }
+          
+          .header .date {
+            font-size: 11pt;
+            font-style: italic;
+          }
+          
+          .info-section {
+            margin-bottom: 15px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+          }
+          
+          .info-item {
+            font-size: 11pt;
+            padding: 3px 0;
+          }
+          
+          .info-item strong {
+            font-weight: bold;
+            min-width: 120px;
+            display: inline-block;
+          }
+          
+          table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            font-size: 10pt;
+          }
+          
+          table th {
+            background-color: #f0f0f0;
+            border: 1px solid #000;
+            padding: 6px 4px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 9pt;
+          }
+          
+          table td {
+            border: 1px solid #000;
+            padding: 5px 4px;
+            text-align: center;
+          }
+          
+          table td.left {
+            text-align: left;
+          }
+          
+          table td.right {
+            text-align: right;
+          }
+          
+          .summary-row {
+            background-color: #fff3cd;
+            font-weight: bold;
+          }
+          
+          .total-section {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border: 2px solid #000;
+          }
+          
+          .total-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+            font-size: 12pt;
+          }
+          
+          .total-item strong {
+            font-weight: bold;
+          }
+          
+          .signatures {
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            text-align: center;
+          }
+          
+          .signature-box {
+            padding: 10px;
+          }
+          
+          .signature-box .title {
+            font-weight: bold;
+            margin-bottom: 60px;
+            font-size: 11pt;
+          }
+          
+          .signature-box .name {
+            font-style: italic;
+            margin-top: 5px;
+          }
+          
+          .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 9pt;
+            font-style: italic;
+            color: #666;
+          }
+          
+          @media print {
+            body {
+              print-color-adjust: exact;
+              -webkit-print-color-adjust: exact;
+            }
+            
+            .no-print {
+              display: none;
+            }
+            
+            .page-break {
+              page-break-after: always;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <!-- Header -->
+          <div class="header">
+            <h1>SỔ NHẬT KÝ - ${phieu['NGHIEP_VU'] === 'NHAP' ? 'NHẬP KHO' : 'XUẤT KHO'} THÀNH PHẨM</h1>
+            <div class="date">Ngày ${day} Tháng ${month} Năm ${year}</div>
+          </div>
+          
+          <!-- Info Section -->
+          <div class="info-section">
+            <div class="info-item">
+              <strong>Số phiếu:</strong> ${phieu['SOPHIEU']}
+            </div>
+            <div class="info-item">
+              <strong>Nghiệp vụ:</strong> ${phieu['NGHIEP_VU'] === 'NHAP' ? 'Nhập kho' : 'Xuất kho'}
+            </div>
+            <div class="info-item">
+              <strong>${phieu['NGHIEP_VU'] === 'NHAP' ? 'Nhà cung cấp' : 'Khách hàng'}:</strong> ${phieu['NCC_KHACHHANG'] || ''}
+            </div>
+            <div class="info-item">
+              <strong>Người phụ trách:</strong> ${phieu['NGUOIPHUTRACH'] || ''}
+            </div>
+            <div class="info-item">
+              <strong>${phieu['NGHIEP_VU'] === 'NHAP' ? 'Kho nhập' : 'Kho xuất'}:</strong> ${phieu['NGHIEP_VU'] === 'NHAP' ? phieu['KHONHAP'] : phieu['KHOXUAT']}
+            </div>
+            ${phieu['DIENGIAI'] ? `
+            <div class="info-item" style="grid-column: 1 / -1;">
+              <strong>Diễn giải:</strong> ${phieu['DIENGIAI']}
+            </div>
+            ` : ''}
+          </div>
+          
+          <!-- Detail Table -->
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 30px;">STT</th>
+                <th style="width: 80px;">Mã Kiện</th>
+                <th style="width: 40px;">Dày</th>
+                <th style="width: 40px;">Rộng</th>
+                <th style="width: 40px;">Dài</th>
+                <th style="width: 60px;">Số thanh</th>
+                <th style="width: 60px;">Số m3</th>
+                <th style="width: 80px;">Tiêu chuẩn/ Chất lượng</th>
+                <th style="width: 60px;">Thủ kho</th>
+                <th style="width: 80px;">Đội hàng Khô</th>
+                <th style="width: 60px;">Ghi chú</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${chiTiet.map((item, index) => `
+                <tr>
+                  <td>${index + 1}</td>
+                  <td>${item['MA_KIEN']}</td>
+                  <td>${item['DAY']}</td>
+                  <td>${item['RONG']}</td>
+                  <td>${item['DAI']}</td>
+                  <td>${item['THANH'] || ''}</td>
+                  <td class="right">${parseFloat(item['SO_KHOI'] || 0).toFixed(4)}</td>
+                  <td>${item['CHATLUONG'] || ''}</td>
+                  <td></td>
+                  <td>${item['DOI_HANG_KHO'] || ''}</td>
+                  <td>${item['GHICHU'] || ''}</td>
+                </tr>
+              `).join('')}
+              
+              <!-- Summary rows by DOI_HANG_KHO -->
+              ${sortedGroups.map(group => `
+                <tr class="summary-row">
+                  <td colspan="2" class="left">TỔNG CỘNG ĐỘI ${group.doiHangKho}</td>
+                  <td colspan="3">Hàng ${group.day}x${group.rong}x${group.dai}</td>
+                  <td>${group.soKien}</td>
+                  <td class="right">${group.tongKhoi.toFixed(4)}</td>
+                  <td colspan="4">${group.soKien} kiện</td>
+                </tr>
+              `).join('')}
+              
+              <!-- Grand Total -->
+              <tr class="summary-row" style="background-color: #ffc107;">
+                <td colspan="5" class="left"><strong>TỔNG NGÀY ${day}/${month}/${year}</strong></td>
+                <td><strong>${chiTiet.length}</strong></td>
+                <td class="right"><strong>${parseFloat(phieu['TONGKHOILUONG']).toFixed(4)}</strong></td>
+                <td colspan="4" class="left"><strong>Tổng cộng ${chiTiet.length} kiện</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          
+          ${phieu['NGHIEP_VU'] === 'XUAT' && phieu['TONGTIEN'] > 0 ? `
+          <!-- Total Amount Section (for XUAT only) -->
+          <div class="total-section">
+            <div class="total-item">
+              <span>Tổng khối lượng:</span>
+              <strong>${parseFloat(phieu['TONGKHOILUONG']).toFixed(3)} m³</strong>
+            </div>
+            <div class="total-item">
+              <span>Tổng tiền:</span>
+              <strong>${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(phieu['TONGTIEN'])}</strong>
+            </div>
+          </div>
+          ` : ''}
+          
+          <!-- Signatures -->
+          <div class="signatures">
+            <div class="signature-box">
+              <div class="title">Người lập phiếu</div>
+              <div class="name">${phieu['NGUOIPHUTRACH'] || '(Ký và ghi rõ họ tên)'}</div>
+            </div>
+            <div class="signature-box">
+              <div class="title">Thủ kho</div>
+              <div class="name">(Ký và ghi rõ họ tên)</div>
+            </div>
+            <div class="signature-box">
+              <div class="title">Kế toán trưởng</div>
+              <div class="name">(Ký và ghi rõ họ tên)</div>
+            </div>
+          </div>
+          
+          <!-- Footer -->
+          <div class="footer">
+            <p>In lúc: ${new Date().toLocaleString('vi-VN')}</p>
+          </div>
+        </div>
+        
+        <script>
+          window.onload = function() {
+            window.print();
+            // Uncomment the line below if you want to close the window after printing
+            // window.onafterprint = function() { window.close(); }
+          }
+        </script>
+      </body>
+      </html>
+    `;
+
+      // Open print window
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+
+    } catch (error) {
+      console.error('Error printing phieu:', error);
+      toast.error('Có lỗi xảy ra khi in phiếu');
+    }
+  };
+
+
   // Generate so phieu tu dong
   const generateSoPhieu = (nghiepVu) => {
     const now = new Date();
@@ -95,14 +456,12 @@ const XuatNhapKhoManagement = () => {
   };
 
   // Generate ma kien tu dong
-  // Sửa hàm generateMaKien để kiểm tra cả tonKho VÀ chiTietList hiện tại
   const generateMaKien = () => {
     const now = new Date();
     const yy = now.getFullYear().toString().slice(-2);
     const mm = (now.getMonth() + 1).toString().padStart(2, '0');
     const yearMonth = `${yy}${mm}`;
 
-    // Kết hợp cả tonKho (đã lưu trong DB) và chiTietList (đang nhập trong form)
     const allKien = [
       ...tonKho,
       ...chiTietList
@@ -128,7 +487,6 @@ const XuatNhapKhoManagement = () => {
     const nextNumber = (maxNumber + 1).toString().padStart(3, '0');
     return `K${yearMonth}-${nextNumber}`;
   };
-
 
   // Format currency VND
   const formatCurrency = (amount) => {
@@ -249,7 +607,6 @@ const XuatNhapKhoManagement = () => {
       ...prev,
       'NHOM_HANG': nhomHang,
       'DONGIA': nhomHangInfo?.['DONGIA_HIEULUC'] || 0
-      // Không tự động set CHATLUONG nữa
     }));
     setShowNhomHangDropdown(false);
 
@@ -307,7 +664,6 @@ const XuatNhapKhoManagement = () => {
   };
 
   // Add chi tiet for nhap kho
-  // Sửa lại hàm handleAddChiTietNhap
   const handleAddChiTietNhap = () => {
     if (!currentChiTiet['NHOM_HANG']) {
       toast.error('Vui lòng chọn nhóm hàng');
@@ -319,11 +675,8 @@ const XuatNhapKhoManagement = () => {
     }
 
     const soKien = parseInt(currentChiTiet['SO_KIEN']) || 0;
-
-    // Tạo danh sách tạm để tính toán mã kiện
     const newChiTietList = [];
 
-    // Kết hợp tonKho + chiTietList hiện tại để tính mã kiện đầu tiên
     const now = new Date();
     const yy = now.getFullYear().toString().slice(-2);
     const mm = (now.getMonth() + 1).toString().padStart(2, '0');
@@ -351,7 +704,6 @@ const XuatNhapKhoManagement = () => {
       }
     });
 
-    // Tạo các kiện với mã tăng dần
     for (let i = 0; i < soKien; i++) {
       const nextNumber = (maxNumber + 1 + i).toString().padStart(3, '0');
       const maKien = `K${yearMonth}-${nextNumber}`;
@@ -391,7 +743,6 @@ const XuatNhapKhoManagement = () => {
     setNhomHangSearchTerm('');
     setSelectedNhomHangInfo(null);
   };
-
 
   // Update chi tiet field (for nhap kho)
   const handleUpdateChiTietField = (index, field, value) => {
@@ -640,11 +991,9 @@ const XuatNhapKhoManagement = () => {
             return;
           }
 
-          // 1. LẤY DANH SÁCH CHI TIẾT CŨ
           const chiTietResponse = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
           const oldChiTiet = chiTietResponse.filter(item => item['SOPHIEU'] === originalSoPhieu);
 
-          // 2. XÓA CHI TIẾT CŨ THEO ID_CT
           if (oldChiTiet.length > 0) {
             const rowsToDelete = oldChiTiet.map(item => ({ "ID_CT": item['ID_CT'] }));
             await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
@@ -652,17 +1001,14 @@ const XuatNhapKhoManagement = () => {
             });
           }
 
-          // 3. XÓA PHIẾU CŨ
           await authUtils.apiRequestKHO('XUATNHAPKHO', 'Delete', {
             "Rows": [{ "SOPHIEU": originalSoPhieu }]
           });
 
-          // 4. THÊM PHIẾU MỚI
           await authUtils.apiRequestKHO('XUATNHAPKHO', 'Add', {
             "Rows": [phieuToSave]
           });
 
-          // 5. THÊM CHI TIẾT MỚI
           const chiTietToSave = chiTietList.map(chiTiet => ({
             ...chiTiet,
             'SOPHIEU': phieuToSave['SOPHIEU']
@@ -674,16 +1020,13 @@ const XuatNhapKhoManagement = () => {
 
           toast.success('Cập nhật phiếu thành công!');
         } else {
-          // CẬP NHẬT PHIẾU (KHÔNG ĐỔI SỐ PHIẾU)
           await authUtils.apiRequestKHO('XUATNHAPKHO', 'Edit', {
             "Rows": [phieuToSave]
           });
 
-          // LẤY DANH SÁCH CHI TIẾT CŨ
           const chiTietResponse = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
           const oldChiTiet = chiTietResponse.filter(item => item['SOPHIEU'] === phieuToSave['SOPHIEU']);
 
-          // XÓA CHI TIẾT CŨ THEO ID_CT
           if (oldChiTiet.length > 0) {
             const rowsToDelete = oldChiTiet.map(item => ({ "ID_CT": item['ID_CT'] }));
             await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
@@ -691,7 +1034,6 @@ const XuatNhapKhoManagement = () => {
             });
           }
 
-          // THÊM CHI TIẾT MỚI
           await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
             "Rows": chiTietList
           });
@@ -699,7 +1041,6 @@ const XuatNhapKhoManagement = () => {
           toast.success('Cập nhật phiếu thành công!');
         }
       } else {
-        // TẠO MỚI
         const existingPhieu = phieuList.find(
           p => p['SOPHIEU'] === phieuToSave['SOPHIEU']
         );
@@ -710,12 +1051,10 @@ const XuatNhapKhoManagement = () => {
           return;
         }
 
-        // Thêm phiếu mới
         await authUtils.apiRequestKHO('XUATNHAPKHO', 'Add', {
           "Rows": [phieuToSave]
         });
 
-        // Thêm chi tiết mới
         await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
           "Rows": chiTietList
         });
@@ -749,11 +1088,9 @@ const XuatNhapKhoManagement = () => {
     if (!phieuToDelete) return;
 
     try {
-      // 1. LẤY DANH SÁCH CHI TIẾT CỦA PHIẾU
       const chiTietResponse = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
       const chiTietOfPhieu = chiTietResponse.filter(item => item['SOPHIEU'] === phieuToDelete['SOPHIEU']);
 
-      // 2. XÓA TỪNG BẢN GHI CHI TIẾT THEO ID_CT
       if (chiTietOfPhieu.length > 0) {
         const rowsToDelete = chiTietOfPhieu.map(item => ({ "ID_CT": item['ID_CT'] }));
         await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
@@ -761,7 +1098,6 @@ const XuatNhapKhoManagement = () => {
         });
       }
 
-      // 3. SAU ĐÓ MỚI XÓA PHIẾU CHA
       await authUtils.apiRequestKHO('XUATNHAPKHO', 'Delete', {
         "Rows": [{ "SOPHIEU": phieuToDelete['SOPHIEU'] }]
       });
@@ -775,7 +1111,6 @@ const XuatNhapKhoManagement = () => {
       toast.error('Có lỗi xảy ra khi xóa phiếu: ' + (error.message || ''));
     }
   };
-
 
   // Sorting
   const requestSort = (key) => {
@@ -1030,7 +1365,7 @@ const XuatNhapKhoManagement = () => {
                       type="date"
                       value={filterDateTo}
                       onChange={(e) => setFilterDateTo(e.target.value)}
-                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                      className="w-full px-2 py-1.5 border  border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
                     />
                   </div>
                 </div>
@@ -1214,6 +1549,13 @@ const XuatNhapKhoManagement = () => {
                         <td className="px-2 py-2 whitespace-nowrap text-xs text-gray-500 text-center">
                           <div className="flex justify-center space-x-1">
                             <button
+                              onClick={() => handlePrintPhieu(phieu)}
+                              className="text-purple-600 hover:text-purple-900 p-1 rounded-lg hover:bg-purple-100 transition-all transform hover:scale-110"
+                              title="In phiếu"
+                            >
+                              <Printer className="h-4 w-4" />
+                            </button>
+                            <button
                               onClick={() => handleOpenDetailModal(phieu)}
                               className="text-green-600 hover:text-green-900 p-1 rounded-lg hover:bg-green-100 transition-all transform hover:scale-110"
                               title="Xem chi tiết"
@@ -1307,6 +1649,13 @@ const XuatNhapKhoManagement = () => {
 
                   <div className="flex gap-1.5 pt-2 border-t border-gray-200">
                     <button
+                      onClick={() => handlePrintPhieu(phieu)}
+                      className="flex-1 text-purple-600 hover:text-purple-900 px-2 py-1.5 rounded-lg hover:bg-purple-100 transition-all flex items-center justify-center gap-1.5 text-xs font-medium"
+                    >
+                      <Printer className="h-3.5 w-3.5" />
+                      In
+                    </button>
+                    <button
                       onClick={() => handleOpenDetailModal(phieu)}
                       className="flex-1 text-green-600 hover:text-green-900 px-2 py-1.5 rounded-lg hover:bg-green-100 transition-all flex items-center justify-center gap-1.5 text-xs font-medium"
                     >
@@ -1387,529 +1736,454 @@ const XuatNhapKhoManagement = () => {
         </div>
       </div>
 
-      {/* Add/Edit Modal - Compact */}
+      {/* Add/Edit Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 overflow-y-auto backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl p-4 animate-fadeIn max-h-[98vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-3 sticky top-0 bg-white z-10">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl p-4 animate-fadeIn max-h-[98vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-gray-200 pb-3 mb-3">
               <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
                 <div className="p-1.5 bg-purple-100 rounded-lg">
-                  <Package className="w-5 h-5 text-purple-600" />
+                  {isEditMode ? <Edit className="w-5 h-5 text-purple-600" /> : <Plus className="w-5 h-5 text-purple-600" />}
                 </div>
-                {isEditMode ? 'Cập nhật phiếu' : 'Tạo phiếu mới'}
+                {isEditMode ? 'Chỉnh sửa phiếu' : 'Tạo phiếu mới'}
               </h2>
               <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700 focus:outline-none p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              {/* LEFT SIDE - Thông tin phiếu - Compact */}
-              <div className="lg:col-span-1 space-y-3">
-                <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-1.5">
-                    <Info className="w-4 h-4 text-purple-500" />
-                    Thông tin phiếu
-                  </h3>
-                  <div className="space-y-2.5">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        Số phiếu <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={currentPhieu['SOPHIEU']}
-                        onChange={(e) => handleInputChange('SOPHIEU', e.target.value)}
-                        className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm bg-gray-50"
-                        placeholder="Tự động tạo"
-                        disabled
-                      />
-                    </div>
+            <div className="space-y-3">
+              {/* Thông tin phiếu */}
+              <div className="bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-purple-500" />
+                  Thông tin phiếu
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Số phiếu: <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={currentPhieu['SOPHIEU']}
+                      onChange={(e) => handleInputChange('SOPHIEU', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="Nhập số phiếu"
+                    />
+                  </div>
 
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Nghiệp vụ: <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={currentPhieu['NGHIEP_VU']}
+                      onChange={(e) => handleInputChange('NGHIEP_VU', e.target.value)}
+                      disabled={isEditMode}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white disabled:bg-gray-100"
+                    >
+                      <option value="NHAP">Nhập kho</option>
+                      <option value="XUAT">Xuất kho</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Ngày nhập/xuất: <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={currentPhieu['NGAYNHAP_XUAT']}
+                      onChange={(e) => handleInputChange('NGAYNHAP_XUAT', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                    />
+                  </div>
+
+                  <div className="relative" ref={customerDropdownRef}>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'Nhà cung cấp:' : 'Khách hàng:'}
+                    </label>
+                    <input
+                      type="text"
+                      value={customerSearchTerm}
+                      onChange={(e) => handleCustomerInputChange(e.target.value)}
+                      onFocus={() => setShowCustomerDropdown(true)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="Tìm kiếm hoặc nhập tên..."
+                    />
+                    {showCustomerDropdown && filteredCustomers.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                        {filteredCustomers.map((customer, index) => (
+                          <div
+                            key={index}
+                            onClick={() => handleSelectCustomer(customer['TEN_KHACHHANG'])}
+                            className="px-3 py-2 hover:bg-purple-50 cursor-pointer text-sm"
+                          >
+                            <div className="font-medium">{customer['TEN_KHACHHANG']}</div>
+                            <div className="text-xs text-gray-500">{customer['MA_KH']}</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {currentPhieu['NGHIEP_VU'] === 'NHAP' && (
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        Nghiệp vụ <span className="text-red-500">*</span>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Kho nhập: <span className="text-red-500">*</span>
                       </label>
                       <select
-                        value={currentPhieu['NGHIEP_VU']}
-                        onChange={(e) => {
-                          handleInputChange('NGHIEP_VU', e.target.value);
-                          setChiTietList([]);
-                          setCurrentChiTiet({
-                            'NHOM_HANG': '',
-                            'SO_KIEN': '',
-                            'DONGIA': 0,
-                            'CHATLUONG': ''
-                          });
-                        }}
-                        className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                        disabled={isEditMode}
+                        value={currentPhieu['KHONHAP']}
+                        onChange={(e) => handleInputChange('KHONHAP', e.target.value)}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
                       >
-                        <option value="NHAP">Nhập kho</option>
-                        <option value="XUAT">Xuất kho</option>
+                        <option value="">Chọn kho</option>
+                        <option value="KHO A">Kho A</option>
+                        <option value="KHO B">Kho B</option>
+                        <option value="KHO C">Kho C</option>
                       </select>
                     </div>
+                  )}
 
+                  {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        Ngày <span className="text-red-500">*</span>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Kho xuất: <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="date"
-                        value={currentPhieu['NGAYNHAP_XUAT']}
-                        onChange={(e) => handleInputChange('NGAYNHAP_XUAT', e.target.value)}
-                        className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                      />
+                      <select
+                        value={currentPhieu['KHOXUAT']}
+                        onChange={(e) => handleInputChange('KHOXUAT', e.target.value)}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                      >
+                        <option value="">Chọn kho</option>
+                        <option value="KHO A">Kho A</option>
+                        <option value="KHO B">Kho B</option>
+                        <option value="KHO C">Kho C</option>
+                      </select>
                     </div>
+                  )}
 
-                    <div ref={customerDropdownRef}>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'Nhà cung cấp' : 'Khách hàng'}
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={customerSearchTerm}
-                          onChange={(e) => handleCustomerInputChange(e.target.value)}
-                          onFocus={() => setShowCustomerDropdown(true)}
-                          className="p-2 pr-8 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                          placeholder="Nhập để tìm..."
-                        />
-                        <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Người phụ trách:</label>
+                    <input
+                      type="text"
+                      value={currentPhieu['NGUOIPHUTRACH']}
+                      onChange={(e) => handleInputChange('NGUOIPHUTRACH', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                      placeholder="Nhập tên người phụ trách"
+                    />
+                  </div>
 
-                        {showCustomerDropdown && filteredCustomers.length > 0 && (
-                          <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                            {filteredCustomers.map((customer) => (
-                              <div
-                                key={customer['MA_KH']}
-                                onClick={() => handleSelectCustomer(customer['TEN_KHACHHANG'])}
-                                className="px-3 py-2 hover:bg-purple-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="text-sm font-medium text-gray-900">
-                                    {customer['TEN_KHACHHANG']}
-                                  </span>
-                                  <span className="text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">
-                                    {customer['MA_KH']}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        Người phụ trách
-                      </label>
-                      <input
-                        type="text"
-                        value={currentPhieu['NGUOIPHUTRACH']}
-                        onChange={(e) => handleInputChange('NGUOIPHUTRACH', e.target.value)}
-                        className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                        placeholder="Nhập người phụ trách"
-                      />
-                    </div>
-
-                    {currentPhieu['NGHIEP_VU'] === 'NHAP' && (
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                          Kho nhập <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={currentPhieu['KHONHAP']}
-                          onChange={(e) => handleInputChange('KHONHAP', e.target.value)}
-                          className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                          placeholder="Nhập kho nhập"
-                        />
-                      </div>
-                    )}
-
-                    {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                          Kho xuất <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={currentPhieu['KHOXUAT']}
-                          onChange={(e) => handleInputChange('KHOXUAT', e.target.value)}
-                          className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                          placeholder="Nhập kho xuất"
-                        />
-                      </div>
-                    )}
-
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        Diễn giải
-                      </label>
-                      <textarea
-                        value={currentPhieu['DIENGIAI']}
-                        onChange={(e) => handleInputChange('DIENGIAI', e.target.value)}
-                        className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all text-sm"
-                        placeholder="Nhập diễn giải"
-                        rows="2"
-                      />
-                    </div>
+                  <div className="md:col-span-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Diễn giải:</label>
+                    <textarea
+                      value={currentPhieu['DIENGIAI']}
+                      onChange={(e) => handleInputChange('DIENGIAI', e.target.value)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm"
+                      rows="2"
+                      placeholder="Nhập diễn giải..."
+                    />
                   </div>
                 </div>
               </div>
 
-              {/* RIGHT SIDE - Chi tiết và danh sách - Compact */}
-              <div className="lg:col-span-2 space-y-3">
-                {/* Form nhập chi tiết */}
+              {/* Thêm chi tiết */}
+              <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-1.5">
+                  <Package className="w-4 h-4 text-blue-500" />
+                  {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'Thêm kiện hàng' : 'Chọn kiện xuất'}
+                </h3>
+
                 {currentPhieu['NGHIEP_VU'] === 'NHAP' ? (
-                  <div className="bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-lg p-3">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-1.5">
-                      <TrendingDown className="w-4 h-4 text-green-500" />
-                      Thêm chi tiết nhập kho
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <div ref={nhomHangDropdownRef}>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                          Nhóm hàng <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={nhomHangSearchTerm}
-                            onChange={(e) => handleNhomHangInputChange(e.target.value)}
-                            onFocus={() => setShowNhomHangDropdown(true)}
-                            className="p-2 pr-8 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm"
-                            placeholder="Chọn nhóm hàng..."
-                          />
-                          <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-
-                          {showNhomHangDropdown && filteredNhomHang.length > 0 && (
-                            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                              {filteredNhomHang.map((item, index) => (
-                                <div
-                                  key={index}
-                                  onClick={() => handleSelectNhomHang(item['NHOM_HANG'])}
-                                  className="px-3 py-2 hover:bg-green-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
-                                >
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {item['NHOM_HANG']}
-                                  </div>
-                                  <div className="text-xs text-gray-500 mt-0.5">
-                                    {item['DAY']} x {item['RONG']} x {item['DAI']}
-                                  </div>
-                                </div>
-                              ))}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-2.5">
+                    <div className="relative" ref={nhomHangDropdownRef}>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Nhóm hàng:</label>
+                      <input
+                        type="text"
+                        value={nhomHangSearchTerm}
+                        onChange={(e) => handleNhomHangInputChange(e.target.value)}
+                        onFocus={() => setShowNhomHangDropdown(true)}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        placeholder="Tìm kiếm nhóm hàng..."
+                      />
+                      {showNhomHangDropdown && filteredNhomHang.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {filteredNhomHang.map((item, index) => (
+                            <div
+                              key={index}
+                              onClick={() => handleSelectNhomHang(item['NHOM_HANG'])}
+                              className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                            >
+                              <div className="font-medium">{item['NHOM_HANG']}</div>
+                              <div className="text-xs text-gray-500">
+                                {item['DAY']}x{item['RONG']}x{item['DAI']}
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                          Chất lượng
-                        </label>
-                        <input
-                          type="text"
-                          value={currentChiTiet['CHATLUONG']}
-                          onChange={(e) => setCurrentChiTiet(prev => ({ ...prev, 'CHATLUONG': e.target.value }))}
-                          className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm"
-                          placeholder="Nhập chất lượng"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                          Số kiện <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          value={currentChiTiet['SO_KIEN']}
-                          onChange={(e) => setCurrentChiTiet(prev => ({ ...prev, 'SO_KIEN': e.target.value }))}
-                          className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-green-500 focus:border-transparent transition-all text-sm"
-                          placeholder="Số kiện"
-                          min="1"
-                        />
-                      </div>
-
-                      {selectedNhomHangInfo && (
-                        <div className="col-span-full p-2 bg-white rounded-lg border border-green-200">
-                          <p className="text-xs text-gray-600">
-                            <strong>Thông tin:</strong> Dày: {selectedNhomHangInfo['DAY']}mm,
-                            Rộng: {selectedNhomHangInfo['RONG']}mm,
-                            Dài: {selectedNhomHangInfo['DAI']}mm
-                          </p>
+                          ))}
                         </div>
                       )}
+                    </div>
 
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Số kiện:</label>
+                      <input
+                        type="number"
+                        value={currentChiTiet['SO_KIEN']}
+                        onChange={(e) => setCurrentChiTiet(prev => ({ ...prev, 'SO_KIEN': e.target.value }))}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        placeholder="Nhập số kiện"
+                        min="1"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Chất lượng:</label>
+                      <select
+                        value={currentChiTiet['CHATLUONG']}
+                        onChange={(e) => setCurrentChiTiet(prev => ({ ...prev, 'CHATLUONG': e.target.value }))}
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+                      >
+                        <option value="">Chọn chất lượng</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="AB">AB</option>
+                        <option value="BC">BC</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-end">
                       <button
                         onClick={handleAddChiTietNhap}
-                        className="col-span-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-md hover:shadow-lg text-sm font-medium"
+                        className="w-full px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-1.5 text-sm font-medium"
                       >
-                        <Plus className="w-4 h-4" />
-                        Thêm kiện vào danh sách
+                        <Plus className="h-4 w-4" />
+                        Thêm kiện
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-1.5">
-                      <TrendingUp className="w-4 h-4 text-blue-500" />
-                      Thêm chi tiết xuất kho
-                    </h3>
-                    <div className="space-y-2.5">
-                      <div ref={nhomHangDropdownRef}>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                          Nhóm hàng <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={nhomHangSearchTerm}
-                            onChange={(e) => handleNhomHangInputChange(e.target.value)}
-                            onFocus={() => setShowNhomHangDropdown(true)}
-                            className="p-2 pr-8 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-                            placeholder="Chọn nhóm hàng..."
-                          />
-                          <ChevronDown className="absolute right-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-
-                          {showNhomHangDropdown && filteredNhomHang.length > 0 && (
-                            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                              {filteredNhomHang.map((item, index) => (
-                                <div
-                                  key={index}
-                                  onClick={() => handleSelectNhomHang(item['NHOM_HANG'])}
-                                  className="px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <div>
-                                      <div className="text-sm font-medium text-gray-900">
-                                        {item['NHOM_HANG']}
-                                      </div>
-                                      <div className="text-xs text-gray-500 mt-0.5">
-                                        {item['DAY']} x {item['RONG']} x {item['DAI']}
-                                      </div>
-                                    </div>
-                                    <div className="text-xs font-semibold text-green-600">
-                                      {formatCurrency(item['DONGIA_HIEULUC'])}
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-gray-700 mb-1">
-                          Đơn giá (có thể sửa)
-                        </label>
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                      <div className="relative" ref={nhomHangDropdownRef}>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Nhóm hàng:</label>
                         <input
-                          type="number"
-                          value={currentChiTiet['DONGIA']}
-                          onChange={(e) => setCurrentChiTiet(prev => ({ ...prev, 'DONGIA': e.target.value }))}
-                          className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-                          placeholder="Đơn giá"
+                          type="text"
+                          value={nhomHangSearchTerm}
+                          onChange={(e) => handleNhomHangInputChange(e.target.value)}
+                          onFocus={() => setShowNhomHangDropdown(true)}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          placeholder="Tìm kiếm nhóm hàng..."
                         />
-                      </div>
-
-                      {selectedNhomHangInfo && availableKien.length > 0 && (
-                        <div>
-                          <label className="block text-xs font-semibold text-gray-700 mb-1">
-                            Chọn kiện xuất (Tồn: {availableKien.length} kiện)
-                          </label>
-                          <div className="max-h-48 overflow-y-auto border border-blue-200 rounded-lg bg-white">
-                            {availableKien.map((kien, index) => (
+                        {showNhomHangDropdown && filteredNhomHang.length > 0 && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {filteredNhomHang.map((item, index) => (
                               <div
                                 key={index}
-                                onClick={() => handleSelectKien(kien)}
-                                className="px-3 py-2 hover:bg-blue-50 cursor-pointer transition-colors border-b border-gray-100 last:border-b-0"
+                                onClick={() => handleSelectNhomHang(item['NHOM_HANG'])}
+                                className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
                               >
-                                <div className="flex items-center justify-between">
-                                  <div>
-                                    <span className="text-sm font-medium text-gray-900">{kien['MA_KIEN']}</span>
-                                    <span className="text-xs text-gray-500 ml-2">
-                                      {kien['THANH']} thanh - {parseFloat(kien['SO_KHOI']).toFixed(3)} m³
-                                    </span>
-                                    {kien['CHATLUONG'] && (
-                                      <span className="text-xs text-purple-600 ml-2 bg-purple-100 px-1.5 py-0.5 rounded">
-                                        {kien['CHATLUONG']}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <Plus className="w-4 h-4 text-blue-600" />
+                                <div className="font-medium">{item['NHOM_HANG']}</div>
+                                <div className="text-xs text-gray-500">
+                                  {item['DAY']}x{item['RONG']}x{item['DAI']} - Đơn giá: {formatCurrency(item['DONGIA_HIEULUC'])}
                                 </div>
                               </div>
                             ))}
                           </div>
-                        </div>
-                      )}
-
-                      {selectedNhomHangInfo && availableKien.length === 0 && (
-                        <div className="p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
-                          <div className="flex items-center gap-1.5 text-yellow-700">
-                            <AlertCircle className="w-4 h-4" />
-                            <p className="text-xs font-medium">Không có kiện tồn kho cho nhóm hàng này</p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Danh sách chi tiết - Compact */}
-                {chiTietList.length > 0 && (
-                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-3">
-                    <h3 className="text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-1.5">
-                      <FileText className="w-4 h-4 text-gray-500" />
-                      Danh sách chi tiết ({chiTietList.length} {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'kiện' : 'dòng'})
-                    </h3>
-
-                    <div className="overflow-x-auto max-h-80 overflow-y-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-100 sticky top-0">
-                          <tr>
-                            <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">STT</th>
-                            <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Nhóm hàng</th>
-                            <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Mã kiện</th>
-                            <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Chất lượng</th>
-                            {currentPhieu['NGHIEP_VU'] === 'NHAP' && (
-                              <>
-                                <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Số thanh</th>
-                                <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Đội hàng</th>
-                              </>
-                            )}
-                            {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
-                              <>
-                                <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Thanh</th>
-                                <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Đơn giá</th>
-                              </>
-                            )}
-                            <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Khối (m³)</th>
-                            {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
-                              <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Thành tiền</th>
-                            )}
-                            <th className="px-2 py-1.5 text-center text-xs font-bold text-gray-700">Xóa</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {chiTietList.map((item, index) => (
-                            <tr key={index} className="hover:bg-gray-50">
-                              <td className="px-2 py-1.5 text-xs">{index + 1}</td>
-                              <td className="px-2 py-1.5 text-xs font-medium">{item['NHOM_HANG']}</td>
-                              <td className="px-2 py-1.5 text-xs">{item['MA_KIEN']}</td>
-                              <td className="px-2 py-1.5 text-xs">
-                                {currentPhieu['NGHIEP_VU'] === 'NHAP' ? (
-                                  <input
-                                    type="text"
-                                    value={item['CHATLUONG']}
-                                    onChange={(e) => handleUpdateChiTietField(index, 'CHATLUONG', e.target.value)}
-                                    className="w-24 p-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-green-500"
-                                    placeholder="Chất lượng"
-                                  />
-                                ) : (
-                                  <span className="text-xs text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded">
-                                    {item['CHATLUONG'] || '—'}
-                                  </span>
-                                )}
-                              </td>
-
-                              {currentPhieu['NGHIEP_VU'] === 'NHAP' ? (
-                                <>
-                                  <td className="px-2 py-1.5">
-                                    <input
-                                      type="number"
-                                      value={item['THANH']}
-                                      onChange={(e) => handleUpdateChiTietField(index, 'THANH', e.target.value)}
-                                      className="w-20 p-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-green-500"
-                                      placeholder="Số thanh"
-                                    />
-                                  </td>
-                                  <td className="px-2 py-1.5">
-                                    <input
-                                      type="text"
-                                      value={item['DOI_HANG_KHO']}
-                                      onChange={(e) => handleUpdateChiTietField(index, 'DOI_HANG_KHO', e.target.value)}
-                                      className="w-24 p-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-green-500"
-                                      placeholder="Đội hàng"
-                                    />
-                                  </td>
-                                </>
-                              ) : (
-                                <>
-                                  <td className="px-2 py-1.5 text-xs">{item['THANH']}</td>
-                                  <td className="px-2 py-1.5">
-                                    <input
-                                      type="number"
-                                      value={item['DONGIA']}
-                                      onChange={(e) => handleUpdateDonGia(index, e.target.value)}
-                                      className="w-24 p-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-blue-500"
-                                    />
-                                  </td>
-                                </>
-                              )}
-
-                              <td className="px-2 py-1.5 text-xs font-medium">
-                                {parseFloat(item['SO_KHOI'] || 0).toFixed(3)}
-                              </td>
-
-                              {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
-                                <td className="px-2 py-1.5 text-xs font-bold text-green-600">
-                                  {formatCurrency(item['THANHTIEN'])}
-                                </td>
-                              )}
-
-                              <td className="px-2 py-1.5 text-center">
-                                <button
-                                  onClick={() => handleRemoveChiTiet(index)}
-                                  className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100 transition-all"
-                                >
-                                  <Minus className="w-4 h-4" />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {/* Tổng kết - Compact */}
-                    <div className="mt-3 p-2.5 bg-white rounded-lg border-2 border-purple-200">
-                      <div className="grid grid-cols-2 gap-2">
-                        <div className="text-right">
-                          <span className="text-sm font-semibold text-gray-700">Tổng khối lượng:</span>
-                        </div>
-                        <div>
-                          <span className="text-sm font-bold text-purple-600">
-                            {parseFloat(currentPhieu['TONGKHOILUONG']).toFixed(3)} m³
-                          </span>
-                        </div>
-
-                        {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
-                          <>
-                            <div className="text-right">
-                              <span className="text-sm font-semibold text-gray-700">Tổng tiền:</span>
-                            </div>
-                            <div>
-                              <span className="text-lg font-bold text-green-600">
-                                {formatCurrency(currentPhieu['TONGTIEN'])}
-                              </span>
-                            </div>
-                          </>
                         )}
                       </div>
+
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Đơn giá:</label>
+                        <input
+                          type="number"
+                          value={currentChiTiet['DONGIA']}
+                          onChange={(e) => setCurrentChiTiet(prev => ({ ...prev, 'DONGIA': e.target.value }))}
+                          className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          placeholder="Đơn giá"
+                        />
+                      </div>
+
+                      <div className="text-sm">
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Kiện có sẵn:</label>
+                        <div className="px-2 py-1.5 bg-gray-100 rounded-lg font-semibold text-blue-600">
+                          {availableKien.length} kiện
+                        </div>
+                      </div>
                     </div>
+
+                    {availableKien.length > 0 && (
+                      <div className="max-h-48 overflow-y-auto border border-gray-200 rounded-lg">
+                        <table className="min-w-full divide-y divide-gray-200">
+                          <thead className="bg-gray-50 sticky top-0">
+                            <tr>
+                              <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Mã kiện</th>
+                              <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Kích thước</th>
+                              <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Khối lượng</th>
+                              <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Chất lượng</th>
+                              <th className="px-2 py-1.5 text-center text-xs font-bold text-gray-700">Thao tác</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-gray-200">
+                            {availableKien.map((kien, index) => (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="px-2 py-1.5 text-xs">{kien['MA_KIEN']}</td>
+                                <td className="px-2 py-1.5 text-xs">{kien['DAY']}x{kien['RONG']}x{kien['DAI']}</td>
+                                <td className="px-2 py-1.5 text-xs font-medium">{parseFloat(kien['SO_KHOI']).toFixed(3)} m³</td>
+                                <td className="px-2 py-1.5 text-xs">{kien['CHATLUONG']}</td>
+                                <td className="px-2 py-1.5 text-center">
+                                  <button
+                                    onClick={() => handleSelectKien(kien)}
+                                    className="px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs"
+                                  >
+                                    Chọn
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
+
+              {/* Danh sách chi tiết */}
+              {chiTietList.length > 0 && (
+                <div className="bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-3">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2.5 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-gray-500" />
+                    Danh sách chi tiết ({chiTietList.length} {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'kiện' : 'dòng'})
+                  </h3>
+
+                  <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-100 sticky top-0">
+                        <tr>
+                          <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">STT</th>
+                          <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Nhóm hàng</th>
+                          <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Mã kiện</th>
+                          <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Kích thước</th>
+                          <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Chất lượng</th>
+                          {currentPhieu['NGHIEP_VU'] === 'NHAP' && (
+                            <>
+                              <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Số thanh</th>
+                              <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Đội hàng khô</th>
+                            </>
+                          )}
+                          <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Khối lượng (m³)</th>
+                          {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
+                            <>
+                              <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Đơn giá</th>
+                              <th className="px-2 py-1.5 text-left text-xs font-bold text-gray-700">Thành tiền</th>
+                            </>
+                          )}
+                          <th className="px-2 py-1.5 text-center text-xs font-bold text-gray-700">Xóa</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {chiTietList.map((item, index) => (
+                          <tr key={index} className="hover:bg-gray-50">
+                            <td className="px-2 py-1.5 text-xs">{index + 1}</td>
+                            <td className="px-2 py-1.5 text-xs font-medium">{item['NHOM_HANG']}</td>
+                            <td className="px-2 py-1.5 text-xs">{item['MA_KIEN']}</td>
+                            <td className="px-2 py-1.5 text-xs">{item['DAY']}x{item['RONG']}x{item['DAI']}</td>
+                            <td className="px-2 py-1.5 text-xs">
+                              {item['CHATLUONG'] ? (
+                                <span className="text-xs text-purple-600 bg-purple-100 px-1.5 py-0.5 rounded">
+                                  {item['CHATLUONG']}
+                                </span>
+                              ) : '—'}
+                            </td>
+                            {currentPhieu['NGHIEP_VU'] === 'NHAP' && (
+                              <>
+                                <td className="px-2 py-1.5">
+                                  <input
+                                    type="number"
+                                    value={item['THANH']}
+                                    onChange={(e) => handleUpdateChiTietField(index, 'THANH', e.target.value)}
+                                    className="w-20 px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    placeholder="Thanh"
+                                    min="0"
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5">
+                                  <input
+                                    type="text"
+                                    value={item['DOI_HANG_KHO']}
+                                    onChange={(e) => handleUpdateChiTietField(index, 'DOI_HANG_KHO', e.target.value)}
+                                    className="w-24 px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    placeholder="Đội"
+                                  />
+                                </td>
+                              </>
+                            )}
+                            <td className="px-2 py-1.5 text-xs font-medium">{parseFloat(item['SO_KHOI'] || 0).toFixed(3)}</td>
+                            {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
+                              <>
+                                <td className="px-2 py-1.5">
+                                  <input
+                                    type="number"
+                                    value={item['DONGIA']}
+                                    onChange={(e) => handleUpdateDonGia(index, e.target.value)}
+                                    className="w-24 px-1.5 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                                    placeholder="Đơn giá"
+                                  />
+                                </td>
+                                <td className="px-2 py-1.5 text-xs font-bold text-green-600">{formatCurrency(item['THANHTIEN'])}</td>
+                              </>
+                            )}
+                            <td className="px-2 py-1.5 text-center">
+                              <button
+                                onClick={() => handleRemoveChiTiet(index)}
+                                className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-100"
+                              >
+                                <Minus className="h-4 w-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Tổng kết */}
+                  <div className="mt-3 p-2.5 bg-white rounded-lg border-2 border-purple-200">
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <div className="text-right">
+                        <span className="text-sm font-semibold text-gray-700">Tổng khối lượng:</span>
+                      </div>
+                      <div>
+                        <span className="text-sm font-bold text-purple-600">
+                          {parseFloat(currentPhieu['TONGKHOILUONG']).toFixed(3)} m³
+                        </span>
+                      </div>
+
+                      {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
+                        <>
+                          <div className="text-right">
+                            <span className="text-sm font-semibold text-gray-700">Tổng tiền:</span>
+                          </div>
+                          <div>
+                            <span className="text-lg font-bold text-green-600">
+                              {formatCurrency(currentPhieu['TONGTIEN'])}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Footer with buttons - Compact */}
-            <div className="flex justify-end gap-2 pt-3 mt-3 border-t border-gray-200 sticky bottom-0 bg-white">
+            {/* Footer */}
+            <div className="flex justify-end gap-2 pt-3 mt-3 border-t border-gray-200">
               <button
                 onClick={handleCloseModal}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm flex items-center gap-1.5 text-sm"
+                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all flex items-center gap-1.5 text-sm font-medium"
                 disabled={isSubmitting}
               >
                 <X className="h-4 w-4" />
@@ -1918,23 +2192,17 @@ const XuatNhapKhoManagement = () => {
               <button
                 onClick={handleSavePhieu}
                 disabled={isSubmitting || chiTietList.length === 0}
-                className={`px-5 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-lg ${isSubmitting || chiTietList.length === 0
-                  ? 'opacity-50 cursor-not-allowed'
-                  : 'hover:from-purple-700 hover:to-purple-800 hover:shadow-lg transform hover:-translate-y-0.5'
-                  } flex items-center gap-1.5 transition-all shadow-md font-medium text-sm`}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all flex items-center gap-1.5 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? (
                   <>
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
                     Đang lưu...
                   </>
                 ) : (
                   <>
                     <Save className="h-4 w-4" />
-                    Lưu phiếu
+                    {isEditMode ? 'Cập nhật' : 'Lưu phiếu'}
                   </>
                 )}
               </button>
@@ -1943,7 +2211,7 @@ const XuatNhapKhoManagement = () => {
         </div>
       )}
 
-      {/* Detail View Modal - Compact */}
+      {/* Detail View Modal */}
       {showDetailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 overflow-y-auto backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl p-4 animate-fadeIn max-h-[98vh] overflow-y-auto">
@@ -1954,9 +2222,18 @@ const XuatNhapKhoManagement = () => {
                 </div>
                 Chi tiết phiếu
               </h2>
-              <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700 focus:outline-none p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                <X className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handlePrintPhieu(currentPhieu)}
+                  className="px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all flex items-center gap-1.5 text-sm font-medium shadow-sm"
+                >
+                  <Printer className="h-4 w-4" />
+                  In phiếu
+                </button>
+                <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700 focus:outline-none p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             <div className="space-y-3">
@@ -1989,7 +2266,7 @@ const XuatNhapKhoManagement = () => {
                     <label className="block text-xs font-medium text-gray-600 mb-0.5">Ngày:</label>
                     <p className="text-sm font-semibold text-gray-900">{formatDate(currentPhieu['NGAYNHAP_XUAT'])}</p>
                   </div>
-                  <div >
+                  <div>
                     <label className="block text-xs font-medium text-gray-600 mb-0.5">
                       {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'Nhà cung cấp:' : 'Khách hàng:'}
                     </label>
@@ -2026,7 +2303,6 @@ const XuatNhapKhoManagement = () => {
                   <FileText className="w-4 h-4 text-gray-500" />
                   Danh sách chi tiết ({chiTietList.length} {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'kiện' : 'dòng'})
                 </h3>
-
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-100">
@@ -2123,67 +2399,66 @@ const XuatNhapKhoManagement = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal - Compact */}
+      {/* Delete Confirmation Modal */}
       {showDeleteConfirmation && phieuToDelete && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 backdrop-blur-sm">
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-4 animate-fadeIn">
-            <div className="flex justify-between items-center border-b border-gray-200 pb-2.5 mb-3">
-              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <div className="p-1.5 bg-red-100 rounded-lg">
-                  <Trash className="w-4 h-4 text-red-600" />
-                </div>
-                Xác nhận xóa
-              </h2>
-              <button onClick={handleCloseDeleteConfirmation} className="text-gray-500 hover:text-gray-700 focus:outline-none p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
-                <X className="h-4 w-4" />
-              </button>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4 animate-fadeIn">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-red-100 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Xác nhận xóa</h3>
+                <p className="text-sm text-gray-600">Bạn có chắc chắn muốn xóa phiếu này?</p>
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-lg p-3">
-                <p className="text-red-700 mb-2 font-medium text-sm">
-                  Bạn có chắc chắn muốn xóa phiếu này?
-                </p>
-                <div className="bg-white rounded-lg p-2.5 mt-2 space-y-1.5 shadow-sm">
-                  <p className="text-xs text-gray-700 flex items-center gap-2">
-                    <span className="font-semibold min-w-[80px]">Số phiếu:</span>
-                    <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded text-xs font-medium">
-                      {phieuToDelete['SOPHIEU']}
-                    </span>
-                  </p>
-                  <p className="text-xs text-gray-700 flex items-center gap-2">
-                    <span className="font-semibold min-w-[80px]">Nghiệp vụ:</span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${phieuToDelete['NGHIEP_VU'] === 'NHAP' ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'
-                      }`}>
-                      {phieuToDelete['NGHIEP_VU'] === 'NHAP' ? 'Nhập kho' : 'Xuất kho'}
-                    </span>
-                  </p>
-                  <p className="text-xs text-gray-700 flex items-center gap-2">
-                    <span className="font-semibold min-w-[80px]">NCC/KH:</span>
-                    <span>{phieuToDelete['NCC_KHACHHANG']}</span>
-                  </p>
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+              <div className="space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Số phiếu:</span>
+                  <span className="font-semibold text-gray-900">{phieuToDelete['SOPHIEU']}</span>
                 </div>
-                <p className="text-xs text-red-600 mt-2 flex items-center gap-1.5 font-medium">
-                  <AlertCircle className="w-4 h-4" />
-                  Hành động này sẽ xóa cả chi tiết phiếu và không thể hoàn tác.
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Nghiệp vụ:</span>
+                  <span className="font-semibold text-gray-900">
+                    {phieuToDelete['NGHIEP_VU'] === 'NHAP' ? 'Nhập kho' : 'Xuất kho'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Ngày:</span>
+                  <span className="font-semibold text-gray-900">{formatDate(phieuToDelete['NGAYNHAP_XUAT'])}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">NCC/KH:</span>
+                  <span className="font-semibold text-gray-900">{phieuToDelete['NCC_KHACHHANG']}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-yellow-800">
+                  <strong>Cảnh báo:</strong> Hành động này sẽ xóa vĩnh viễn phiếu và tất cả chi tiết liên quan. Không thể hoàn tác!
                 </p>
               </div>
+            </div>
 
-              <div className="flex justify-end gap-2 pt-2 border-t border-gray-200">
-                <button
-                  onClick={handleCloseDeleteConfirmation}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm text-sm"
-                >
-                  Hủy
-                </button>
-                <button
-                  onClick={handleDeletePhieu}
-                  className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 flex items-center gap-1.5 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 text-sm"
-                >
-                  <Trash className="h-4 w-4" />
-                  Xóa
-                </button>
-              </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleCloseDeleteConfirmation}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all text-sm font-medium"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleDeletePhieu}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-all text-sm font-medium flex items-center justify-center gap-1.5"
+              >
+                <Trash className="h-4 w-4" />
+                Xóa phiếu
+              </button>
             </div>
           </div>
         </div>
@@ -2242,6 +2517,13 @@ const XuatNhapKhoManagement = () => {
         .overflow-y-auto::-webkit-scrollbar-thumb:hover,
         .overflow-x-auto::-webkit-scrollbar-thumb:hover {
           background: #555;
+        }
+        
+        @media print {
+          @page {
+            size: A4;
+            margin: 10mm;
+          }
         }
       `}</style>
     </div>
