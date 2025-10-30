@@ -95,13 +95,20 @@ const XuatNhapKhoManagement = () => {
   };
 
   // Generate ma kien tu dong
+  // Sửa hàm generateMaKien để kiểm tra cả tonKho VÀ chiTietList hiện tại
   const generateMaKien = () => {
     const now = new Date();
     const yy = now.getFullYear().toString().slice(-2);
     const mm = (now.getMonth() + 1).toString().padStart(2, '0');
     const yearMonth = `${yy}${mm}`;
 
-    const kienCungThang = tonKho.filter(k => {
+    // Kết hợp cả tonKho (đã lưu trong DB) và chiTietList (đang nhập trong form)
+    const allKien = [
+      ...tonKho,
+      ...chiTietList
+    ];
+
+    const kienCungThang = allKien.filter(k => {
       if (k['MA_KIEN'] && k['MA_KIEN'].startsWith('K')) {
         const kienYearMonth = k['MA_KIEN'].substring(1, 5);
         return kienYearMonth === yearMonth;
@@ -121,6 +128,7 @@ const XuatNhapKhoManagement = () => {
     const nextNumber = (maxNumber + 1).toString().padStart(3, '0');
     return `K${yearMonth}-${nextNumber}`;
   };
+
 
   // Format currency VND
   const formatCurrency = (amount) => {
@@ -299,6 +307,7 @@ const XuatNhapKhoManagement = () => {
   };
 
   // Add chi tiet for nhap kho
+  // Sửa lại hàm handleAddChiTietNhap
   const handleAddChiTietNhap = () => {
     if (!currentChiTiet['NHOM_HANG']) {
       toast.error('Vui lòng chọn nhóm hàng');
@@ -311,9 +320,42 @@ const XuatNhapKhoManagement = () => {
 
     const soKien = parseInt(currentChiTiet['SO_KIEN']) || 0;
 
+    // Tạo danh sách tạm để tính toán mã kiện
     const newChiTietList = [];
+
+    // Kết hợp tonKho + chiTietList hiện tại để tính mã kiện đầu tiên
+    const now = new Date();
+    const yy = now.getFullYear().toString().slice(-2);
+    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
+    const yearMonth = `${yy}${mm}`;
+
+    const allKien = [
+      ...tonKho,
+      ...chiTietList
+    ];
+
+    const kienCungThang = allKien.filter(k => {
+      if (k['MA_KIEN'] && k['MA_KIEN'].startsWith('K')) {
+        const kienYearMonth = k['MA_KIEN'].substring(1, 5);
+        return kienYearMonth === yearMonth;
+      }
+      return false;
+    });
+
+    let maxNumber = 0;
+    kienCungThang.forEach(k => {
+      const match = k['MA_KIEN'].match(/\d{3}$/);
+      if (match) {
+        const num = parseInt(match[0]);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+
+    // Tạo các kiện với mã tăng dần
     for (let i = 0; i < soKien; i++) {
-      const maKien = generateMaKien();
+      const nextNumber = (maxNumber + 1 + i).toString().padStart(3, '0');
+      const maKien = `K${yearMonth}-${nextNumber}`;
+
       const chiTiet = {
         'ID_CT': Date.now() + i,
         'SOPHIEU': currentPhieu['SOPHIEU'],
@@ -328,7 +370,7 @@ const XuatNhapKhoManagement = () => {
         'DAI': selectedNhomHangInfo?.['DAI'] || '',
         'THANH': '',
         'SO_KHOI': 0,
-        'CHATLUONG': currentChiTiet['CHATLUONG'] || '', // Lấy từ input người dùng nhập
+        'CHATLUONG': currentChiTiet['CHATLUONG'] || '',
         'DOI_HANG_KHO': '',
         'DONGIA': 0,
         'THANHTIEN': 0,
@@ -349,6 +391,7 @@ const XuatNhapKhoManagement = () => {
     setNhomHangSearchTerm('');
     setSelectedNhomHangInfo(null);
   };
+
 
   // Update chi tiet field (for nhap kho)
   const handleUpdateChiTietField = (index, field, value) => {
@@ -546,10 +589,6 @@ const XuatNhapKhoManagement = () => {
       errors.push('Ngày nhập/xuất không được để trống');
     }
 
-    if (!phieu['NCC_KHACHHANG']) {
-      errors.push('NCC/Khách hàng không được để trống');
-    }
-
     if (phieu['NGHIEP_VU'] === 'NHAP' && !phieu['KHONHAP']) {
       errors.push('Kho nhập không được để trống');
     }
@@ -601,22 +640,29 @@ const XuatNhapKhoManagement = () => {
             return;
           }
 
-          // Xóa phiếu cũ
+          // 1. LẤY DANH SÁCH CHI TIẾT CŨ
+          const chiTietResponse = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
+          const oldChiTiet = chiTietResponse.filter(item => item['SOPHIEU'] === originalSoPhieu);
+
+          // 2. XÓA CHI TIẾT CŨ THEO ID_CT
+          if (oldChiTiet.length > 0) {
+            const rowsToDelete = oldChiTiet.map(item => ({ "ID_CT": item['ID_CT'] }));
+            await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
+              "Rows": rowsToDelete
+            });
+          }
+
+          // 3. XÓA PHIẾU CŨ
           await authUtils.apiRequestKHO('XUATNHAPKHO', 'Delete', {
             "Rows": [{ "SOPHIEU": originalSoPhieu }]
           });
 
-          // Xóa chi tiết cũ
-          await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
-            "Rows": [{ "SOPHIEU": originalSoPhieu }]
-          });
-
-          // Thêm phiếu mới
+          // 4. THÊM PHIẾU MỚI
           await authUtils.apiRequestKHO('XUATNHAPKHO', 'Add', {
             "Rows": [phieuToSave]
           });
 
-          // Thêm tất cả chi tiết một lần
+          // 5. THÊM CHI TIẾT MỚI
           const chiTietToSave = chiTietList.map(chiTiet => ({
             ...chiTiet,
             'SOPHIEU': phieuToSave['SOPHIEU']
@@ -628,17 +674,24 @@ const XuatNhapKhoManagement = () => {
 
           toast.success('Cập nhật phiếu thành công!');
         } else {
-          // Cập nhật phiếu
+          // CẬP NHẬT PHIẾU (KHÔNG ĐỔI SỐ PHIẾU)
           await authUtils.apiRequestKHO('XUATNHAPKHO', 'Edit', {
             "Rows": [phieuToSave]
           });
 
-          // Xóa chi tiết cũ
-          await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
-            "Rows": [{ "SOPHIEU": phieuToSave['SOPHIEU'] }]
-          });
+          // LẤY DANH SÁCH CHI TIẾT CŨ
+          const chiTietResponse = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
+          const oldChiTiet = chiTietResponse.filter(item => item['SOPHIEU'] === phieuToSave['SOPHIEU']);
 
-          // Thêm tất cả chi tiết mới một lần
+          // XÓA CHI TIẾT CŨ THEO ID_CT
+          if (oldChiTiet.length > 0) {
+            const rowsToDelete = oldChiTiet.map(item => ({ "ID_CT": item['ID_CT'] }));
+            await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
+              "Rows": rowsToDelete
+            });
+          }
+
+          // THÊM CHI TIẾT MỚI
           await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
             "Rows": chiTietList
           });
@@ -646,7 +699,7 @@ const XuatNhapKhoManagement = () => {
           toast.success('Cập nhật phiếu thành công!');
         }
       } else {
-        // Tạo mới
+        // TẠO MỚI
         const existingPhieu = phieuList.find(
           p => p['SOPHIEU'] === phieuToSave['SOPHIEU']
         );
@@ -662,7 +715,7 @@ const XuatNhapKhoManagement = () => {
           "Rows": [phieuToSave]
         });
 
-        // Thêm tất cả chi tiết một lần
+        // Thêm chi tiết mới
         await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
           "Rows": chiTietList
         });
@@ -681,7 +734,6 @@ const XuatNhapKhoManagement = () => {
     }
   };
 
-
   // Delete handlers
   const handleOpenDeleteConfirmation = (phieu) => {
     setPhieuToDelete(phieu);
@@ -697,11 +749,20 @@ const XuatNhapKhoManagement = () => {
     if (!phieuToDelete) return;
 
     try {
-      await authUtils.apiRequestKHO('XUATNHAPKHO', 'Delete', {
-        "Rows": [{ "SOPHIEU": phieuToDelete['SOPHIEU'] }]
-      });
+      // 1. LẤY DANH SÁCH CHI TIẾT CỦA PHIẾU
+      const chiTietResponse = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
+      const chiTietOfPhieu = chiTietResponse.filter(item => item['SOPHIEU'] === phieuToDelete['SOPHIEU']);
 
-      await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
+      // 2. XÓA TỪNG BẢN GHI CHI TIẾT THEO ID_CT
+      if (chiTietOfPhieu.length > 0) {
+        const rowsToDelete = chiTietOfPhieu.map(item => ({ "ID_CT": item['ID_CT'] }));
+        await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Delete', {
+          "Rows": rowsToDelete
+        });
+      }
+
+      // 3. SAU ĐÓ MỚI XÓA PHIẾU CHA
+      await authUtils.apiRequestKHO('XUATNHAPKHO', 'Delete', {
         "Rows": [{ "SOPHIEU": phieuToDelete['SOPHIEU'] }]
       });
 
@@ -711,9 +772,10 @@ const XuatNhapKhoManagement = () => {
       handleCloseDeleteConfirmation();
     } catch (error) {
       console.error('Error deleting phieu:', error);
-      toast.error('Có lỗi xảy ra khi xóa phiếu');
+      toast.error('Có lỗi xảy ra khi xóa phiếu: ' + (error.message || ''));
     }
   };
+
 
   // Sorting
   const requestSort = (key) => {
@@ -1402,7 +1464,7 @@ const XuatNhapKhoManagement = () => {
 
                     <div ref={customerDropdownRef}>
                       <label className="block text-xs font-semibold text-gray-700 mb-1">
-                        {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'Nhà cung cấp' : 'Khách hàng'} <span className="text-red-500">*</span>
+                        {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'Nhà cung cấp' : 'Khách hàng'}
                       </label>
                       <div className="relative">
                         <input
