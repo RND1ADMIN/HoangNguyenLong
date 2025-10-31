@@ -25,6 +25,7 @@ import NhapBaoBiManagement from './pages/NhapBaoBiManagement';
 import BaoCaoMobie from './pages/BaoCaoMobie';
 import TonKhoManager from './pages/TonKhoManager';
 import Baocaoreport from './pages/Baocaoreport';
+import TheKhoManagement from './pages/TheKhoManagement';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -72,6 +73,7 @@ function App() {
                   <Route path="/report" element={<ReportManagement />} />
                   <Route path="/tonghop" element={<TongHop />} />
                   <Route path="/reportMobile" element={<BaoCaoMobie />} />
+                  <Route path="/makien" element={<TheKhoManagement />} />
 
 
 

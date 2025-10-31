@@ -56,6 +56,12 @@ const Home = () => {
                     icon: ChartArea,
                     path: '/tonkho',
                     color: 'bg-blue-600'
+                },
+                {
+                    title: 'Mã kiện',
+                    icon: ChartArea,
+                    path: '/makien',
+                    color: 'bg-blue-600'
                 }
             ]
         },
