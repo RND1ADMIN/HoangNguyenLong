@@ -44,17 +44,24 @@ const DMHHManagement = () => {
     };
 
     // Format date
+    // Sửa lại hàm formatDate để xử lý đúng kiểu date
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('vi-VN', {
-            year: 'numeric',
-            month: '2-digit',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+        try {
+            const date = new Date(dateString);
+            // Kiểm tra date có hợp lệ không
+            if (isNaN(date.getTime())) return 'N/A';
+
+            return date.toLocaleDateString('vi-VN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            });
+        } catch (error) {
+            return 'N/A';
+        }
     };
+
 
     // Tự động tạo NHOM_HANG từ các thông tin đã nhập
     const generateNhomHang = (day, rong, dai) => {
@@ -567,7 +574,7 @@ const DMHHManagement = () => {
                                 <div>
                                     <h3 className="text-xs font-medium text-purple-700 mb-0.5">Tổng tồn kho</h3>
                                     <p className="text-2xl font-bold text-purple-900">{tongKienTon} <span className="text-xs text-purple-600 mt-0.5">kiện</span></p>
-                                    
+
                                 </div>
                                 <div className="p-2 bg-purple-200 rounded-lg">
                                     <Archive className="w-5 h-5 text-purple-700" />
@@ -917,49 +924,102 @@ const DMHHManagement = () => {
                                         Chi tiết kiện hàng tồn kho ({getTonKhoByNhomHang(selectedItemDetail['NHOM_HANG'])} kiện)
                                     </h3>
                                     <div className="bg-white rounded-lg overflow-hidden">
-                                        <div className="max-h-80 overflow-y-auto">
+                                        <div className="max-h-96 overflow-y-auto">
                                             <table className="min-w-full divide-y divide-gray-200">
                                                 <thead className="bg-purple-100 sticky top-0">
                                                     <tr>
                                                         <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">STT</th>
                                                         <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Số phiếu</th>
-                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Số kiện</th>
+                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Mã kiện</th>
+                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Số thanh</th>
                                                         <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Số khối (m³)</th>
+                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Chất lượng</th>
                                                         <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Ngày nhập</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody className="divide-y divide-gray-200">
                                                     {getChiTietTonKho(selectedItemDetail['NHOM_HANG']).map((kien, index) => (
-                                                        <tr key={index} className="hover:bg-purple-50 transition-colors">
+                                                        <tr key={kien['ID_CT'] || index} className="hover:bg-purple-50 transition-colors">
                                                             <td className="px-3 py-2 text-xs text-gray-900">{index + 1}</td>
-                                                            <td className="px-3 py-2 text-xs font-medium text-blue-600">{kien['SOPHIEU']}</td>
-                                                            <td className="px-3 py-2 text-xs text-gray-900">{kien['SO_KIEN']}</td>
+                                                            <td className="px-3 py-2 text-xs font-medium text-blue-600">
+                                                                {kien['SOPHIEU']}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-xs">
+                                                                <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded font-semibold">
+                                                                    {kien['MA_KIEN'] || 'N/A'}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-3 py-2 text-xs font-bold text-orange-600">
+                                                                {kien['THANH'] || 0}
+                                                            </td>
                                                             <td className="px-3 py-2 text-xs font-bold text-green-600">
-                                                                {parseFloat(kien['SO_KHOI']).toFixed(3)}
+                                                                {parseFloat(kien['SO_KHOI'] || 0).toFixed(3)}
+                                                            </td>
+                                                            <td className="px-3 py-2 text-xs">
+                                                                {kien['CHATLUONG'] ? (
+                                                                    <span className={`px-2 py-1 rounded text-xs font-medium ${kien['CHATLUONG'] === 'TỐT'
+                                                                            ? 'bg-green-100 text-green-800'
+                                                                            : kien['CHATLUONG'] === 'TRUNG BÌNH'
+                                                                                ? 'bg-yellow-100 text-yellow-800'
+                                                                                : 'bg-red-100 text-red-800'
+                                                                        }`}>
+                                                                        {kien['CHATLUONG']}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-gray-400 italic">N/A</span>
+                                                                )}
                                                             </td>
                                                             <td className="px-3 py-2 text-xs text-gray-600">
-                                                                {formatDate(kien['NGAY_CT'])}
+                                                                {formatDate(kien['NGAY_NHAP_XUAT'])}
                                                             </td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
                                                 <tfoot className="bg-purple-100">
                                                     <tr>
-                                                        <td colSpan="2" className="px-3 py-2 text-xs font-bold text-purple-800">Tổng cộng:</td>
+                                                        <td colSpan="3" className="px-3 py-2 text-xs font-bold text-purple-800">Tổng cộng:</td>
                                                         <td className="px-3 py-2 text-xs font-bold text-purple-800">
-                                                            {getTonKhoByNhomHang(selectedItemDetail['NHOM_HANG'])} kiện
+                                                            {getChiTietTonKho(selectedItemDetail['NHOM_HANG']).reduce((sum, item) =>
+                                                                sum + (parseFloat(item['THANH']) || 0), 0
+                                                            )} thanh
                                                         </td>
                                                         <td className="px-3 py-2 text-xs font-bold text-purple-800">
                                                             {getTongKhoiLuongTon(selectedItemDetail['NHOM_HANG']).toFixed(3)} m³
                                                         </td>
-                                                        <td></td>
+                                                        <td colSpan="2"></td>
                                                     </tr>
                                                 </tfoot>
                                             </table>
                                         </div>
                                     </div>
+
+                                    {/* Thêm thông tin tổng hợp */}
+                                    <div className="mt-3 grid grid-cols-3 gap-2">
+                                        <div className="bg-white rounded-lg p-2 border border-purple-200">
+                                            <p className="text-xs text-gray-600">Tổng kiện</p>
+                                            <p className="text-lg font-bold text-purple-700">
+                                                {getTonKhoByNhomHang(selectedItemDetail['NHOM_HANG'])}
+                                            </p>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-2 border border-purple-200">
+                                            <p className="text-xs text-gray-600">Tổng thanh</p>
+                                            <p className="text-lg font-bold text-orange-600">
+                                                {getChiTietTonKho(selectedItemDetail['NHOM_HANG']).reduce((sum, item) =>
+                                                    sum + (parseFloat(item['THANH']) || 0), 0
+                                                )}
+                                            </p>
+                                        </div>
+                                        <div className="bg-white rounded-lg p-2 border border-purple-200">
+                                            <p className="text-xs text-gray-600">Tổng khối (m³)</p>
+                                            <p className="text-lg font-bold text-green-600">
+                                                {getTongKhoiLuongTon(selectedItemDetail['NHOM_HANG']).toFixed(3)}
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
+
+
 
                             {getTonKhoByNhomHang(selectedItemDetail['NHOM_HANG']) === 0 && (
                                 <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-6 text-center">
