@@ -285,6 +285,23 @@ const BaoCaoKho = () => {
     }
   };
 
+  // Custom label for bar chart
+  const renderCustomBarLabel = (props) => {
+    const { x, y, width, height, value } = props;
+    return (
+      <text 
+        x={x + width / 2} 
+        y={y - 5} 
+        fill="#374151" 
+        textAnchor="middle" 
+        fontSize="12"
+        fontWeight="600"
+      >
+        {value}
+      </text>
+    );
+  };
+
   const uniqueNhomHang = [...new Set(chiTietList.map(item => item['NHOM_HANG']).filter(Boolean))];
 
   return (
@@ -498,17 +515,20 @@ const BaoCaoKho = () => {
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3 text-center">Số kiện</h4>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={[
-                      { name: 'Tồn đầu kỳ', value: tongHopData.tonDauKy.kien },
-                      { name: 'Nhập', value: tongHopData.nhapTrongKy.kien },
-                      { name: 'Xuất', value: tongHopData.xuatTrongKy.kien },
-                      { name: 'Tồn cuối kỳ', value: tongHopData.tonCuoiKy.kien }
-                    ]}>
+                    <BarChart 
+                      data={[
+                        { name: 'Tồn đầu kỳ', value: tongHopData.tonDauKy.kien },
+                        { name: 'Nhập', value: tongHopData.nhapTrongKy.kien },
+                        { name: 'Xuất', value: tongHopData.xuatTrongKy.kien },
+                        { name: 'Tồn cuối kỳ', value: tongHopData.tonCuoiKy.kien }
+                      ]}
+                      margin={{ top: 30, right: 30, left: 20, bottom: 20 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" fontSize={11} />
                       <YAxis fontSize={10} />
                       <Tooltip />
-                      <Bar dataKey="value" fill="#8b5cf6" />
+                      <Bar dataKey="value" fill="#8b5cf6" label={renderCustomBarLabel} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -516,17 +536,38 @@ const BaoCaoKho = () => {
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3 text-center">Khối lượng (m³)</h4>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={[
-                      { name: 'Tồn đầu kỳ', value: tongHopData.tonDauKy.m3 },
-                      { name: 'Nhập', value: tongHopData.nhapTrongKy.m3 },
-                      { name: 'Xuất', value: tongHopData.xuatTrongKy.m3 },
-                      { name: 'Tồn cuối kỳ', value: tongHopData.tonCuoiKy.m3 }
-                    ]}>
+                    <BarChart 
+                      data={[
+                        { name: 'Tồn đầu kỳ', value: parseFloat(tongHopData.tonDauKy.m3.toFixed(3)) },
+                        { name: 'Nhập', value: parseFloat(tongHopData.nhapTrongKy.m3.toFixed(3)) },
+                        { name: 'Xuất', value: parseFloat(tongHopData.xuatTrongKy.m3.toFixed(3)) },
+                        { name: 'Tồn cuối kỳ', value: parseFloat(tongHopData.tonCuoiKy.m3.toFixed(3)) }
+                      ]}
+                      margin={{ top: 30, right: 30, left: 20, bottom: 20 }}
+                    >
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" fontSize={11} />
                       <YAxis fontSize={10} />
                       <Tooltip />
-                      <Bar dataKey="value" fill="#3b82f6" />
+                      <Bar 
+                        dataKey="value" 
+                        fill="#3b82f6" 
+                        label={(props) => {
+                          const { x, y, width, value } = props;
+                          return (
+                            <text 
+                              x={x + width / 2} 
+                              y={y - 5} 
+                              fill="#374151" 
+                              textAnchor="middle" 
+                              fontSize="12"
+                              fontWeight="600"
+                            >
+                              {value.toFixed(3)}
+                            </text>
+                          );
+                        }}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
