@@ -32,7 +32,8 @@ const XuatNhapKhoManagement = () => {
     'NHOM_HANG': '',
     'SO_KIEN': '',
     'DONGIA': 0,
-    'TIEU_CHUAN': ''
+    'TIEU_CHUAN': '',
+    'DOI_HANG_KHO': ''
   });
 
   const [showModal, setShowModal] = useState(false);
@@ -269,11 +270,11 @@ const XuatNhapKhoManagement = () => {
   };
 
   // Generate so phieu tu dong với format YYMMDD-001
-  const generateSoPhieu = (nghiepVu) => {
-    const now = new Date();
-    const yy = now.getFullYear().toString().slice(-2);
-    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
-    const dd = now.getDate().toString().padStart(2, '0');
+  const generateSoPhieu = (nghiepVu, ngayNhapXuat) => {
+    const date = new Date(ngayNhapXuat);
+    const yy = date.getFullYear().toString().slice(-2);
+    const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+    const dd = date.getDate().toString().padStart(2, '0');
     const prefix = nghiepVu === 'NHAP' ? 'NK' : 'XK';
     const yearMonthDay = `${yy}${mm}${dd}`;
 
@@ -299,11 +300,11 @@ const XuatNhapKhoManagement = () => {
   };
 
   // Generate ma kien tu dong với format YYMMDD-001
-  const generateMaKien = () => {
-    const now = new Date();
-    const yy = now.getFullYear().toString().slice(-2);
-    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
-    const dd = now.getDate().toString().padStart(2, '0');
+  const generateMaKien = (ngayNhapXuat) => {
+    const date = new Date(ngayNhapXuat);
+    const yy = date.getFullYear().toString().slice(-2);
+    const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+    const dd = date.getDate().toString().padStart(2, '0');
     const yearMonthDay = `${yy}${mm}${dd}`;
 
     const allKien = [
@@ -612,10 +613,10 @@ const XuatNhapKhoManagement = () => {
     const soKien = parseInt(currentChiTiet['SO_KIEN']) || 0;
     const newChiTietList = [];
 
-    const now = new Date();
-    const yy = now.getFullYear().toString().slice(-2);
-    const mm = (now.getMonth() + 1).toString().padStart(2, '0');
-    const dd = now.getDate().toString().padStart(2, '0');
+    const date = new Date(currentPhieu['NGAYNHAP_XUAT']);
+    const yy = date.getFullYear().toString().slice(-2);
+    const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+    const dd = date.getDate().toString().padStart(2, '0');
     const yearMonthDay = `${yy}${mm}${dd}`;
 
     const allKien = [
@@ -659,7 +660,7 @@ const XuatNhapKhoManagement = () => {
         'THANH': '',
         'SO_KHOI': 0,
         'TIEU_CHUAN': currentChiTiet['TIEU_CHUAN'],
-        'DOI_HANG_KHO': '',
+        'DOI_HANG_KHO': currentChiTiet['DOI_HANG_KHO'] || '',
         'DONGIA': 0,
         'THANHTIEN': 0,
         'GHICHU': ''
@@ -674,7 +675,8 @@ const XuatNhapKhoManagement = () => {
       'NHOM_HANG': '',
       'SO_KIEN': '',
       'DONGIA': 0,
-      'TIEU_CHUAN': ''
+      'TIEU_CHUAN': '',
+      'DOI_HANG_KHO': ''
     });
     setNhomHangSearchTerm('');
     setSelectedNhomHangInfo(null);
@@ -766,9 +768,9 @@ const XuatNhapKhoManagement = () => {
     } else {
       setIsEditMode(false);
       setOriginalSoPhieu('');
-      const newSoPhieu = generateSoPhieu('NHAP');
+      const newSoPhieu = generateSoPhieu('NHAP', new Date().toISOString().split('T')[0]);
       const nguoiPhuTrach = currentUser ? (currentUser['Họ và Tên'] || currentUser.username) : '';
-      
+
       setCurrentPhieu({
         'SOPHIEU': newSoPhieu,
         'NGHIEP_VU': 'NHAP',
@@ -828,7 +830,8 @@ const XuatNhapKhoManagement = () => {
       'NHOM_HANG': '',
       'SO_KIEN': '',
       'DONGIA': 0,
-      'TIEU_CHUAN': ''
+      'TIEU_CHUAN': '',
+      'DOI_HANG_KHO': ''
     });
     setNhomHangSearchTerm('');
     setSelectedNhomHangInfo(null);
@@ -844,8 +847,10 @@ const XuatNhapKhoManagement = () => {
       [field]: value
     }));
 
-    if (field === 'NGHIEP_VU' && !isEditMode) {
-      const newSoPhieu = generateSoPhieu(value);
+    if ((field === 'NGHIEP_VU' || field === 'NGAYNHAP_XUAT') && !isEditMode) {
+      const nghiepVu = field === 'NGHIEP_VU' ? value : currentPhieu['NGHIEP_VU'];
+      const ngayNhapXuat = field === 'NGAYNHAP_XUAT' ? value : currentPhieu['NGAYNHAP_XUAT'];
+      const newSoPhieu = generateSoPhieu(nghiepVu, ngayNhapXuat);
       setCurrentPhieu(prev => ({
         ...prev,
         'SOPHIEU': newSoPhieu
@@ -1698,8 +1703,8 @@ const XuatNhapKhoManagement = () => {
                           >
                             <option value="">-- Chọn kho --</option>
                             {khoList.map((kho, index) => (
-                              <option key={index} value={kho['TEN_KHO']}>
-                                {kho['TEN_KHO']}
+                              <option key={index} value={kho['KHO']}>
+                                {kho['KHO']}
                               </option>
                             ))}
                           </select>
@@ -1719,8 +1724,8 @@ const XuatNhapKhoManagement = () => {
                           >
                             <option value="">-- Chọn kho --</option>
                             {khoList.map((kho, index) => (
-                              <option key={index} value={kho['TEN_KHO']}>
-                                {kho['TEN_KHO']}
+                              <option key={index} value={kho['KHO']}>
+                                {kho['KHO']}
                               </option>
                             ))}
                           </select>
@@ -1787,7 +1792,7 @@ const XuatNhapKhoManagement = () => {
                     {/* Form thêm chi tiết */}
                     {currentPhieu['NGHIEP_VU'] === 'NHAP' ? (
                       <div className="bg-white p-3 rounded-lg border border-blue-300 mb-3">
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
                           <div className="relative" ref={nhomHangDropdownRef}>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
                               Nhóm hàng <span className="text-red-500">*</span>
@@ -1840,6 +1845,20 @@ const XuatNhapKhoManagement = () => {
 
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Đội hàng khô
+                            </label>
+                            <input
+                              type="text"
+                              value={currentChiTiet['DOI_HANG_KHO']}
+                              onChange={(e) => setCurrentChiTiet(prev => ({ ...prev, 'DOI_HANG_KHO': e.target.value }))}
+                              disabled={isSubmitting}
+                              className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                              placeholder="Nhập đội hàng khô"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
                               Số kiện <span className="text-red-500">*</span>
                             </label>
                             <input
@@ -1867,7 +1886,7 @@ const XuatNhapKhoManagement = () => {
 
                         {selectedNhomHangInfo && (
                           <div className="mt-2 p-2 bg-blue-50 rounded border border-blue-200 text-xs text-blue-800">
-                            <strong>Thông tin:</strong> {selectedNhomHangInfo['NHOM_HANG']} - 
+                            <strong>Thông tin:</strong> {selectedNhomHangInfo['NHOM_HANG']} -
                             Kích thước: {selectedNhomHangInfo['DAY']}x{selectedNhomHangInfo['RONG']}x{selectedNhomHangInfo['DAI']}
                           </div>
                         )}
@@ -1977,6 +1996,7 @@ const XuatNhapKhoManagement = () => {
                               )}
                               <th className="px-2 py-1.5 text-right font-semibold text-blue-900">Số khối</th>
                               <th className="px-2 py-1.5 text-left font-semibold text-blue-900">Tiêu chuẩn</th>
+                              <th className="px-2 py-1.5 text-left font-semibold text-blue-900">Đội hàng khô</th>
                               {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
                                 <>
                                   <th className="px-2 py-1.5 text-right font-semibold text-blue-900">Đơn giá</th>
@@ -2012,6 +2032,20 @@ const XuatNhapKhoManagement = () => {
                                   {parseFloat(item['SO_KHOI'] || 0).toFixed(4)}
                                 </td>
                                 <td className="px-2 py-1.5 text-gray-700">{item['TIEU_CHUAN']}</td>
+                                {currentPhieu['NGHIEP_VU'] === 'NHAP' ? (
+                                  <td className="px-2 py-1.5">
+                                    <input
+                                      type="text"
+                                      value={item['DOI_HANG_KHO'] || ''}
+                                      onChange={(e) => handleUpdateChiTietField(index, 'DOI_HANG_KHO', e.target.value)}
+                                      disabled={isSubmitting}
+                                      className="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                      placeholder="Đội hàng khô"
+                                    />
+                                  </td>
+                                ) : (
+                                  <td className="px-2 py-1.5 text-gray-700">{item['DOI_HANG_KHO'] || '-'}</td>
+                                )}
                                 {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
                                   <>
                                     <td className="px-2 py-1.5">
@@ -2171,6 +2205,7 @@ const XuatNhapKhoManagement = () => {
                         <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Thanh</th>
                         <th className="px-2 py-1.5 text-right font-semibold text-gray-900">Số khối</th>
                         <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Tiêu chuẩn</th>
+                        <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Đội hàng khô</th>
                         {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
                           <>
                             <th className="px-2 py-1.5 text-right font-semibold text-gray-900">Đơn giá</th>
@@ -2193,6 +2228,7 @@ const XuatNhapKhoManagement = () => {
                             {parseFloat(item['SO_KHOI'] || 0).toFixed(4)}
                           </td>
                           <td className="px-2 py-1.5 text-gray-700">{item['TIEU_CHUAN']}</td>
+                          <td className="px-2 py-1.5 text-gray-700">{item['DOI_HANG_KHO'] || '-'}</td>
                           {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
                             <>
                               <td className="px-2 py-1.5 text-right text-gray-700">
