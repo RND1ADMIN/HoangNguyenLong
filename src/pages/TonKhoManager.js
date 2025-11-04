@@ -183,13 +183,13 @@ const BaoCaoKho = () => {
 
     Object.values(tonDauKyMap).forEach(item => {
       const nhomHang = item['NHOM_HANG'] || 'Không xác định';
-      const chatLuong = item['CHATLUONG'] || 'Không xác định';
-      const key = `${nhomHang}_${chatLuong}`;
+      const tieuChuan = item['TIEU_CHUAN'] || 'Không xác định';
+      const key = `${nhomHang}_${tieuChuan}`;
 
       if (!nhomHangMap[key]) {
         nhomHangMap[key] = {
           nhomHang,
-          chatLuong,
+          tieuChuan,
           tonDauKy: { kien: 0, m3: 0 },
           nhap: { kien: 0, m3: 0 },
           xuat: { kien: 0, m3: 0 },
@@ -204,15 +204,15 @@ const BaoCaoKho = () => {
     // Tính nhập xuất trong kỳ theo nhóm hàng
     dataTrongKy.forEach(item => {
       const nhomHang = item['NHOM_HANG'] || 'Không xác định';
-      const chatLuong = item['CHATLUONG'] || 'Không xác định';
-      const key = `${nhomHang}_${chatLuong}`;
+      const tieuChuan = item['TIEU_CHUAN'] || 'Không xác định';
+      const key = `${nhomHang}_${tieuChuan}`;
       const nghiepVu = item['NGHIEP_VU'];
       const soKhoi = parseFloat(item['SO_KHOI']) || 0;
 
       if (!nhomHangMap[key]) {
         nhomHangMap[key] = {
           nhomHang,
-          chatLuong,
+          tieuChuan,
           tonDauKy: { kien: 0, m3: 0 },
           nhap: { kien: 0, m3: 0 },
           xuat: { kien: 0, m3: 0 },
@@ -613,7 +613,7 @@ const BaoCaoKho = () => {
                       <td className="px-3 py-2 text-sm font-medium text-gray-900 border-r">{item.nhomHang}</td>
                       <td className="px-3 py-2 text-center border-r">
                         <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
-                          {item.chatLuong}
+                          {item.tieuChuan}
                         </span>
                       </td>
                       <td className="px-3 py-2 text-sm text-center text-orange-600 font-semibold bg-orange-50">{formatNumber(item.tonDauKy.kien)}</td>
@@ -678,7 +678,7 @@ const BaoCaoKho = () => {
                     <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase">Chất lượng</th>
                     <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase">Số thanh</th>
                     <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase">m³</th>
-                    <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase">Đội hàng</th>
+                    <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase">Đội hàng khô</th>
                     <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase">Kho</th>
                   </tr>
                 </thead>
@@ -691,9 +691,9 @@ const BaoCaoKho = () => {
                         {item['DAY']} x {item['RONG']} x {item['DAI']}
                       </td>
                       <td className="px-3 py-2 text-center">
-                        {item['CHATLUONG'] && (
+                        {item['TIEU_CHUAN'] && (
                           <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
-                            {item['CHATLUONG']}
+                            {item['TIEU_CHUAN']}
                           </span>
                         )}
                       </td>
@@ -703,7 +703,7 @@ const BaoCaoKho = () => {
                       <td className="px-3 py-2 text-sm text-center font-semibold text-purple-600">
                         {parseFloat(item['SO_KHOI'] || 0).toFixed(3)}
                       </td>
-                      <td className="px-3 py-2 text-sm text-center text-gray-700">{item['DOI_HANG'] || '—'}</td>
+                      <td className="px-3 py-2 text-sm text-center text-gray-700">{item['DOI_HANG_KHO'] || '—'}</td>
                       <td className="px-3 py-2 text-sm text-center text-gray-700">{item['KHO_NHAP'] || '—'}</td>
                     </tr>
                   ))}

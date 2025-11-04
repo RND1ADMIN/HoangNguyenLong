@@ -28,6 +28,10 @@ const DMHHManagement = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [originalNhomHang, setOriginalNhomHang] = useState('');
 
+    // Thêm state cho filter
+    const [priceFilter, setPriceFilter] = useState('all'); // 'all', 'with-price', 'no-price'
+    const [stockFilter, setStockFilter] = useState('all'); // 'all', 'in-stock', 'out-of-stock'
+
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -44,12 +48,10 @@ const DMHHManagement = () => {
     };
 
     // Format date
-    // Sửa lại hàm formatDate để xử lý đúng kiểu date
     const formatDate = (dateString) => {
         if (!dateString) return 'N/A';
         try {
             const date = new Date(dateString);
-            // Kiểm tra date có hợp lệ không
             if (isNaN(date.getTime())) return 'N/A';
 
             return date.toLocaleDateString('vi-VN', {
@@ -61,7 +63,6 @@ const DMHHManagement = () => {
             return 'N/A';
         }
     };
-
 
     // Tự động tạo NHOM_HANG từ các thông tin đã nhập
     const generateNhomHang = (day, rong, dai) => {
@@ -354,7 +355,7 @@ const DMHHManagement = () => {
         }
     };
 
-    // Sorting
+    // Sorting - CẬP NHẬT: Thêm sắp xếp theo tồn kho
     const requestSort = (key) => {
         let direction = 'ascending';
         if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -367,6 +368,13 @@ const DMHHManagement = () => {
         const sortableItems = [...dmhhItems];
         if (sortConfig.key) {
             sortableItems.sort((a, b) => {
+                // XỬ LÝ SẮP XẾP THEO TỒN KHO
+                if (sortConfig.key === 'TON_KHO') {
+                    const tonKhoA = getTonKhoByNhomHang(a['NHOM_HANG']);
+                    const tonKhoB = getTonKhoByNhomHang(b['NHOM_HANG']);
+                    return sortConfig.direction === 'ascending' ? tonKhoA - tonKhoB : tonKhoB - tonKhoA;
+                }
+
                 const keyA = a[sortConfig.key] || '';
                 const keyB = b[sortConfig.key] || '';
 
@@ -386,9 +394,9 @@ const DMHHManagement = () => {
             });
         }
         return sortableItems;
-    }, [dmhhItems, sortConfig]);
+    }, [dmhhItems, sortConfig, tonKho]);
 
-    // Filtering
+    // Filtering - CẬP NHẬT: Thêm filter theo giá và tồn kho
     const filteredItems = getSortedItems().filter(item => {
         const matchesSearch =
             (item['NHOM_HANG']?.toLowerCase().includes(search.toLowerCase()) ||
@@ -396,7 +404,23 @@ const DMHHManagement = () => {
                 item['RONG']?.toString().includes(search) ||
                 item['DAI']?.toString().includes(search));
 
-        return matchesSearch;
+        // Filter theo giá
+        let matchesPriceFilter = true;
+        if (priceFilter === 'with-price') {
+            matchesPriceFilter = item['DONGIA_HIEULUC'] && item['DONGIA_HIEULUC'] > 0;
+        } else if (priceFilter === 'no-price') {
+            matchesPriceFilter = !item['DONGIA_HIEULUC'] || item['DONGIA_HIEULUC'] === 0;
+        }
+
+        // Filter theo tồn kho
+        let matchesStockFilter = true;
+        if (stockFilter === 'in-stock') {
+            matchesStockFilter = getTonKhoByNhomHang(item['NHOM_HANG']) > 0;
+        } else if (stockFilter === 'out-of-stock') {
+            matchesStockFilter = getTonKhoByNhomHang(item['NHOM_HANG']) === 0;
+        }
+
+        return matchesSearch && matchesPriceFilter && matchesStockFilter;
     });
 
     // Pagination logic
@@ -407,7 +431,7 @@ const DMHHManagement = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, itemsPerPage]);
+    }, [search, itemsPerPage, priceFilter, stockFilter]);
 
     // Pagination handlers
     const goToFirstPage = () => setCurrentPage(1);
@@ -461,6 +485,36 @@ const DMHHManagement = () => {
         toast.success('Đã tải lại dữ liệu thành công!');
     };
 
+    // XỬ LÝ CLICK VÀO STATISTIC CARDS
+    const handleStatisticCardClick = (filterType) => {
+        // Reset các filter khác
+        if (filterType === 'all') {
+            setPriceFilter('all');
+            setStockFilter('all');
+            setSortConfig({ key: null, direction: 'ascending' });
+        } else if (filterType === 'with-price') {
+            setPriceFilter('with-price');
+            setStockFilter('all');
+        } else if (filterType === 'no-price') {
+            setPriceFilter('no-price');
+            setStockFilter('all');
+        } else if (filterType === 'in-stock') {
+            setPriceFilter('all');
+            setStockFilter('in-stock');
+        }
+
+        // Hiển thị filters nếu đang ẩn
+        if (!showFilters) {
+            setShowFilters(true);
+        }
+
+        toast.info(`Đã lọc theo: ${filterType === 'all' ? 'Tất cả' :
+                filterType === 'with-price' ? 'Có giá hiệu lực' :
+                    filterType === 'no-price' ? 'Chưa có giá' :
+                        'Có tồn kho'
+            }`);
+    };
+
     const tongKienTon = tonKho.filter(item => item['NGHIEP_VU'] === 'NHAP').length;
 
     return (
@@ -509,7 +563,7 @@ const DMHHManagement = () => {
 
                     {/* Search and Filter Section */}
                     {showFilters && (
-                        <div className="mb-3 animate-fadeIn">
+                        <div className="mb-3 animate-fadeIn space-y-3">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <input
@@ -520,12 +574,97 @@ const DMHHManagement = () => {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
+
+                            {/* Bộ lọc nâng cao */}
+                            <div className="flex flex-wrap gap-2">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-600">Giá:</span>
+                                    <button
+                                        onClick={() => setPriceFilter('all')}
+                                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${priceFilter === 'all'
+                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        Tất cả
+                                    </button>
+                                    <button
+                                        onClick={() => setPriceFilter('with-price')}
+                                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${priceFilter === 'with-price'
+                                                ? 'bg-green-600 text-white shadow-sm'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        Có giá
+                                    </button>
+                                    <button
+                                        onClick={() => setPriceFilter('no-price')}
+                                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${priceFilter === 'no-price'
+                                                ? 'bg-orange-600 text-white shadow-sm'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        Chưa có giá
+                                    </button>
+                                </div>
+
+                                <div className="h-6 w-px bg-gray-300"></div>
+
+                                <div className="flex items-center gap-2">
+                                    <span className="text-xs font-medium text-gray-600">Tồn kho:</span>
+                                    <button
+                                        onClick={() => setStockFilter('all')}
+                                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${stockFilter === 'all'
+                                                ? 'bg-blue-600 text-white shadow-sm'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        Tất cả
+                                    </button>
+                                    <button
+                                        onClick={() => setStockFilter('in-stock')}
+                                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${stockFilter === 'in-stock'
+                                                ? 'bg-purple-600 text-white shadow-sm'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        Còn hàng
+                                    </button>
+                                    <button
+                                        onClick={() => setStockFilter('out-of-stock')}
+                                        className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${stockFilter === 'out-of-stock'
+                                                ? 'bg-gray-600 text-white shadow-sm'
+                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            }`}
+                                    >
+                                        Hết hàng
+                                    </button>
+                                </div>
+
+                                {(priceFilter !== 'all' || stockFilter !== 'all') && (
+                                    <button
+                                        onClick={() => {
+                                            setPriceFilter('all');
+                                            setStockFilter('all');
+                                            toast.info('Đã xóa bộ lọc');
+                                        }}
+                                        className="px-3 py-1 rounded-lg text-xs font-medium bg-red-100 text-red-600 hover:bg-red-200 transition-all flex items-center gap-1"
+                                    >
+                                        <X className="w-3 h-3" />
+                                        Xóa bộ lọc
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     )}
 
-                    {/* Statistics cards */}
+                    {/* Statistics cards - CẬP NHẬT: Thêm onClick */}
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
-                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 shadow-sm">
+                        <div
+                            onClick={() => handleStatisticCardClick('all')}
+                            className={`bg-gradient-to-br from-blue-50 to-blue-100 border-2 rounded-lg p-3 shadow-sm cursor-pointer transition-all hover:shadow-md hover:scale-105 ${priceFilter === 'all' && stockFilter === 'all' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-200'
+                                }`}
+                        >
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h3 className="text-xs font-medium text-blue-700 mb-0.5">Tổng số hàng hóa</h3>
@@ -537,7 +676,11 @@ const DMHHManagement = () => {
                             </div>
                         </div>
 
-                        <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-3 shadow-sm">
+                        <div
+                            onClick={() => handleStatisticCardClick('with-price')}
+                            className={`bg-gradient-to-br from-green-50 to-green-100 border-2 rounded-lg p-3 shadow-sm cursor-pointer transition-all hover:shadow-md hover:scale-105 ${priceFilter === 'with-price' ? 'border-green-500 ring-2 ring-green-200' : 'border-green-200'
+                                }`}
+                        >
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h3 className="text-xs font-medium text-green-700 mb-0.5">Có giá hiệu lực</h3>
@@ -553,7 +696,11 @@ const DMHHManagement = () => {
                             </div>
                         </div>
 
-                        <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-3 shadow-sm">
+                        <div
+                            onClick={() => handleStatisticCardClick('no-price')}
+                            className={`bg-gradient-to-br from-orange-50 to-orange-100 border-2 rounded-lg p-3 shadow-sm cursor-pointer transition-all hover:shadow-md hover:scale-105 ${priceFilter === 'no-price' ? 'border-orange-500 ring-2 ring-orange-200' : 'border-orange-200'
+                                }`}
+                        >
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h3 className="text-xs font-medium text-orange-700 mb-0.5">Chưa có giá</h3>
@@ -569,12 +716,15 @@ const DMHHManagement = () => {
                             </div>
                         </div>
 
-                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3 shadow-sm">
+                        <div
+                            onClick={() => handleStatisticCardClick('in-stock')}
+                            className={`bg-gradient-to-br from-purple-50 to-purple-100 border-2 rounded-lg p-3 shadow-sm cursor-pointer transition-all hover:shadow-md hover:scale-105 ${stockFilter === 'in-stock' ? 'border-purple-500 ring-2 ring-purple-200' : 'border-purple-200'
+                                }`}
+                        >
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h3 className="text-xs font-medium text-purple-700 mb-0.5">Tổng tồn kho</h3>
                                     <p className="text-2xl font-bold text-purple-900">{tongKienTon} <span className="text-xs text-purple-600 mt-0.5">kiện</span></p>
-
                                 </div>
                                 <div className="p-2 bg-purple-200 rounded-lg">
                                     <Archive className="w-5 h-5 text-purple-700" />
@@ -652,8 +802,13 @@ const DMHHManagement = () => {
                                                 Đơn giá hiệu lực {getSortIcon('DONGIA_HIEULUC')}
                                             </div>
                                         </th>
-                                        <th scope="col" className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider text-center">
-                                            Tồn kho
+                                        {/* CẬP NHẬT: Thêm onClick cho cột tồn kho */}
+                                        <th scope="col"
+                                            className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider text-center cursor-pointer hover:bg-gray-200 transition-colors"
+                                            onClick={() => requestSort('TON_KHO')}>
+                                            <div className="flex items-center justify-center gap-1">
+                                                Tồn kho {getSortIcon('TON_KHO')}
+                                            </div>
                                         </th>
                                         <th scope="col" className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider text-center">
                                             Thao tác
@@ -958,10 +1113,10 @@ const DMHHManagement = () => {
                                                             <td className="px-3 py-2 text-xs">
                                                                 {kien['CHATLUONG'] ? (
                                                                     <span className={`px-2 py-1 rounded text-xs font-medium ${kien['CHATLUONG'] === 'TỐT'
-                                                                            ? 'bg-green-100 text-green-800'
-                                                                            : kien['CHATLUONG'] === 'TRUNG BÌNH'
-                                                                                ? 'bg-yellow-100 text-yellow-800'
-                                                                                : 'bg-red-100 text-red-800'
+                                                                        ? 'bg-green-100 text-green-800'
+                                                                        : kien['CHATLUONG'] === 'TRUNG BÌNH'
+                                                                            ? 'bg-yellow-100 text-yellow-800'
+                                                                            : 'bg-red-100 text-red-800'
                                                                         }`}>
                                                                         {kien['CHATLUONG']}
                                                                     </span>
@@ -1018,8 +1173,6 @@ const DMHHManagement = () => {
                                     </div>
                                 </div>
                             )}
-
-
 
                             {getTonKhoByNhomHang(selectedItemDetail['NHOM_HANG']) === 0 && (
                                 <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-6 text-center">
