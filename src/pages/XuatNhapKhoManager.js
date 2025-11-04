@@ -2039,7 +2039,7 @@ const XuatNhapKhoManagement = () => {
                                       value={item['DOI_HANG_KHO'] || ''}
                                       onChange={(e) => handleUpdateChiTietField(index, 'DOI_HANG_KHO', e.target.value)}
                                       disabled={isSubmitting}
-                                      className="w-full px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
+                                      className="px-1.5 py-0.5 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-transparent"
                                       placeholder="Đội hàng khô"
                                     />
                                   </td>
