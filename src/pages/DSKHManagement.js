@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, Filter, X, Users, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Phone, Mail, Building, CreditCard, User, Briefcase, Calendar } from 'lucide-react';
+import { Plus, Edit, Trash, Search, Filter, X, Users, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Phone, Mail, Building, CreditCard, User, Briefcase, Calendar, FileText, Loader } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
@@ -10,6 +10,7 @@ const DSKHManagement = () => {
     const [currentCustomer, setCurrentCustomer] = useState({
         'MA_KH': '',
         'TEN_KHACHHANG': '',
+        'TEN_VIET_TAT': '',
         'MST': '',
         'DIACHI': '',
         'SO_DT': '',
@@ -30,6 +31,7 @@ const DSKHManagement = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [originalMaKH, setOriginalMaKH] = useState('');
+    const [isLoadingMST, setIsLoadingMST] = useState(false);
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -43,6 +45,137 @@ const DSKHManagement = () => {
             return date.toLocaleDateString('vi-VN');
         } catch (error) {
             return dateString;
+        }
+    };
+
+    // Format date for input (YYYY-MM-DD)
+    const formatDateForInput = (dateString) => {
+        if (!dateString) return '';
+        try {
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        } catch (error) {
+            return '';
+        }
+    };
+
+    // Fetch company info by MST
+    const fetchCompanyInfoByMST = async (mst) => {
+        if (!mst || mst.length < 10) {
+            return null;
+        }
+
+        setIsLoadingMST(true);
+
+        try {
+            // API 1: Sử dụng API tra cứu MST công khai
+            const response = await fetch(`https://api.vietqr.io/v2/business/${mst}`);
+
+            if (response.ok) {
+                const data = await response.json();
+
+                if (data.code === '00' && data.data) {
+                    const companyData = data.data;
+
+                    // Tạo tên viết tắt từ tên công ty
+                    const generateAcronym = (name) => {
+                        if (!name) return '';
+
+                        // Loại bỏ các từ phổ biến
+                        const excludeWords = ['công', 'ty', 'tnhh', 'cổ', 'phần', 'trách', 'nhiệm', 'hữu', 'hạn', 'một', 'thành', 'viên'];
+
+                        const words = name
+                            .toLowerCase()
+                            .normalize("NFD")
+                            .replace(/[\u0300-\u036f]/g, "") // Bỏ dấu
+                            .replace(/[^a-z0-9\s]/g, '') // Chỉ giữ chữ và số
+                            .split(' ')
+                            .filter(word => word && !excludeWords.includes(word));
+
+                        // Lấy chữ cái đầu của mỗi từ
+                        return words.map(word => word[0]).join('').toUpperCase();
+                    };
+
+                    return {
+                        'TEN_KHACHHANG': companyData.name || '',
+                        'TEN_VIET_TAT': generateAcronym(companyData.name || companyData.shortName || ''),
+                        'DIACHI': companyData.address || '',
+                        'NGUOI_DAIDIEN': companyData.representative || '',
+                        'NGAY_THANHLAP': companyData.establishDate ? formatDateForInput(companyData.establishDate) : ''
+                    };
+                }
+            }
+
+            // API 2: Backup API (nếu API 1 không hoạt động)
+            const response2 = await fetch(`https://api.tracuunnt.com/api/v1/company/search?mst=${mst}`);
+
+            if (response2.ok) {
+                const data2 = await response2.json();
+
+                if (data2.success && data2.data) {
+                    const companyData = data2.data;
+
+                    const generateAcronym = (name) => {
+                        if (!name) return '';
+                        const excludeWords = ['công', 'ty', 'tnhh', 'cổ', 'phần', 'trách', 'nhiệm', 'hữu', 'hạn', 'một', 'thành', 'viên'];
+                        const words = name
+                            .toLowerCase()
+                            .normalize("NFD")
+                            .replace(/[\u0300-\u036f]/g, "")
+                            .replace(/[^a-z0-9\s]/g, '')
+                            .split(' ')
+                            .filter(word => word && !excludeWords.includes(word));
+                        return words.map(word => word[0]).join('').toUpperCase();
+                    };
+
+                    return {
+                        'TEN_KHACHHANG': companyData.ten || companyData.name || '',
+                        'TEN_VIET_TAT': generateAcronym(companyData.ten || companyData.name || ''),
+                        'DIACHI': companyData.dia_chi || companyData.address || '',
+                        'NGUOI_DAIDIEN': companyData.nguoi_dai_dien || companyData.representative || '',
+                        'NGAY_THANHLAP': companyData.ngay_thanh_lap ? formatDateForInput(companyData.ngay_thanh_lap) : ''
+                    };
+                }
+            }
+
+            return null;
+        } catch (error) {
+            console.error('Error fetching company info:', error);
+            return null;
+        } finally {
+            setIsLoadingMST(false);
+        }
+    };
+
+    // Handle MST input change with debounce
+    const handleMSTChange = async (value) => {
+        handleInputChange('MST', value);
+
+        // Chỉ tra cứu khi MST đủ độ dài (10-14 ký tự)
+        if (value.length >= 10 && value.length <= 14) {
+            toast.info('Đang tra cứu thông tin doanh nghiệp...', { autoClose: 1000 });
+
+            const companyInfo = await fetchCompanyInfoByMST(value);
+
+            if (companyInfo) {
+                // Chỉ cập nhật các trường trống
+                setCurrentCustomer(prev => ({
+                    ...prev,
+                    'MST': value,
+                    'TEN_KHACHHANG': prev['TEN_KHACHHANG'] || companyInfo['TEN_KHACHHANG'],
+                    'TEN_VIET_TAT': prev['TEN_VIET_TAT'] || companyInfo['TEN_VIET_TAT'],
+                    'DIACHI': prev['DIACHI'] || companyInfo['DIACHI'],
+                    'NGUOI_DAIDIEN': prev['NGUOI_DAIDIEN'] || companyInfo['NGUOI_DAIDIEN'],
+                    'NGAY_THANHLAP': prev['NGAY_THANHLAP'] || companyInfo['NGAY_THANHLAP']
+                }));
+
+                toast.success('Đã tìm thấy thông tin doanh nghiệp!');
+            } else {
+                toast.warning('Không tìm thấy thông tin doanh nghiệp với MST này');
+            }
         }
     };
 
@@ -72,6 +205,7 @@ const DSKHManagement = () => {
             setCurrentCustomer({
                 'MA_KH': customer['MA_KH'] || '',
                 'TEN_KHACHHANG': customer['TEN_KHACHHANG'] || '',
+                'TEN_VIET_TAT': customer['TEN_VIET_TAT'] || '',
                 'MST': customer['MST'] || '',
                 'DIACHI': customer['DIACHI'] || '',
                 'SO_DT': customer['SO_DT'] || '',
@@ -88,6 +222,7 @@ const DSKHManagement = () => {
             setCurrentCustomer({
                 'MA_KH': '',
                 'TEN_KHACHHANG': '',
+                'TEN_VIET_TAT': '',
                 'MST': '',
                 'DIACHI': '',
                 'SO_DT': '',
@@ -109,6 +244,7 @@ const DSKHManagement = () => {
         setCurrentCustomer({
             'MA_KH': '',
             'TEN_KHACHHANG': '',
+            'TEN_VIET_TAT': '',
             'MST': '',
             'DIACHI': '',
             'SO_DT': '',
@@ -131,11 +267,11 @@ const DSKHManagement = () => {
 
     const validateCustomer = (customer) => {
         const errors = [];
-        
+
         if (!customer['MA_KH']) {
             errors.push('Mã khách hàng không được để trống');
         }
-        
+
         if (!customer['TEN_KHACHHANG']) {
             errors.push('Tên khách hàng không được để trống');
         }
@@ -163,7 +299,7 @@ const DSKHManagement = () => {
                     const existingCustomer = customers.find(
                         c => c['MA_KH'] === customerToSave['MA_KH']
                     );
-                    
+
                     if (existingCustomer) {
                         toast.error('Mã khách hàng mới này đã tồn tại!');
                         setIsSubmitting(false);
@@ -173,7 +309,7 @@ const DSKHManagement = () => {
                     await authUtils.apiRequestKHO('DSKH', 'Delete', {
                         "Rows": [{ "MA_KH": originalMaKH }]
                     });
-                    
+
                     await authUtils.apiRequestKHO('DSKH', 'Add', {
                         "Rows": [customerToSave]
                     });
@@ -188,7 +324,7 @@ const DSKHManagement = () => {
                 const existingCustomer = customers.find(
                     c => c['MA_KH'] === customerToSave['MA_KH']
                 );
-                
+
                 if (existingCustomer) {
                     toast.error('Mã khách hàng này đã tồn tại!');
                     setIsSubmitting(false);
@@ -272,6 +408,7 @@ const DSKHManagement = () => {
         return (
             customer['MA_KH']?.toLowerCase().includes(searchLower) ||
             customer['TEN_KHACHHANG']?.toLowerCase().includes(searchLower) ||
+            customer['TEN_VIET_TAT']?.toLowerCase().includes(searchLower) ||
             customer['MST']?.toLowerCase().includes(searchLower) ||
             customer['DIACHI']?.toLowerCase().includes(searchLower) ||
             customer['SO_DT']?.includes(search) ||
@@ -302,7 +439,7 @@ const DSKHManagement = () => {
     const getPageNumbers = () => {
         const pages = [];
         const maxPagesToShow = 5;
-        
+
         if (totalPages <= maxPagesToShow) {
             for (let i = 1; i <= totalPages; i++) {
                 pages.push(i);
@@ -324,7 +461,7 @@ const DSKHManagement = () => {
                 pages.push(totalPages);
             }
         }
-        
+
         return pages;
     };
 
@@ -333,8 +470,8 @@ const DSKHManagement = () => {
         if (sortConfig.key !== key) {
             return <span className="text-gray-400 ml-1">⇅</span>;
         }
-        return sortConfig.direction === 'ascending' ? 
-            <span className="text-blue-600 ml-1">↑</span> : 
+        return sortConfig.direction === 'ascending' ?
+            <span className="text-blue-600 ml-1">↑</span> :
             <span className="text-blue-600 ml-1">↓</span>;
     };
 
@@ -371,11 +508,10 @@ const DSKHManagement = () => {
                             </button>
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
-                                className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm hover:shadow text-sm ${
-                                    showFilters 
-                                        ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                                className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm hover:shadow text-sm ${showFilters
+                                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
                                         : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                                }`}
+                                    }`}
                             >
                                 <Filter className="w-4 h-4" />
                                 {showFilters ? "Ẩn tìm kiếm" : "Tìm kiếm"}
@@ -397,7 +533,7 @@ const DSKHManagement = () => {
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <input
                                     type="text"
-                                    placeholder="Tìm kiếm theo mã KH, tên, MST, địa chỉ, SĐT..."
+                                    placeholder="Tìm kiếm theo mã KH, tên, tên viết tắt, MST, địa chỉ, SĐT..."
                                     className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-sm text-sm"
                                     value={search}
                                     onChange={(e) => setSearch(e.target.value)}
@@ -488,6 +624,9 @@ const DSKHManagement = () => {
                                         <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('TEN_KHACHHANG')}>
                                             <div className="flex items-center gap-1">Tên KH {getSortIcon('TEN_KHACHHANG')}</div>
                                         </th>
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('TEN_VIET_TAT')}>
+                                            <div className="flex items-center gap-1">Tên viết tắt {getSortIcon('TEN_VIET_TAT')}</div>
+                                        </th>
                                         <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('MST')}>
                                             <div className="flex items-center gap-1">MST {getSortIcon('MST')}</div>
                                         </th>
@@ -508,6 +647,13 @@ const DSKHManagement = () => {
                                                 </td>
                                                 <td className="px-3 py-2 text-sm font-medium text-gray-900 max-w-[200px] truncate">
                                                     {customer['TEN_KHACHHANG']}
+                                                </td>
+                                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
+                                                    {customer['TEN_VIET_TAT'] ? (
+                                                        <span className="px-2 py-1 bg-gradient-to-r from-amber-100 to-amber-200 text-amber-800 rounded text-xs font-semibold">
+                                                            {customer['TEN_VIET_TAT']}
+                                                        </span>
+                                                    ) : '—'}
                                                 </td>
                                                 <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
                                                     {customer['MST'] || '—'}
@@ -543,7 +689,7 @@ const DSKHManagement = () => {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan="7" className="px-6 py-12 text-center">
+                                            <td colSpan="8" className="px-6 py-12 text-center">
                                                 <div className="flex flex-col items-center justify-center text-gray-500">
                                                     <Users className="w-16 h-16 text-gray-300 mb-4" />
                                                     <p className="text-lg font-medium">Không tìm thấy khách hàng nào</p>
@@ -571,10 +717,15 @@ const DSKHManagement = () => {
                                 <div key={customer['MA_KH']} className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
+                                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                 <span className="px-2 py-0.5 bg-gradient-to-r from-indigo-100 to-indigo-200 text-indigo-800 rounded text-xs font-semibold">
                                                     {customer['MA_KH']}
                                                 </span>
+                                                {customer['TEN_VIET_TAT'] && (
+                                                    <span className="px-2 py-0.5 bg-gradient-to-r from-amber-100 to-amber-200 text-amber-800 rounded text-xs font-semibold">
+                                                        {customer['TEN_VIET_TAT']}
+                                                    </span>
+                                                )}
                                             </div>
                                             <h3 className="font-semibold text-gray-900 text-sm">{customer['TEN_KHACHHANG']}</h3>
                                         </div>
@@ -593,7 +744,7 @@ const DSKHManagement = () => {
                                             </button>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="space-y-1.5 text-xs text-gray-600">
                                         {customer['MST'] && (
                                             <div className="flex items-center gap-2">
@@ -640,12 +791,12 @@ const DSKHManagement = () => {
                             <div className="text-xs text-gray-600">
                                 Trang <span className="font-semibold text-gray-800">{currentPage}</span> / <span className="font-semibold text-gray-800">{totalPages}</span>
                             </div>
-                            
+
                             <div className="flex items-center gap-1">
                                 <button onClick={goToFirstPage} disabled={currentPage === 1} className={`p-1.5 rounded-lg border transition-all ${currentPage === 1 ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
                                     <ChevronsLeft className="w-4 h-4" />
                                 </button>
-                                
+
                                 <button onClick={goToPrevPage} disabled={currentPage === 1} className={`p-1.5 rounded-lg border transition-all ${currentPage === 1 ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
                                     <ChevronLeft className="w-4 h-4" />
                                 </button>
@@ -658,11 +809,10 @@ const DSKHManagement = () => {
                                             <button
                                                 key={page}
                                                 onClick={() => goToPage(page)}
-                                                className={`min-w-[32px] px-2 py-1 rounded-lg border font-medium transition-all text-xs ${
-                                                    currentPage === page
+                                                className={`min-w-[32px] px-2 py-1 rounded-lg border font-medium transition-all text-xs ${currentPage === page
                                                         ? 'bg-blue-600 text-white border-blue-600 shadow-md'
                                                         : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                                                }`}
+                                                    }`}
                                             >
                                                 {page}
                                             </button>
@@ -673,7 +823,7 @@ const DSKHManagement = () => {
                                 <button onClick={goToNextPage} disabled={currentPage === totalPages} className={`p-1.5 rounded-lg border transition-all ${currentPage === totalPages ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
                                     <ChevronRight className="w-4 h-4" />
                                 </button>
-                                
+
                                 <button onClick={goToLastPage} disabled={currentPage === totalPages} className={`p-1.5 rounded-lg border transition-all ${currentPage === totalPages ? 'border-gray-200 text-gray-400 cursor-not-allowed' : 'border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
                                     <ChevronsRight className="w-4 h-4" />
                                 </button>
@@ -722,6 +872,29 @@ const DSKHManagement = () => {
                                     </div>
 
                                     <div>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-2">
+                                            Mã số thuế
+                                            <span className="text-xs text-blue-600 font-normal italic">(Tự động tra cứu)</span>
+                                        </label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={currentCustomer['MST']}
+                                                onChange={(e) => handleMSTChange(e.target.value)}
+                                                className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm pr-10"
+                                                placeholder="Nhập MST để tra cứu"
+                                                maxLength="14"
+                                            />
+                                            {isLoadingMST && (
+                                                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                                                    <Loader className="w-4 h-4 text-blue-600 animate-spin" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">💡 Nhập MST (10-14 số) để tự động điền thông tin</p>
+                                    </div>
+
+                                    <div>
                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                             Tên khách hàng <span className="text-red-500">*</span>
                                         </label>
@@ -735,15 +908,16 @@ const DSKHManagement = () => {
                                     </div>
 
                                     <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                            Mã số thuế
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
+                                            <FileText className="w-3.5 h-3.5 text-amber-500" />
+                                            Tên viết tắt
                                         </label>
                                         <input
                                             type="text"
-                                            value={currentCustomer['MST']}
-                                            onChange={(e) => handleInputChange('MST', e.target.value)}
+                                            value={currentCustomer['TEN_VIET_TAT']}
+                                            onChange={(e) => handleInputChange('TEN_VIET_TAT', e.target.value)}
                                             className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-                                            placeholder="Nhập MST"
+                                            placeholder="Nhập tên viết tắt"
                                         />
                                     </div>
 
@@ -760,6 +934,18 @@ const DSKHManagement = () => {
                                         />
                                     </div>
 
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                            Ngày thành lập
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={currentCustomer['NGAY_THANHLAP']}
+                                            onChange={(e) => handleInputChange('NGAY_THANHLAP', e.target.value)}
+                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                                        />
+                                    </div>
+
                                     <div className="md:col-span-2">
                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
                                             Địa chỉ
@@ -770,18 +956,6 @@ const DSKHManagement = () => {
                                             className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                                             placeholder="Nhập địa chỉ"
                                             rows="2"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                            Ngày thành lập
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={currentCustomer['NGAY_THANHLAP']}
-                                            onChange={(e) => handleInputChange('NGAY_THANHLAP', e.target.value)}
-                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
                                         />
                                     </div>
                                 </div>
@@ -943,6 +1117,14 @@ const DSKHManagement = () => {
                                         <span className="font-semibold min-w-[80px]">Tên:</span>
                                         <span>{customerToDelete['TEN_KHACHHANG']}</span>
                                     </p>
+                                    {customerToDelete['TEN_VIET_TAT'] && (
+                                        <p className="text-xs text-gray-700 flex items-center gap-2">
+                                            <span className="font-semibold min-w-[80px]">Tên viết tắt:</span>
+                                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs font-medium">
+                                                {customerToDelete['TEN_VIET_TAT']}
+                                            </span>
+                                        </p>
+                                    )}
                                     {customerToDelete['MST'] && (
                                         <p className="text-xs text-gray-700 flex items-center gap-2">
                                             <span className="font-semibold min-w-[80px]">MST:</span>
@@ -1033,3 +1215,4 @@ const DSKHManagement = () => {
 };
 
 export default DSKHManagement;
+
