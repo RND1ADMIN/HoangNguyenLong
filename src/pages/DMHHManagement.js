@@ -355,7 +355,7 @@ const DMHHManagement = () => {
         }
     };
 
-    // Sorting - CẬP NHẬT: Thêm sắp xếp theo tồn kho
+    // Sorting
     const requestSort = (key) => {
         let direction = 'ascending';
         if (sortConfig.key === key && sortConfig.direction === 'ascending') {
@@ -396,7 +396,7 @@ const DMHHManagement = () => {
         return sortableItems;
     }, [dmhhItems, sortConfig, tonKho]);
 
-    // Filtering - CẬP NHẬT: Thêm filter theo giá và tồn kho
+    // Filtering
     const filteredItems = getSortedItems().filter(item => {
         const matchesSearch =
             (item['NHOM_HANG']?.toLowerCase().includes(search.toLowerCase()) ||
@@ -509,13 +509,48 @@ const DMHHManagement = () => {
         }
 
         toast.info(`Đã lọc theo: ${filterType === 'all' ? 'Tất cả' :
-                filterType === 'with-price' ? 'Có giá hiệu lực' :
-                    filterType === 'no-price' ? 'Chưa có giá' :
-                        'Có tồn kho'
+            filterType === 'with-price' ? 'Có giá hiệu lực' :
+                filterType === 'no-price' ? 'Chưa có giá' :
+                    'Có tồn kho'
             }`);
     };
 
-    const tongKienTon = tonKho.filter(item => item['NGHIEP_VU'] === 'NHAP').length;
+    // TÍNH TOÁN THỐNG KÊ THEO BỘ LỌC
+    const getFilteredStatistics = () => {
+        // Tổng số hàng hóa sau khi lọc
+        const totalItems = filteredItems.length;
+
+        // Số hàng hóa có giá sau khi lọc
+        const itemsWithPrice = filteredItems.filter(item =>
+            item['DONGIA_HIEULUC'] && item['DONGIA_HIEULUC'] > 0
+        ).length;
+
+        // Số hàng hóa chưa có giá sau khi lọc
+        const itemsWithoutPrice = filteredItems.filter(item =>
+            !item['DONGIA_HIEULUC'] || item['DONGIA_HIEULUC'] === 0
+        ).length;
+
+        // Tính tổng số kiện tồn và tổng m³ theo bộ lọc
+        let totalKienTon = 0;
+        let totalKhoiLuong = 0;
+
+        filteredItems.forEach(item => {
+            const soKien = getTonKhoByNhomHang(item['NHOM_HANG']);
+            const khoiLuong = getTongKhoiLuongTon(item['NHOM_HANG']);
+            totalKienTon += soKien;
+            totalKhoiLuong += khoiLuong;
+        });
+
+        return {
+            totalItems,
+            itemsWithPrice,
+            itemsWithoutPrice,
+            totalKienTon,
+            totalKhoiLuong
+        };
+    };
+
+    const statistics = getFilteredStatistics();
 
     return (
         <div className="p-3 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
@@ -582,8 +617,8 @@ const DMHHManagement = () => {
                                     <button
                                         onClick={() => setPriceFilter('all')}
                                         className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${priceFilter === 'all'
-                                                ? 'bg-blue-600 text-white shadow-sm'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            ? 'bg-blue-600 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         Tất cả
@@ -591,8 +626,8 @@ const DMHHManagement = () => {
                                     <button
                                         onClick={() => setPriceFilter('with-price')}
                                         className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${priceFilter === 'with-price'
-                                                ? 'bg-green-600 text-white shadow-sm'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            ? 'bg-green-600 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         Có giá
@@ -600,8 +635,8 @@ const DMHHManagement = () => {
                                     <button
                                         onClick={() => setPriceFilter('no-price')}
                                         className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${priceFilter === 'no-price'
-                                                ? 'bg-orange-600 text-white shadow-sm'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            ? 'bg-orange-600 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         Chưa có giá
@@ -615,8 +650,8 @@ const DMHHManagement = () => {
                                     <button
                                         onClick={() => setStockFilter('all')}
                                         className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${stockFilter === 'all'
-                                                ? 'bg-blue-600 text-white shadow-sm'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            ? 'bg-blue-600 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         Tất cả
@@ -624,8 +659,8 @@ const DMHHManagement = () => {
                                     <button
                                         onClick={() => setStockFilter('in-stock')}
                                         className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${stockFilter === 'in-stock'
-                                                ? 'bg-purple-600 text-white shadow-sm'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            ? 'bg-purple-600 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         Còn hàng
@@ -633,8 +668,8 @@ const DMHHManagement = () => {
                                     <button
                                         onClick={() => setStockFilter('out-of-stock')}
                                         className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${stockFilter === 'out-of-stock'
-                                                ? 'bg-gray-600 text-white shadow-sm'
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                            ? 'bg-gray-600 text-white shadow-sm'
+                                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                             }`}
                                     >
                                         Hết hàng
@@ -658,8 +693,8 @@ const DMHHManagement = () => {
                         </div>
                     )}
 
-                    {/* Statistics cards - CẬP NHẬT: Thêm onClick */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+                    {/* Statistics cards - CẬP NHẬT: Hiển thị theo bộ lọc và thêm 2 cards mới */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-3">
                         <div
                             onClick={() => handleStatisticCardClick('all')}
                             className={`bg-gradient-to-br from-blue-50 to-blue-100 border-2 rounded-lg p-3 shadow-sm cursor-pointer transition-all hover:shadow-md hover:scale-105 ${priceFilter === 'all' && stockFilter === 'all' ? 'border-blue-500 ring-2 ring-blue-200' : 'border-blue-200'
@@ -667,8 +702,8 @@ const DMHHManagement = () => {
                         >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-xs font-medium text-blue-700 mb-0.5">Tổng số hàng hóa</h3>
-                                    <p className="text-2xl font-bold text-blue-900">{dmhhItems.length}</p>
+                                    <h3 className="text-xs font-medium text-blue-700 mb-0.5">Tổng hàng hóa</h3>
+                                    <p className="text-2xl font-bold text-blue-900">{statistics.totalItems}</p>
                                 </div>
                                 <div className="p-2 bg-blue-200 rounded-lg">
                                     <Package className="w-5 h-5 text-blue-700" />
@@ -684,9 +719,7 @@ const DMHHManagement = () => {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h3 className="text-xs font-medium text-green-700 mb-0.5">Có giá hiệu lực</h3>
-                                    <p className="text-2xl font-bold text-green-900">
-                                        {dmhhItems.filter(item => item['DONGIA_HIEULUC'] && item['DONGIA_HIEULUC'] > 0).length}
-                                    </p>
+                                    <p className="text-2xl font-bold text-green-900">{statistics.itemsWithPrice}</p>
                                 </div>
                                 <div className="p-2 bg-green-200 rounded-lg">
                                     <svg className="w-5 h-5 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -704,9 +737,7 @@ const DMHHManagement = () => {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <h3 className="text-xs font-medium text-orange-700 mb-0.5">Chưa có giá</h3>
-                                    <p className="text-2xl font-bold text-orange-900">
-                                        {dmhhItems.filter(item => !item['DONGIA_HIEULUC'] || item['DONGIA_HIEULUC'] === 0).length}
-                                    </p>
+                                    <p className="text-2xl font-bold text-orange-900">{statistics.itemsWithoutPrice}</p>
                                 </div>
                                 <div className="p-2 bg-orange-200 rounded-lg">
                                     <svg className="w-5 h-5 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -723,11 +754,47 @@ const DMHHManagement = () => {
                         >
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-xs font-medium text-purple-700 mb-0.5">Tổng tồn kho</h3>
-                                    <p className="text-2xl font-bold text-purple-900">{tongKienTon} <span className="text-xs text-purple-600 mt-0.5">kiện</span></p>
+                                    <h3 className="text-xs font-medium text-purple-700 mb-0.5">Loại có tồn</h3>
+                                    <p className="text-2xl font-bold text-purple-900">
+                                        {filteredItems.filter(item => getTonKhoByNhomHang(item['NHOM_HANG']) > 0).length}
+                                    </p>
                                 </div>
                                 <div className="p-2 bg-purple-200 rounded-lg">
                                     <Archive className="w-5 h-5 text-purple-700" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* CARD MỚI: Tổng số kiện tồn */}
+                        <div
+                            className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-2 border-indigo-200 rounded-lg p-3 shadow-sm transition-all hover:shadow-md hover:scale-105"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xs font-medium text-indigo-700 mb-0.5">Tổng kiện tồn</h3>
+                                    <p className="text-2xl font-bold text-indigo-900">{statistics.totalKienTon}</p>
+                                    <p className="text-xs text-indigo-600 mt-0.5">kiện</p>
+                                </div>
+                                <div className="p-2 bg-indigo-200 rounded-lg">
+                                    <Layers className="w-5 h-5 text-indigo-700" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* CARD MỚI: Tổng khối lượng (m³) */}
+                        <div
+                            className="bg-gradient-to-br from-teal-50 to-teal-100 border-2 border-teal-200 rounded-lg p-3 shadow-sm transition-all hover:shadow-md hover:scale-105"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xs font-medium text-teal-700 mb-0.5">Tổng khối lượng</h3>
+                                    <p className="text-2xl font-bold text-teal-900">{statistics.totalKhoiLuong.toFixed(2)}</p>
+                                    <p className="text-xs text-teal-600 mt-0.5">m³</p>
+                                </div>
+                                <div className="p-2 bg-teal-200 rounded-lg">
+                                    <svg className="w-5 h-5 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                    </svg>
                                 </div>
                             </div>
                         </div>
@@ -802,7 +869,6 @@ const DMHHManagement = () => {
                                                 Đơn giá hiệu lực {getSortIcon('DONGIA_HIEULUC')}
                                             </div>
                                         </th>
-                                        {/* CẬP NHẬT: Thêm onClick cho cột tồn kho */}
                                         <th scope="col"
                                             className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider text-center cursor-pointer hover:bg-gray-200 transition-colors"
                                             onClick={() => requestSort('TON_KHO')}>
@@ -1549,4 +1615,3 @@ const DMHHManagement = () => {
 };
 
 export default DMHHManagement;
-
