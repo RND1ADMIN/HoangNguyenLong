@@ -1088,7 +1088,7 @@ const DMHHManagement = () => {
                                                         <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Mã kiện</th>
                                                         <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Số thanh</th>
                                                         <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Số khối (m³)</th>
-                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Chất lượng</th>
+                                                        <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Tiêu chuẩn</th>
                                                         <th className="px-3 py-2 text-left text-xs font-bold text-purple-800 uppercase">Ngày nhập</th>
                                                     </tr>
                                                 </thead>
@@ -1111,14 +1111,14 @@ const DMHHManagement = () => {
                                                                 {parseFloat(kien['SO_KHOI'] || 0).toFixed(3)}
                                                             </td>
                                                             <td className="px-3 py-2 text-xs">
-                                                                {kien['CHATLUONG'] ? (
-                                                                    <span className={`px-2 py-1 rounded text-xs font-medium ${kien['CHATLUONG'] === 'TỐT'
+                                                                {kien['TIEU_CHUAN'] ? (
+                                                                    <span className={`px-2 py-1 rounded text-xs font-medium ${kien['TIEU_CHUAN'] === 'TỐT'
                                                                         ? 'bg-green-100 text-green-800'
-                                                                        : kien['CHATLUONG'] === 'TRUNG BÌNH'
+                                                                        : kien['TIEU_CHUAN'] === 'TRUNG BÌNH'
                                                                             ? 'bg-yellow-100 text-yellow-800'
                                                                             : 'bg-red-100 text-red-800'
                                                                         }`}>
-                                                                        {kien['CHATLUONG']}
+                                                                        {kien['TIEU_CHUAN']}
                                                                     </span>
                                                                 ) : (
                                                                     <span className="text-gray-400 italic">N/A</span>
