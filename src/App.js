@@ -11,17 +11,19 @@ import Profile from './pages/Profile';
 import Users from './pages/UserManagement';
 import ReportManagement from './pages/BaoCao';
 import TongHop from './pages/TongHop';
-import XuatNhapKhoForm from './pages/XuatNhapKhoForm';
+// import XuatNhapKhoForm from './pages/XuatNhapKhoForm';
 // import QuyCachManagement from './pages/QuyCachManagement';
+
 import GiaBanManagement from './pages/GiaBanManagement';
 import DMHHManagement from './pages/DMHHManagement';
 import DSKHManagement from './pages/DSKHManagement';
 import HopDongNguyenTacManagement from './pages/HopDongNguyenTacManagement';
 import XuatNhapKhoManager from './pages/XuatNhapKhoManager';
-import CongDoanManagement from './pages/CongDoan';
+
 import CongDoanDonGiaManagement from './pages/CongDoanDonGiaManagement';
 import PhanBoNhanSuManagement from './pages/PhanBoNhanSuManagement';
 import NhapBaoBiManagement from './pages/NhapBaoBiManagement';
+
 import BaoCaoMobie from './pages/BaoCaoMobie';
 import TonKhoManager from './pages/TonKhoManager';
 import Baocaoreport from './pages/Baocaoreport';
@@ -56,24 +58,25 @@ function App() {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/users" element={<Users />} />
-                  <Route path="/xuatnhapfrom" element={<XuatNhapKhoForm />} />
-                  <Route path="/xuatnhapfrom/:maPhieu" element={<XuatNhapKhoForm />} />
-                  {/* <Route path="/quycach" element={<QuyCachManagement />} /> */}
+                  {/* <Route path="/xuatnhapfrom" element={<XuatNhapKhoForm />} />
+                  <Route path="/xuatnhapfrom/:maPhieu" element={<XuatNhapKhoForm />} /> */}
+
                   <Route path="/giaban" element={<GiaBanManagement />} />
                   <Route path="/dmhh" element={<DMHHManagement />} />
                   <Route path="/dskh" element={<DSKHManagement />} />
                   <Route path="/hopdongnguyentac" element={<HopDongNguyenTacManagement />} />
                   <Route path="/xuatnhapkho" element={<XuatNhapKhoManager />} />
                   <Route path="/tonkho" element={<TonKhoManager />} />
+                  <Route path="/makien" element={<TheKhoManagement />} />
+                  
                   <Route path="/baocaoreport" element={<Baocaoreport />} />
                   <Route path="/nhapbaobi" element={<NhapBaoBiManagement />} />
-                  {/* <Route path="/congdoan" element={<CongDoanManagement />} /> */}
                   <Route path="/congdoan_dongia" element={<CongDoanDonGiaManagement />} />
                   <Route path="/phanbonhansu" element={<PhanBoNhanSuManagement />} />
                   <Route path="/report" element={<ReportManagement />} />
                   <Route path="/tonghop" element={<TongHop />} />
                   <Route path="/reportMobile" element={<BaoCaoMobie />} />
-                  <Route path="/makien" element={<TheKhoManagement />} />
+                  
 
 
 

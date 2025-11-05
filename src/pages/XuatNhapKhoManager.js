@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Plus, Edit, Trash, Search, Filter, X, Package, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Calendar, TrendingUp, TrendingDown, DollarSign, Weight, FileText, ChevronDown, Save, Minus, AlertCircle, Eye, Printer } from 'lucide-react';
+import { Plus, Edit, Trash, Search, Filter, X, Package, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Calendar, TrendingUp, TrendingDown, DollarSign, Weight, FileText, ChevronDown, Save, Minus, AlertCircle, Eye, Printer, Upload, Download, FileSpreadsheet, CheckCircle, XCircle } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 
 const XuatNhapKhoManagement = () => {
   // State Management
@@ -50,6 +52,14 @@ const XuatNhapKhoManagement = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [originalSoPhieu, setOriginalSoPhieu] = useState('');
 
+  // Import/Export states
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const [importPreview, setImportPreview] = useState([]);
+  const [importNghiepVu, setImportNghiepVu] = useState('NHAP');
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef(null);
+
   // Autocomplete states
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -70,6 +80,423 @@ const XuatNhapKhoManagement = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // ==================== EXCEL FUNCTIONS ====================
+
+  // Hàm chuyển đổi ngày từ DD/MM/YYYY sang YYYY-MM-DD
+  const convertDateDDMMYYYYtoYYYYMMDD = (dateStr) => {
+    if (!dateStr) return new Date().toISOString().split('T')[0];
+
+    const dateString = dateStr.toString().trim();
+
+    // Nếu đã là format YYYY-MM-DD
+    if (dateString.includes('-') && dateString.split('-')[0].length === 4) {
+      return dateString;
+    }
+
+    // Chuyển từ DD/MM/YYYY sang YYYY-MM-DD
+    const parts = dateString.split('/');
+    if (parts.length === 3) {
+      const day = parts[0].padStart(2, '0');
+      const month = parts[1].padStart(2, '0');
+      const year = parts[2];
+      return `${year}-${month}-${day}`;
+    }
+
+    return new Date().toISOString().split('T')[0];
+  };
+
+  // Hàm chuyển đổi ngày từ YYYY-MM-DD sang DD/MM/YYYY
+  const convertDateYYYYMMDDtoDDMMYYYY = (dateStr) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Hàm tính m³ từ Dày, Rộng, Dài, Số thanh
+  const calculateM3 = (day, rong, dai, soThanh) => {
+    const dayNum = parseFloat(day) || 0;
+    const rongNum = parseFloat(rong) || 0;
+    const daiNum = parseFloat(dai) || 0;
+    const soThanhNum = parseFloat(soThanh) || 0;
+
+    // Công thức: (Dày * Rộng * Dài * Số thanh) / 1,000,000,000
+    return (dayNum * rongNum * daiNum * soThanhNum) / 1000000000;
+  };
+
+  // Hàm xuất Excel mẫu - CẢI TIẾN: 2 sheet riêng cho Nhập và Xuất
+  const handleExportTemplate = () => {
+    // Template cho NHẬP KHO
+    const templateNhapData = [
+      {
+        'Ngày (DD/MM/YYYY)': '01/01/2024',
+        'NCC/Khách hàng': 'Công ty ABC',
+        'Kho': 'KHO A',
+        'Người phụ trách': 'Nguyễn Văn A',
+        'Nhóm hàng': 'GỖ CAO SU',
+        'Dày (mm)': 25,
+        'Rộng (mm)': 100,
+        'Dài (mm)': 2400,
+        'Số thanh': 50,
+        'Tiêu chuẩn': 'A',
+        'Đội hàng khô': 'Đội 1',
+        'Diễn giải': 'Ghi chú'
+      },
+      {
+        'Ngày (DD/MM/YYYY)': '01/01/2024',
+        'NCC/Khách hàng': 'Công ty ABC',
+        'Kho': 'KHO A',
+        'Người phụ trách': 'Nguyễn Văn A',
+        'Nhóm hàng': 'GỖ THÔNG',
+        'Dày (mm)': 30,
+        'Rộng (mm)': 120,
+        'Dài (mm)': 3000,
+        'Số thanh': 40,
+        'Tiêu chuẩn': 'B',
+        'Đội hàng khô': 'Đội 2',
+        'Diễn giải': ''
+      }
+    ];
+
+    // Template cho XUẤT KHO
+    const templateXuatData = [
+      {
+        'Ngày (DD/MM/YYYY)': '01/01/2024',
+        'NCC/Khách hàng': 'Công ty XYZ',
+        'Kho xuất': 'KHO A',
+        'Người phụ trách': 'Nguyễn Văn B',
+        'Nhóm hàng': 'GỖ CAO SU',
+        'Dày (mm)': 25,
+        'Rộng (mm)': 100,
+        'Dài (mm)': 2400,
+        'Số thanh': 50,
+        'Đơn giá': 5000000,
+        'Tiêu chuẩn': 'A',
+        'Đội hàng khô': 'Đội 1',
+        'Diễn giải': 'Xuất hàng cho khách'
+      },
+      {
+        'Ngày (DD/MM/YYYY)': '01/01/2024',
+        'NCC/Khách hàng': 'Công ty XYZ',
+        'Kho xuất': 'KHO A',
+        'Người phụ trách': 'Nguyễn Văn B',
+        'Nhóm hàng': 'GỖ THÔNG',
+        'Dày (mm)': 30,
+        'Rộng (mm)': 120,
+        'Dài (mm)': 3000,
+        'Số thanh': 40,
+        'Đơn giá': 6000000,
+        'Tiêu chuẩn': 'B',
+        'Đội hàng khô': 'Đội 2',
+        'Diễn giải': ''
+      }
+    ];
+
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: Template Nhập Kho
+    const wsNhap = XLSX.utils.json_to_sheet(templateNhapData);
+    wsNhap['!cols'] = [
+      { wch: 20 }, // Ngày
+      { wch: 25 }, // NCC/Khách hàng
+      { wch: 15 }, // Kho
+      { wch: 20 }, // Người phụ trách
+      { wch: 20 }, // Nhóm hàng
+      { wch: 12 }, // Dày
+      { wch: 12 }, // Rộng
+      { wch: 12 }, // Dài
+      { wch: 12 }, // Số thanh
+      { wch: 15 }, // Tiêu chuẩn
+      { wch: 15 }, // Đội hàng khô
+      { wch: 30 }  // Diễn giải
+    ];
+    XLSX.utils.book_append_sheet(wb, wsNhap, 'Mẫu Nhập Kho');
+
+    // Sheet 2: Template Xuất Kho
+    const wsXuat = XLSX.utils.json_to_sheet(templateXuatData);
+    wsXuat['!cols'] = [
+      { wch: 20 }, // Ngày
+      { wch: 25 }, // NCC/Khách hàng
+      { wch: 15 }, // Kho xuất
+      { wch: 20 }, // Người phụ trách
+      { wch: 20 }, // Nhóm hàng
+      { wch: 12 }, // Dày
+      { wch: 12 }, // Rộng
+      { wch: 12 }, // Dài
+      { wch: 12 }, // Số thanh
+      { wch: 15 }, // Đơn giá
+      { wch: 15 }, // Tiêu chuẩn
+      { wch: 15 }, // Đội hàng khô
+      { wch: 30 }  // Diễn giải
+    ];
+    XLSX.utils.book_append_sheet(wb, wsXuat, 'Mẫu Xuất Kho');
+
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    saveAs(data, `Template_NhapXuatKho_${new Date().getTime()}.xlsx`);
+
+    toast.success('Đã tải xuống file mẫu Excel (2 sheet: Nhập & Xuất)');
+  };
+
+  // Hàm xử lý khi chọn file - CẢI TIẾN: Hỗ trợ cả Nhập và Xuất
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      toast.error('Vui lòng chọn file Excel (.xlsx hoặc .xls)');
+      return;
+    }
+
+    setImportFile(file);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+
+        if (data.length === 0) {
+          toast.error('File Excel không có dữ liệu');
+          return;
+        }
+
+        // Validate và xử lý dữ liệu
+        const processedData = data.map((row, index) => {
+          const day = parseFloat(row['Dày (mm)']) || 0;
+          const rong = parseFloat(row['Rộng (mm)']) || 0;
+          const dai = parseFloat(row['Dài (mm)']) || 0;
+          const soThanh = parseFloat(row['Số thanh']) || 0;
+          const soKhoi = calculateM3(day, rong, dai, soThanh);
+          const donGia = parseFloat(row['Đơn giá']) || 0;
+          const thanhTien = soKhoi * donGia;
+
+          return {
+            rowIndex: index + 2, // +2 vì Excel bắt đầu từ 1 và có header
+            ngay: row['Ngày (DD/MM/YYYY)'],
+            nccKhachHang: row['NCC/Khách hàng'] || '',
+            kho: row['Kho'] || row['Kho xuất'] || '', // Hỗ trợ cả 2 cột
+            nguoiPhuTrach: row['Người phụ trách'] || '',
+            nhomHang: row['Nhóm hàng'] || '',
+            day: day,
+            rong: rong,
+            dai: dai,
+            soThanh: soThanh,
+            soKhoi: soKhoi,
+            donGia: donGia, // Thêm đơn giá
+            thanhTien: thanhTien, // Thêm thành tiền
+            tieuChuan: row['Tiêu chuẩn'] || '',
+            doiHangKho: row['Đội hàng khô'] || '',
+            dienGiai: row['Diễn giải'] || '',
+            errors: []
+          };
+        });
+
+        // Validate dữ liệu
+        processedData.forEach(row => {
+          if (!row.ngay) {
+            row.errors.push('Thiếu ngày');
+          }
+          if (!row.kho) {
+            row.errors.push('Thiếu kho');
+          }
+          if (!row.nhomHang) {
+            row.errors.push('Thiếu nhóm hàng');
+          }
+          if (row.day <= 0 || row.rong <= 0 || row.dai <= 0) {
+            row.errors.push('Kích thước không hợp lệ');
+          }
+          if (row.soThanh <= 0) {
+            row.errors.push('Số thanh phải lớn hơn 0');
+          }
+          if (!row.tieuChuan) {
+            row.errors.push('Thiếu tiêu chuẩn');
+          }
+          // Validate đơn giá cho xuất kho
+          if (importNghiepVu === 'XUAT' && row.donGia <= 0) {
+            row.errors.push('Đơn giá phải lớn hơn 0 khi xuất kho');
+          }
+        });
+
+        setImportPreview(processedData);
+        toast.success(`Đã đọc ${processedData.length} dòng dữ liệu từ Excel`);
+      } catch (error) {
+        console.error('Error reading Excel file:', error);
+        toast.error('Có lỗi khi đọc file Excel: ' + error.message);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // Hàm xử lý import dữ liệu - CẢI TIẾN: Lưu đầy đủ DONGIA và THANHTIEN
+  const handleImportData = async () => {
+    if (importPreview.length === 0) {
+      toast.error('Không có dữ liệu để import');
+      return;
+    }
+
+    const validRows = importPreview.filter(row => row.errors.length === 0);
+    if (validRows.length === 0) {
+      toast.error('Không có dòng dữ liệu hợp lệ để import');
+      return;
+    }
+
+    const hasErrors = importPreview.some(row => row.errors.length > 0);
+    if (hasErrors) {
+      const confirmImport = window.confirm(
+        `Có ${importPreview.length - validRows.length} dòng lỗi. Bạn có muốn import ${validRows.length} dòng hợp lệ không?`
+      );
+      if (!confirmImport) return;
+    }
+
+    try {
+      setIsImporting(true);
+
+      // Nhóm dữ liệu theo ngày, kho, NCC/Khách hàng, người phụ trách
+      const groupedData = {};
+
+      validRows.forEach(row => {
+        const ngayYYYYMMDD = convertDateDDMMYYYYtoYYYYMMDD(row.ngay);
+        const key = `${ngayYYYYMMDD}_${row.kho}_${row.nccKhachHang}_${row.nguoiPhuTrach}`;
+
+        if (!groupedData[key]) {
+          groupedData[key] = {
+            ngay: ngayYYYYMMDD,
+            kho: row.kho,
+            nccKhachHang: row.nccKhachHang,
+            nguoiPhuTrach: row.nguoiPhuTrach,
+            dienGiai: row.dienGiai,
+            chiTiet: []
+          };
+        }
+
+        groupedData[key].chiTiet.push(row);
+      });
+
+      // Tạo phiếu cho mỗi nhóm
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const key in groupedData) {
+        const group = groupedData[key];
+
+        try {
+          // Tạo số phiếu tự động
+          const soPhieu = generateSoPhieu(importNghiepVu, group.ngay);
+
+          // Tính tổng khối lượng và tổng tiền
+          const tongKhoiLuong = group.chiTiet.reduce((sum, item) => sum + item.soKhoi, 0);
+          const tongTien = group.chiTiet.reduce((sum, item) => sum + item.thanhTien, 0);
+
+          // Tạo phiếu
+          const phieu = {
+            'SOPHIEU': soPhieu,
+            'NGHIEP_VU': importNghiepVu,
+            'NGAYNHAP_XUAT': group.ngay,
+            'NCC_KHACHHANG': group.nccKhachHang,
+            'KHOXUAT': importNghiepVu === 'XUAT' ? group.kho : '',
+            'KHONHAP': importNghiepVu === 'NHAP' ? group.kho : '',
+            'NGUOIPHUTRACH': group.nguoiPhuTrach,
+            'TONGKHOILUONG': tongKhoiLuong,
+            'TONGTIEN': tongTien, // Lưu tổng tiền
+            'DIENGIAI': group.dienGiai
+          };
+
+          // Lưu phiếu
+          await authUtils.apiRequestKHO('XUATNHAPKHO', 'Add', {
+            "Rows": [phieu]
+          });
+
+          // Tạo chi tiết cho từng dòng
+          const chiTietToSave = [];
+
+          for (let i = 0; i < group.chiTiet.length; i++) {
+            const item = group.chiTiet[i];
+            const maKien = generateMaKien(group.ngay);
+
+            const chiTiet = {
+              'ID_CT': Date.now() + i,
+              'SOPHIEU': soPhieu,
+              'NGHIEP_VU': importNghiepVu,
+              'KHO_XUAT': importNghiepVu === 'XUAT' ? group.kho : '',
+              'KHO_NHAP': importNghiepVu === 'NHAP' ? group.kho : '',
+              'NGAY_NHAP_XUAT': group.ngay,
+              'NHOM_HANG': item.nhomHang,
+              'MA_KIEN': maKien,
+              'DAY': item.day,
+              'RONG': item.rong,
+              'DAI': item.dai,
+              'THANH': item.soThanh,
+              'SO_KHOI': item.soKhoi,
+              'TIEU_CHUAN': item.tieuChuan,
+              'DOI_HANG_KHO': item.doiHangKho,
+              'DONGIA': item.donGia, // Lưu đơn giá
+              'THANHTIEN': item.thanhTien, // Lưu thành tiền
+              'GHICHU': ''
+            };
+
+            chiTietToSave.push(chiTiet);
+
+            // Delay nhỏ để tránh trùng ID
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+
+          // Lưu chi tiết
+          await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Add', {
+            "Rows": chiTietToSave
+          });
+
+          successCount++;
+        } catch (error) {
+          console.error('Error importing group:', error);
+          errorCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast.success(`Import thành công ${successCount} phiếu với ${validRows.length} kiện`);
+        await fetchPhieuList();
+        await fetchTonKho();
+        handleCloseImportModal();
+      }
+
+      if (errorCount > 0) {
+        toast.warning(`Có ${errorCount} phiếu import thất bại`);
+      }
+
+    } catch (error) {
+      console.error('Error importing data:', error);
+      toast.error('Có lỗi xảy ra khi import dữ liệu: ' + error.message);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // Hàm mở modal import
+  const handleOpenImportModal = () => {
+    setShowImportModal(true);
+    setImportFile(null);
+    setImportPreview([]);
+    setImportNghiepVu('NHAP');
+  };
+
+  // Hàm đóng modal import
+  const handleCloseImportModal = () => {
+    setShowImportModal(false);
+    setImportFile(null);
+    setImportPreview([]);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // ==================== ORIGINAL FUNCTIONS ====================
 
   // Print function
   const handlePrintPhieu = async (phieu) => {
@@ -482,6 +909,17 @@ const XuatNhapKhoManagement = () => {
     }
   };
 
+  // Set default tieu chuan when list is loaded
+  useEffect(() => {
+    if (tieuChuanList.length > 0 && !currentChiTiet['TIEU_CHUAN']) {
+      setCurrentChiTiet(prev => ({
+        ...prev,
+        'TIEU_CHUAN': tieuChuanList[0]['TIEU_CHUAN']
+      }));
+    }
+  }, [tieuChuanList]);
+
+
   useEffect(() => {
     fetchPhieuList();
     fetchCustomers();
@@ -671,16 +1109,20 @@ const XuatNhapKhoManagement = () => {
     setChiTietList(prev => [...prev, ...newChiTietList]);
     toast.success(`Đã thêm ${soKien} kiện vào danh sách`);
 
+    // Reset form nhưng GIỮ LẠI Đội hàng khô và set Tiêu chuẩn về giá trị đầu tiên
+    const defaultTieuChuan = tieuChuanList.length > 0 ? tieuChuanList[0]['TIEU_CHUAN'] : '';
+
     setCurrentChiTiet({
       'NHOM_HANG': '',
       'SO_KIEN': '',
       'DONGIA': 0,
-      'TIEU_CHUAN': '',
-      'DOI_HANG_KHO': ''
+      'TIEU_CHUAN': defaultTieuChuan, // Lấy giá trị đầu tiên
+      'DOI_HANG_KHO': currentChiTiet['DOI_HANG_KHO'] // GIỮ LẠI giá trị Đội hàng khô
     });
     setNhomHangSearchTerm('');
     setSelectedNhomHangInfo(null);
   };
+
 
   // Update chi tiet field (for nhap kho)
   const handleUpdateChiTietField = (index, field, value) => {
@@ -785,6 +1227,16 @@ const XuatNhapKhoManagement = () => {
       });
       setCustomerSearchTerm('');
       setChiTietList([]);
+
+      // Set giá trị tiêu chuẩn mặc định khi mở modal tạo mới
+      const defaultTieuChuan = tieuChuanList.length > 0 ? tieuChuanList[0]['TIEU_CHUAN'] : '';
+      setCurrentChiTiet({
+        'NHOM_HANG': '',
+        'SO_KIEN': '',
+        'DONGIA': 0,
+        'TIEU_CHUAN': defaultTieuChuan,
+        'DOI_HANG_KHO': ''
+      });
     }
     setShowModal(true);
   };
@@ -1243,6 +1695,25 @@ const XuatNhapKhoManagement = () => {
                 <Info className="w-4 h-4" />
                 <span className="hidden sm:inline">Tiêu chuẩn</span>
               </button>
+
+              {/* Excel Buttons */}
+              <button
+                onClick={handleExportTemplate}
+                className="px-3 py-1.5 bg-green-50 text-green-700 border border-green-200 rounded-lg hover:bg-green-100 flex items-center gap-1.5 transition-all shadow-sm hover:shadow text-sm"
+                title="Tải file Excel mẫu"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                <span className="hidden sm:inline">Mẫu Excel</span>
+              </button>
+              <button
+                onClick={handleOpenImportModal}
+                className="px-3 py-1.5 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg hover:bg-orange-100 flex items-center gap-1.5 transition-all shadow-sm hover:shadow text-sm"
+                title="Import từ Excel"
+              >
+                <Upload className="w-4 h-4" />
+                <span className="hidden sm:inline">Import Excel</span>
+              </button>
+
               <button
                 onClick={() => handleOpenModal()}
                 className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg hover:from-purple-600 hover:to-purple-700 flex items-center gap-1.5 transition-all shadow-md hover:shadow-lg text-sm font-medium"
@@ -1384,7 +1855,7 @@ const XuatNhapKhoManagement = () => {
             />
           </div>
 
-          {/* Table Section - Responsive with 3:7 Layout */}
+          {/* Table Section - Responsive */}
           <div className="overflow-x-auto rounded-lg border border-gray-200">
             {isLoading ? (
               <div className="flex justify-center items-center py-12">
@@ -1585,6 +2056,196 @@ const XuatNhapKhoManagement = () => {
           )}
         </div>
       </div>
+
+      {/* Modal Import Excel - CẢI TIẾN: Hiển thị cột Đơn giá và Thành tiền khi xuất kho */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4 overflow-y-auto">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100">
+              <h2 className="text-lg md:text-xl font-bold text-orange-900 flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Import Dữ Liệu Từ Excel
+              </h2>
+              <button
+                onClick={handleCloseImportModal}
+                disabled={isImporting}
+                className="p-1.5 hover:bg-orange-200 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <X className="w-5 h-5 text-gray-600" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* Import Settings */}
+              <div className="bg-orange-50 p-4 rounded-lg border border-orange-200 mb-4">
+                <h3 className="font-semibold text-orange-900 mb-3 text-sm">Cài đặt import</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Nghiệp vụ <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={importNghiepVu}
+                      onChange={(e) => setImportNghiepVu(e.target.value)}
+                      disabled={isImporting || importPreview.length > 0}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-100"
+                    >
+                      <option value="NHAP">Nhập kho</option>
+                      <option value="XUAT">Xuất kho</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Chọn file Excel <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileSelect}
+                      disabled={isImporting}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent disabled:bg-gray-100"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-xs text-blue-800 mb-2">
+                    <strong>Lưu ý:</strong>
+                  </p>
+                  <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
+                    <li><strong>Nhập kho:</strong> Cột "Kho" - Không cần đơn giá</li>
+                    <li><strong>Xuất kho:</strong> Cột "Kho xuất" + "Đơn giá" (bắt buộc)</li>
+                    <li>Số m³ = (Dày × Rộng × Dài × Số thanh) / 1,000,000,000</li>
+                    <li>Thành tiền = Số m³ × Đơn giá (chỉ xuất kho)</li>
+                    <li>Các dòng cùng ngày, kho, khách hàng sẽ gộp thành 1 phiếu</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Preview Data */}
+              {importPreview.length > 0 && (
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h3 className="font-semibold text-gray-900 mb-3 text-sm flex items-center justify-between">
+                    <span>Xem trước dữ liệu ({importPreview.length} dòng)</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-green-600 flex items-center gap-1">
+                        <CheckCircle className="w-4 h-4" />
+                        {importPreview.filter(r => r.errors.length === 0).length} hợp lệ
+                      </span>
+                      {importPreview.some(r => r.errors.length > 0) && (
+                        <span className="text-xs text-red-600 flex items-center gap-1">
+                          <XCircle className="w-4 h-4" />
+                          {importPreview.filter(r => r.errors.length > 0).length} lỗi
+                        </span>
+                      )}
+                    </div>
+                  </h3>
+
+                  <div className="overflow-x-auto rounded-lg border border-gray-300 max-h-96">
+                    <table className="w-full text-xs bg-white">
+                      <thead className="bg-gray-100 border-b border-gray-300 sticky top-0">
+                        <tr>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Dòng</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Ngày</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Kho</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Nhóm hàng</th>
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Dày</th>
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Rộng</th>
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Dài</th>
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Thanh</th>
+                          <th className="px-2 py-1.5 text-right font-semibold text-gray-900">m³</th>
+                          {importNghiepVu === 'XUAT' && (
+                            <>
+                              <th className="px-2 py-1.5 text-right font-semibold text-gray-900">Đơn giá</th>
+                              <th className="px-2 py-1.5 text-right font-semibold text-gray-900">Thành tiền</th>
+                            </>
+                          )}
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Tiêu chuẩn</th>
+                          <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Trạng thái</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {importPreview.map((row, index) => (
+                          <tr key={index} className={row.errors.length > 0 ? 'bg-red-50' : 'hover:bg-gray-50'}>
+                            <td className="px-2 py-1.5 text-gray-700">{row.rowIndex}</td>
+                            <td className="px-2 py-1.5 text-gray-700">{row.ngay}</td>
+                            <td className="px-2 py-1.5 text-gray-700">{row.kho}</td>
+                            <td className="px-2 py-1.5 text-gray-700">{row.nhomHang}</td>
+                            <td className="px-2 py-1.5 text-center text-gray-700">{row.day}</td>
+                            <td className="px-2 py-1.5 text-center text-gray-700">{row.rong}</td>
+                            <td className="px-2 py-1.5 text-center text-gray-700">{row.dai}</td>
+                            <td className="px-2 py-1.5 text-center text-gray-700">{row.soThanh}</td>
+                            <td className="px-2 py-1.5 text-right font-medium text-gray-900">
+                              {row.soKhoi.toFixed(4)}
+                            </td>
+                            {importNghiepVu === 'XUAT' && (
+                              <>
+                                <td className="px-2 py-1.5 text-right text-gray-700">
+                                  {formatCurrency(row.donGia)}
+                                </td>
+                                <td className="px-2 py-1.5 text-right font-medium text-gray-900">
+                                  {formatCurrency(row.thanhTien)}
+                                </td>
+                              </>
+                            )}
+                            <td className="px-2 py-1.5 text-gray-700">{row.tieuChuan}</td>
+                            <td className="px-2 py-1.5">
+                              {row.errors.length === 0 ? (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Hợp lệ
+                                </span>
+                              ) : (
+                                <div className="flex flex-col gap-0.5">
+                                  {row.errors.map((error, i) => (
+                                    <span key={i} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                      <XCircle className="w-3 h-3 mr-1" />
+                                      {error}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={handleCloseImportModal}
+                disabled={isImporting}
+                className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={handleImportData}
+                disabled={isImporting || importPreview.length === 0 || importPreview.every(r => r.errors.length > 0)}
+                className="px-4 py-2 text-sm bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-lg hover:from-orange-600 hover:to-orange-700 flex items-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              >
+                {isImporting ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Đang import...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4" />
+                    Import dữ liệu
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Tạo/Sửa Phiếu - Layout 3:7 */}
       {showModal && (
@@ -2392,7 +3053,7 @@ const XuatNhapKhoManagement = () => {
         position="top-right"
         autoClose={3000}
         hideProgressBar={false}
-        newestOnTop={true}
+        newestOnTop
         closeOnClick
         rtl={false}
         pauseOnFocusLoss
@@ -2405,5 +3066,3 @@ const XuatNhapKhoManagement = () => {
 };
 
 export default XuatNhapKhoManagement;
-
-
