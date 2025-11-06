@@ -726,7 +726,7 @@ const XuatNhapKhoManagement = () => {
     return `${prefix}-${yearMonthDay}-${nextNumber}`;
   };
 
-  // ==================== SỬA LẠI: Generate mã kiện - Mỗi kiện có mã riêng ====================
+  // ==================== MÃ KIỆN TĂNG LIÊN TỤC (CÓ NGÀY, SỐ KHÔNG RESET) ====================
   const generateMaKien = (ngayNhapXuat) => {
     const date = new Date(ngayNhapXuat);
     const yy = date.getFullYear().toString().slice(-2);
@@ -737,21 +737,19 @@ const XuatNhapKhoManagement = () => {
     // ✅ Lấy tất cả kiện từ tonKho VÀ chiTietList hiện tại
     const allKien = [
       ...tonKho,
-      ...chiTietList // ⚠️ Quan trọng: Thêm cả chiTietList đang nhập
+      ...chiTietList
     ];
 
-    // Lọc các kiện có prefix K-yymmdd
-    const kienCungPrefix = allKien.filter(k => {
-      return k['MA_KIEN'] && k['MA_KIEN'].startsWith(`K-${yearMonthDay}`);
-    });
-
-    // Tìm số lớn nhất
+    // ✅ Tìm số lớn nhất trong TẤT CẢ mã kiện (không phân biệt ngày)
     let maxNumber = 0;
-    kienCungPrefix.forEach(k => {
-      const match = k['MA_KIEN'].match(/-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) maxNumber = num;
+    allKien.forEach(k => {
+      if (k['MA_KIEN']) {
+        // Match format: K-yymmdd-0001
+        const match = k['MA_KIEN'].match(/-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) maxNumber = num;
+        }
       }
     });
 
@@ -759,7 +757,6 @@ const XuatNhapKhoManagement = () => {
     const nextNumber = (maxNumber + 1).toString().padStart(4, '0');
     return `K-${yearMonthDay}-${nextNumber}`;
   };
-
 
   // Format currency VND
   const formatCurrency = (amount) => {
@@ -1034,7 +1031,8 @@ const XuatNhapKhoManagement = () => {
     toast.success('Đã thêm kiện vào danh sách');
   };
 
-  // Add chi tiet for nhap kho - SỬA LẠI: Mỗi kiện có mã riêng biệt
+
+  // ✅ SỬA LẠI: Thêm chi tiết nhập - Tạo mã kiện tăng dần
   const handleAddChiTietNhap = () => {
     if (!currentChiTiet['NHOM_HANG']) {
       toast.error('Vui lòng chọn nhóm hàng');
@@ -1052,29 +1050,28 @@ const XuatNhapKhoManagement = () => {
     const soKien = parseInt(currentChiTiet['SO_KIEN']) || 0;
     const newChiTietList = [];
 
-    // ✅ Lấy số bắt đầu từ chiTietList hiện tại
+    // ✅ Lấy số bắt đầu từ tất cả kiện hiện có
+    const allKien = [...tonKho, ...chiTietList];
+    let maxNumber = 0;
+
+    allKien.forEach(k => {
+      if (k['MA_KIEN']) {
+        const match = k['MA_KIEN'].match(/-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1]);
+          if (num > maxNumber) maxNumber = num;
+        }
+      }
+    });
+
+    // ✅ Tạo ngày cho mã kiện
     const date = new Date(currentPhieu['NGAYNHAP_XUAT']);
     const yy = date.getFullYear().toString().slice(-2);
     const mm = (date.getMonth() + 1).toString().padStart(2, '0');
     const dd = date.getDate().toString().padStart(2, '0');
     const yearMonthDay = `${yy}${mm}${dd}`;
 
-    // Tìm số lớn nhất hiện tại
-    const allKien = [...tonKho, ...chiTietList];
-    const kienCungPrefix = allKien.filter(k =>
-      k['MA_KIEN'] && k['MA_KIEN'].startsWith(`K-${yearMonthDay}`)
-    );
-
-    let maxNumber = 0;
-    kienCungPrefix.forEach(k => {
-      const match = k['MA_KIEN'].match(/-(\d+)$/);
-      if (match) {
-        const num = parseInt(match[1]);
-        if (num > maxNumber) maxNumber = num;
-      }
-    });
-
-    // Tạo danh sách kiện mới
+    // ✅ Tạo danh sách kiện mới với số tăng dần
     for (let i = 0; i < soKien; i++) {
       const nextNumber = (maxNumber + i + 1).toString().padStart(4, '0');
       const maKien = `K-${yearMonthDay}-${nextNumber}`;
