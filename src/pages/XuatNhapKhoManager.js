@@ -726,7 +726,7 @@ const XuatNhapKhoManagement = () => {
     return `${prefix}-${yearMonthDay}-${nextNumber}`;
   };
 
-  // ==================== CẢI TIẾN: Generate mã kiện - Số tăng liên tục ====================
+  // ==================== SỬA LẠI: Generate mã kiện - Mỗi kiện có mã riêng ====================
   const generateMaKien = (ngayNhapXuat) => {
     const date = new Date(ngayNhapXuat);
     const yy = date.getFullYear().toString().slice(-2);
@@ -734,13 +734,13 @@ const XuatNhapKhoManagement = () => {
     const dd = date.getDate().toString().padStart(2, '0');
     const yearMonthDay = `${yy}${mm}${dd}`;
 
-    // Lấy tất cả kiện (từ tonKho và chiTietList hiện tại)
+    // ✅ Lấy tất cả kiện từ tonKho VÀ chiTietList hiện tại
     const allKien = [
       ...tonKho,
-      ...chiTietList
+      ...chiTietList // ⚠️ Quan trọng: Thêm cả chiTietList đang nhập
     ];
 
-    // Lấy tất cả kiện có prefix K-yymmdd
+    // Lọc các kiện có prefix K-yymmdd
     const kienCungPrefix = allKien.filter(k => {
       return k['MA_KIEN'] && k['MA_KIEN'].startsWith(`K-${yearMonthDay}`);
     });
@@ -748,7 +748,6 @@ const XuatNhapKhoManagement = () => {
     // Tìm số lớn nhất
     let maxNumber = 0;
     kienCungPrefix.forEach(k => {
-      // Format: K-yymmdd-0001
       const match = k['MA_KIEN'].match(/-(\d+)$/);
       if (match) {
         const num = parseInt(match[1]);
@@ -760,6 +759,7 @@ const XuatNhapKhoManagement = () => {
     const nextNumber = (maxNumber + 1).toString().padStart(4, '0');
     return `K-${yearMonthDay}-${nextNumber}`;
   };
+
 
   // Format currency VND
   const formatCurrency = (amount) => {
@@ -1034,7 +1034,7 @@ const XuatNhapKhoManagement = () => {
     toast.success('Đã thêm kiện vào danh sách');
   };
 
-  // Add chi tiet for nhap kho - CẢI TIẾN: Sử dụng generateMaKien mới
+  // Add chi tiet for nhap kho - SỬA LẠI: Mỗi kiện có mã riêng biệt
   const handleAddChiTietNhap = () => {
     if (!currentChiTiet['NHOM_HANG']) {
       toast.error('Vui lòng chọn nhóm hàng');
@@ -1052,8 +1052,32 @@ const XuatNhapKhoManagement = () => {
     const soKien = parseInt(currentChiTiet['SO_KIEN']) || 0;
     const newChiTietList = [];
 
+    // ✅ Lấy số bắt đầu từ chiTietList hiện tại
+    const date = new Date(currentPhieu['NGAYNHAP_XUAT']);
+    const yy = date.getFullYear().toString().slice(-2);
+    const mm = (date.getMonth() + 1).toString().padStart(2, '0');
+    const dd = date.getDate().toString().padStart(2, '0');
+    const yearMonthDay = `${yy}${mm}${dd}`;
+
+    // Tìm số lớn nhất hiện tại
+    const allKien = [...tonKho, ...chiTietList];
+    const kienCungPrefix = allKien.filter(k =>
+      k['MA_KIEN'] && k['MA_KIEN'].startsWith(`K-${yearMonthDay}`)
+    );
+
+    let maxNumber = 0;
+    kienCungPrefix.forEach(k => {
+      const match = k['MA_KIEN'].match(/-(\d+)$/);
+      if (match) {
+        const num = parseInt(match[1]);
+        if (num > maxNumber) maxNumber = num;
+      }
+    });
+
+    // Tạo danh sách kiện mới
     for (let i = 0; i < soKien; i++) {
-      const maKien = generateMaKien(currentPhieu['NGAYNHAP_XUAT']);
+      const nextNumber = (maxNumber + i + 1).toString().padStart(4, '0');
+      const maKien = `K-${yearMonthDay}-${nextNumber}`;
 
       const chiTiet = {
         'ID_CT': Date.now() + i,
@@ -1075,18 +1099,17 @@ const XuatNhapKhoManagement = () => {
         'THANHTIEN': 0,
         'GHICHU': ''
       };
-      newChiTietList.push(chiTiet);
 
-      // Update tonKho và chiTietList để generateMaKien tính đúng
-      setTonKho(prev => [...prev, chiTiet]);
+      newChiTietList.push(chiTiet);
     }
 
+    // Cập nhật tất cả kiện cùng lúc
     setChiTietList(prev => [...prev, ...newChiTietList]);
+
     toast.success(`Đã thêm ${soKien} kiện vào danh sách`);
 
-    // Reset form nhưng GIỮ LẠI Đội hàng khô và set Tiêu chuẩn về giá trị đầu tiên
+    // Reset form
     const defaultTieuChuan = tieuChuanList.length > 0 ? tieuChuanList[0]['TIEU_CHUAN'] : '';
-
     setCurrentChiTiet({
       'NHOM_HANG': '',
       'SO_KIEN': '',
@@ -1097,7 +1120,6 @@ const XuatNhapKhoManagement = () => {
     setNhomHangSearchTerm('');
     setSelectedNhomHangInfo(null);
   };
-
 
   // Update chi tiet field (for nhap kho)
   const handleUpdateChiTietField = (index, field, value) => {
