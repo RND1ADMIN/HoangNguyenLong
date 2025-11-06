@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calendar, Filter, Download, RefreshCw, Package, TrendingUp, TrendingDown, Archive, FileText, ChevronDown, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
+import { Calendar, Filter, Download, RefreshCw, Package, TrendingUp, TrendingDown, Archive, FileText, ChevronDown, ArrowDownToLine, ArrowUpFromLine, Award } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
@@ -10,15 +10,16 @@ const BaoCaoKho = () => {
   const [phieuList, setPhieuList] = useState([]);
   const [chiTietList, setChiTietList] = useState([]);
   const [dmhh, setDmhh] = useState([]);
-  
+
   // Filter states
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [selectedNhomHang, setSelectedNhomHang] = useState('ALL');
   const [isLoading, setIsLoading] = useState(false);
   const [showFilter, setShowFilter] = useState(true);
-  const [activeTab, setActiveTab] = useState('tong-hop'); // 'tong-hop', 'nhom-hang', 'theo-kien'
-  
+  const [activeTab, setActiveTab] = useState('tong-hop');
+  const [activeTop10Tab, setActiveTop10Tab] = useState('nhap'); // NEW: Top 10 sub-tab
+
   // Report data states
   const [tongHopData, setTongHopData] = useState({
     tonDauKy: { kien: 0, m3: 0 },
@@ -28,8 +29,13 @@ const BaoCaoKho = () => {
   });
   const [tonTheoNhomHang, setTonTheoNhomHang] = useState([]);
   const [tonTheoKien, setTonTheoKien] = useState([]);
+  const [top10Data, setTop10Data] = useState({ // NEW: Top 10 data
+    nhapNhieu: [],
+    xuatNhieu: [],
+    tonNhieu: []
+  });
 
-  const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#f97316'];
+  const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'];
 
   // Fetch data
   const fetchData = async () => {
@@ -40,7 +46,7 @@ const BaoCaoKho = () => {
         authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {}),
         authUtils.apiRequestKHO('DMHH', 'Find', {})
       ]);
-      
+
       setPhieuList(phieuResponse);
       setChiTietList(chiTietResponse);
       setDmhh(dmhhResponse);
@@ -63,6 +69,44 @@ const BaoCaoKho = () => {
     }
   }, [chiTietList, filterDateFrom, filterDateTo, selectedNhomHang]);
 
+  // NEW: Calculate Top 10
+  const calculateTop10 = (data) => {
+    // Top 10 Nhập nhiều nhất
+    const nhapNhieu = [...data]
+      .sort((a, b) => b.nhap.m3 - a.nhap.m3)
+      .slice(0, 10)
+      .map(item => ({
+        nhomHang: item.nhomHang,
+        tieuChuan: item.tieuChuan,
+        kien: item.nhap.kien,
+        m3: item.nhap.m3
+      }));
+
+    // Top 10 Xuất nhiều nhất
+    const xuatNhieu = [...data]
+      .sort((a, b) => b.xuat.m3 - a.xuat.m3)
+      .slice(0, 10)
+      .map(item => ({
+        nhomHang: item.nhomHang,
+        tieuChuan: item.tieuChuan,
+        kien: item.xuat.kien,
+        m3: item.xuat.m3
+      }));
+
+    // Top 10 Tồn nhiều nhất
+    const tonNhieu = [...data]
+      .sort((a, b) => b.tonCuoiKy.m3 - a.tonCuoiKy.m3)
+      .slice(0, 10)
+      .map(item => ({
+        nhomHang: item.nhomHang,
+        tieuChuan: item.tieuChuan,
+        kien: item.tonCuoiKy.kien,
+        m3: item.tonCuoiKy.m3
+      }));
+
+    setTop10Data({ nhapNhieu, xuatNhieu, tonNhieu });
+  };
+
   const calculateReports = () => {
     const fromDate = filterDateFrom ? new Date(filterDateFrom) : null;
     const toDate = filterDateTo ? new Date(filterDateTo) : null;
@@ -75,7 +119,7 @@ const BaoCaoKho = () => {
 
     chiTietList.forEach(item => {
       const itemDate = new Date(item['NGAY_NHAP_XUAT']);
-      
+
       if (fromDate && itemDate < fromDate) {
         dataTruocKy.push(item);
       } else if ((!fromDate || itemDate >= fromDate) && (!toDate || itemDate <= toDate)) {
@@ -96,10 +140,10 @@ const BaoCaoKho = () => {
 
     // Tính tồn đầu kỳ (từ đầu đến trước kỳ báo cáo)
     const tonDauKy = calculateTonKho(dataTruocKyFiltered);
-    
+
     // Tính nhập xuất trong kỳ
     const nhapXuatTrongKy = calculateNhapXuat(dataTrongKyFiltered);
-    
+
     // Tính tồn cuối kỳ
     const tonCuoiKy = {
       kien: tonDauKy.kien + nhapXuatTrongKy.nhap.kien - nhapXuatTrongKy.xuat.kien,
@@ -115,7 +159,11 @@ const BaoCaoKho = () => {
     });
 
     // Tính tồn theo nhóm hàng
-    calculateTonTheoNhomHang(dataTruocKyFiltered, dataTrongKyFiltered);
+    const nhomHangData = calculateTonTheoNhomHang(dataTruocKyFiltered, dataTrongKyFiltered);
+    setTonTheoNhomHang(nhomHangData);
+
+    // NEW: Calculate Top 10
+    calculateTop10(nhomHangData);
 
     // Tính tồn theo kiện
     calculateTonTheoKien(dataTruocKyFiltered, dataTrongKyFiltered);
@@ -123,11 +171,11 @@ const BaoCaoKho = () => {
 
   const calculateTonKho = (data) => {
     const tonKhoMap = {};
-    
+
     data.forEach(item => {
       const maKien = item['MA_KIEN'];
       const nghiepVu = item['NGHIEP_VU'];
-      
+
       if (nghiepVu === 'NHAP') {
         tonKhoMap[maKien] = item;
       } else if (nghiepVu === 'XUAT') {
@@ -173,7 +221,7 @@ const BaoCaoKho = () => {
     dataTruocKy.forEach(item => {
       const maKien = item['MA_KIEN'];
       const nghiepVu = item['NGHIEP_VU'];
-      
+
       if (nghiepVu === 'NHAP') {
         tonDauKyMap[maKien] = item;
       } else if (nghiepVu === 'XUAT') {
@@ -236,17 +284,17 @@ const BaoCaoKho = () => {
       item.tonCuoiKy.m3 = item.tonDauKy.m3 + item.nhap.m3 - item.xuat.m3;
     });
 
-    setTonTheoNhomHang(Object.values(nhomHangMap));
+    return Object.values(nhomHangMap);
   };
 
   const calculateTonTheoKien = (dataTruocKy, dataTrongKy) => {
     const tonKhoMap = {};
-    
+
     // Tính tồn đầu kỳ
     dataTruocKy.forEach(item => {
       const maKien = item['MA_KIEN'];
       const nghiepVu = item['NGHIEP_VU'];
-      
+
       if (nghiepVu === 'NHAP') {
         tonKhoMap[maKien] = { ...item, trangThai: 'TON_DAU_KY' };
       } else if (nghiepVu === 'XUAT') {
@@ -258,7 +306,7 @@ const BaoCaoKho = () => {
     dataTrongKy.forEach(item => {
       const maKien = item['MA_KIEN'];
       const nghiepVu = item['NGHIEP_VU'];
-      
+
       if (nghiepVu === 'NHAP') {
         tonKhoMap[maKien] = { ...item, trangThai: 'NHAP_TRONG_KY' };
       } else if (nghiepVu === 'XUAT') {
@@ -289,11 +337,11 @@ const BaoCaoKho = () => {
   const renderCustomBarLabel = (props) => {
     const { x, y, width, height, value } = props;
     return (
-      <text 
-        x={x + width / 2} 
-        y={y - 5} 
-        fill="#374151" 
-        textAnchor="middle" 
+      <text
+        x={x + width / 2}
+        y={y - 5}
+        fill="#374151"
+        textAnchor="middle"
         fontSize="12"
         fontWeight="600"
       >
@@ -330,11 +378,10 @@ const BaoCaoKho = () => {
               </button>
               <button
                 onClick={() => setShowFilter(!showFilter)}
-                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm hover:shadow text-sm ${
-                  showFilter 
-                    ? 'text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100' 
+                className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all shadow-sm hover:shadow text-sm ${showFilter
+                    ? 'text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100'
                     : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">{showFilter ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}</span>
@@ -394,11 +441,10 @@ const BaoCaoKho = () => {
           <div className="flex border-b border-gray-200">
             <button
               onClick={() => setActiveTab('tong-hop')}
-              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${
-                activeTab === 'tong-hop'
+              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'tong-hop'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-center gap-2">
                 <FileText className="w-4 h-4" />
@@ -407,11 +453,10 @@ const BaoCaoKho = () => {
             </button>
             <button
               onClick={() => setActiveTab('nhom-hang')}
-              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${
-                activeTab === 'nhom-hang'
+              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'nhom-hang'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-center gap-2">
                 <Package className="w-4 h-4" />
@@ -420,11 +465,10 @@ const BaoCaoKho = () => {
             </button>
             <button
               onClick={() => setActiveTab('theo-kien')}
-              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${
-                activeTab === 'theo-kien'
+              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'theo-kien'
                   ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <div className="flex items-center justify-center gap-2">
                 <Archive className="w-4 h-4" />
@@ -508,14 +552,14 @@ const BaoCaoKho = () => {
               </div>
             </div>
 
-            {/* Chart */}
+            {/* Chart Tổng Hợp */}
             <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
               <h3 className="text-base font-bold text-gray-800 mb-4">Biểu đồ tổng hợp</h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3 text-center">Số kiện</h4>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart 
+                    <BarChart
                       data={[
                         { name: 'Tồn đầu kỳ', value: tongHopData.tonDauKy.kien },
                         { name: 'Nhập', value: tongHopData.nhapTrongKy.kien },
@@ -536,7 +580,7 @@ const BaoCaoKho = () => {
                 <div className="bg-gray-50 p-3 rounded-lg">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3 text-center">Khối lượng (m³)</h4>
                   <ResponsiveContainer width="100%" height={300}>
-                    <BarChart 
+                    <BarChart
                       data={[
                         { name: 'Tồn đầu kỳ', value: parseFloat(tongHopData.tonDauKy.m3.toFixed(3)) },
                         { name: 'Nhập', value: parseFloat(tongHopData.nhapTrongKy.m3.toFixed(3)) },
@@ -549,17 +593,17 @@ const BaoCaoKho = () => {
                       <XAxis dataKey="name" fontSize={11} />
                       <YAxis fontSize={10} />
                       <Tooltip />
-                      <Bar 
-                        dataKey="value" 
-                        fill="#3b82f6" 
+                      <Bar
+                        dataKey="value"
+                        fill="#3b82f6"
                         label={(props) => {
                           const { x, y, width, value } = props;
                           return (
-                            <text 
-                              x={x + width / 2} 
-                              y={y - 5} 
-                              fill="#374151" 
-                              textAnchor="middle" 
+                            <text
+                              x={x + width / 2}
+                              y={y - 5}
+                              fill="#374151"
+                              textAnchor="middle"
                               fontSize="12"
                               fontWeight="600"
                             >
@@ -573,6 +617,168 @@ const BaoCaoKho = () => {
                 </div>
               </div>
             </div>
+
+            {/* NEW: Top 10 Section */}
+            <div className="bg-white rounded-xl shadow-lg p-4 border border-gray-100">
+              <h3 className="text-base font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Award className="w-5 h-5 text-yellow-500" />
+                Top 10 Mặt Hàng
+              </h3>
+
+              {/* Top 10 Tabs */}
+              <div className="flex gap-2 mb-4 border-b border-gray-200">
+                <button
+                  onClick={() => setActiveTop10Tab('nhap')}
+                  className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTop10Tab === 'nhap'
+                      ? 'text-green-600 border-b-2 border-green-600'
+                      : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                >
+                  Nhập nhiều nhất
+                </button>
+                <button
+                  onClick={() => setActiveTop10Tab('xuat')}
+                  className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTop10Tab === 'xuat'
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                >
+                  Xuất nhiều nhất
+                </button>
+                <button
+                  onClick={() => setActiveTop10Tab('ton')}
+                  className={`px-4 py-2 text-sm font-semibold transition-colors ${activeTop10Tab === 'ton'
+                      ? 'text-purple-600 border-b-2 border-purple-600'
+                      : 'text-gray-600 hover:text-gray-800'
+                    }`}
+                >
+                  Tồn nhiều nhất
+                </button>
+              </div>
+
+              {/* Top 10 Content */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Table */}
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className={`${activeTop10Tab === 'nhap' ? 'bg-gradient-to-r from-green-50 to-green-100' :
+                        activeTop10Tab === 'xuat' ? 'bg-gradient-to-r from-blue-50 to-blue-100' :
+                          'bg-gradient-to-r from-purple-50 to-purple-100'
+                      }`}>
+                      <tr>
+                        <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase">Top</th>
+                        <th className="px-3 py-3 text-left text-xs font-bold text-gray-700 uppercase">Nhóm hàng</th>
+                        <th className="px-3 py-3 text-center text-xs font-bold text-gray-700 uppercase">Chất lượng</th>
+                        <th className={`px-3 py-3 text-center text-xs font-bold uppercase ${activeTop10Tab === 'nhap' ? 'text-green-700' :
+                            activeTop10Tab === 'xuat' ? 'text-blue-700' :
+                              'text-purple-700'
+                          }`}>Kiện</th>
+                        <th className={`px-3 py-3 text-center text-xs font-bold uppercase ${activeTop10Tab === 'nhap' ? 'text-green-700' :
+                            activeTop10Tab === 'xuat' ? 'text-blue-700' :
+                              'text-purple-700'
+                          }`}>m³</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {(activeTop10Tab === 'nhap' ? top10Data.nhapNhieu :
+                        activeTop10Tab === 'xuat' ? top10Data.xuatNhieu :
+                          top10Data.tonNhieu).map((item, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 text-center">
+                                <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${index === 0 ? 'bg-yellow-400 text-yellow-900' :
+                                    index === 1 ? 'bg-gray-300 text-gray-900' :
+                                      index === 2 ? 'bg-orange-400 text-orange-900' :
+                                        activeTop10Tab === 'nhap' ? 'bg-green-100 text-green-800' :
+                                          activeTop10Tab === 'xuat' ? 'bg-blue-100 text-blue-800' :
+                                            'bg-purple-100 text-purple-800'
+                                  }`}>
+                                  {index + 1}
+                                </span>
+                              </td>
+                              <td className="px-3 py-2 text-sm font-medium text-gray-900">{item.nhomHang}</td>
+                              <td className="px-3 py-2 text-center">
+                                <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded text-xs font-medium">
+                                  {item.tieuChuan}
+                                </span>
+                              </td>
+                              <td className={`px-3 py-2 text-sm text-center font-semibold ${activeTop10Tab === 'nhap' ? 'text-green-600' :
+                                  activeTop10Tab === 'xuat' ? 'text-blue-600' :
+                                    'text-purple-600'
+                                }`}>{formatNumber(item.kien)}</td>
+                              <td className={`px-3 py-2 text-sm text-center font-bold ${activeTop10Tab === 'nhap' ? 'text-green-700' :
+                                  activeTop10Tab === 'xuat' ? 'text-blue-700' :
+                                    'text-purple-700'
+                                }`}>{item.m3.toFixed(3)}</td>
+                            </tr>
+                          ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Chart - Updated with labels */}
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <ResponsiveContainer width="100%" height={400}>
+                    <BarChart
+                      data={(activeTop10Tab === 'nhap' ? top10Data.nhapNhieu :
+                        activeTop10Tab === 'xuat' ? top10Data.xuatNhieu :
+                          top10Data.tonNhieu).map((item, index) => ({
+                            name: `${index + 1}`,
+                            nhomHang: item.nhomHang,
+                            value: parseFloat(item.m3.toFixed(3))
+                          }))}
+                      margin={{ top: 30, right: 30, left: 20, bottom: 80 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis
+                        dataKey="nhomHang"
+                        fontSize={10}
+                        angle={-45}
+                        textAnchor="end"
+                        height={80}
+                        interval={0}
+                      />
+                      <YAxis
+                        fontSize={10}
+                        label={{ value: 'm³', angle: -90, position: 'insideLeft' }}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-white p-2 border border-gray-300 rounded shadow-lg">
+                                <p className="text-xs font-semibold">{payload[0].payload.nhomHang}</p>
+                                <p className="text-xs text-gray-600">m³: {payload[0].value.toFixed(3)}</p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar dataKey="value" fill={
+                        activeTop10Tab === 'nhap' ? '#10b981' :
+                          activeTop10Tab === 'xuat' ? '#3b82f6' :
+                            '#8b5cf6'
+                      }
+                        label={{
+                          position: 'top',
+                          fontSize: 11,
+                          fontWeight: 'bold',
+                          fill: '#374151',
+                          formatter: (value) => value.toFixed(3)
+                        }}
+                      >
+                        {(activeTop10Tab === 'nhap' ? top10Data.nhapNhieu :
+                          activeTop10Tab === 'xuat' ? top10Data.xuatNhieu :
+                            top10Data.tonNhieu).map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+              </div>
+            </div>
           </div>
         )}
 
@@ -582,7 +788,7 @@ const BaoCaoKho = () => {
               <Package className="w-5 h-5 text-blue-600" />
               Tồn kho theo Nhóm hàng & Chất lượng
             </h2>
-            
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
@@ -667,7 +873,7 @@ const BaoCaoKho = () => {
               <Archive className="w-5 h-5 text-purple-600" />
               Chi tiết tồn kho theo kiện ({tonTheoKien.length} kiện)
             </h2>
-            
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
