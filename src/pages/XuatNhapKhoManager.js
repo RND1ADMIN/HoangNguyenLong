@@ -696,7 +696,7 @@ const XuatNhapKhoManagement = () => {
     }
   };
 
-  // Generate so phieu tu dong với format YYMMDD-001
+  // ==================== CẢI TIẾN: Generate số phiếu - Số tăng liên tục ====================
   const generateSoPhieu = (nghiepVu, ngayNhapXuat) => {
     const date = new Date(ngayNhapXuat);
     const yy = date.getFullYear().toString().slice(-2);
@@ -705,28 +705,28 @@ const XuatNhapKhoManagement = () => {
     const prefix = nghiepVu === 'NHAP' ? 'NK' : 'XK';
     const yearMonthDay = `${yy}${mm}${dd}`;
 
-    const phieuCungNgay = phieuList.filter(p => {
-      if (p['SOPHIEU'] && p['SOPHIEU'].startsWith(prefix)) {
-        const phieuYearMonthDay = p['SOPHIEU'].substring(2, 8);
-        return phieuYearMonthDay === yearMonthDay;
-      }
-      return false;
+    // Lấy tất cả phiếu cùng prefix (NK hoặc XK)
+    const phieuCungLoai = phieuList.filter(p => {
+      return p['SOPHIEU'] && p['SOPHIEU'].startsWith(`${prefix}-`);
     });
 
+    // Tìm số lớn nhất
     let maxNumber = 0;
-    phieuCungNgay.forEach(p => {
-      const match = p['SOPHIEU'].match(/\d{3}$/);
+    phieuCungLoai.forEach(p => {
+      // Format: NK-yymmdd-0001 hoặc XK-yymmdd-0001
+      const match = p['SOPHIEU'].match(/-(\d+)$/);
       if (match) {
-        const num = parseInt(match[0]);
+        const num = parseInt(match[1]);
         if (num > maxNumber) maxNumber = num;
       }
     });
 
-    const nextNumber = (maxNumber + 1).toString().padStart(3, '0');
-    return `${prefix}${yearMonthDay}-${nextNumber}`;
+    // Số tiếp theo
+    const nextNumber = (maxNumber + 1).toString().padStart(4, '0');
+    return `${prefix}-${yearMonthDay}-${nextNumber}`;
   };
 
-  // Generate ma kien tu dong với format YYMMDD-001
+  // ==================== CẢI TIẾN: Generate mã kiện - Số tăng liên tục ====================
   const generateMaKien = (ngayNhapXuat) => {
     const date = new Date(ngayNhapXuat);
     const yy = date.getFullYear().toString().slice(-2);
@@ -734,30 +734,31 @@ const XuatNhapKhoManagement = () => {
     const dd = date.getDate().toString().padStart(2, '0');
     const yearMonthDay = `${yy}${mm}${dd}`;
 
+    // Lấy tất cả kiện (từ tonKho và chiTietList hiện tại)
     const allKien = [
       ...tonKho,
       ...chiTietList
     ];
 
-    const kienCungNgay = allKien.filter(k => {
-      if (k['MA_KIEN'] && k['MA_KIEN'].startsWith('K')) {
-        const kienYearMonthDay = k['MA_KIEN'].substring(1, 7);
-        return kienYearMonthDay === yearMonthDay;
-      }
-      return false;
+    // Lấy tất cả kiện có prefix K-yymmdd
+    const kienCungPrefix = allKien.filter(k => {
+      return k['MA_KIEN'] && k['MA_KIEN'].startsWith(`K-${yearMonthDay}`);
     });
 
+    // Tìm số lớn nhất
     let maxNumber = 0;
-    kienCungNgay.forEach(k => {
-      const match = k['MA_KIEN'].match(/\d{3}$/);
+    kienCungPrefix.forEach(k => {
+      // Format: K-yymmdd-0001
+      const match = k['MA_KIEN'].match(/-(\d+)$/);
       if (match) {
-        const num = parseInt(match[0]);
+        const num = parseInt(match[1]);
         if (num > maxNumber) maxNumber = num;
       }
     });
 
-    const nextNumber = (maxNumber + 1).toString().padStart(3, '0');
-    return `K${yearMonthDay}-${nextNumber}`;
+    // Số tiếp theo
+    const nextNumber = (maxNumber + 1).toString().padStart(4, '0');
+    return `K-${yearMonthDay}-${nextNumber}`;
   };
 
   // Format currency VND
@@ -1033,7 +1034,7 @@ const XuatNhapKhoManagement = () => {
     toast.success('Đã thêm kiện vào danh sách');
   };
 
-  // Add chi tiet for nhap kho
+  // Add chi tiet for nhap kho - CẢI TIẾN: Sử dụng generateMaKien mới
   const handleAddChiTietNhap = () => {
     if (!currentChiTiet['NHOM_HANG']) {
       toast.error('Vui lòng chọn nhóm hàng');
@@ -1051,37 +1052,8 @@ const XuatNhapKhoManagement = () => {
     const soKien = parseInt(currentChiTiet['SO_KIEN']) || 0;
     const newChiTietList = [];
 
-    const date = new Date(currentPhieu['NGAYNHAP_XUAT']);
-    const yy = date.getFullYear().toString().slice(-2);
-    const mm = (date.getMonth() + 1).toString().padStart(2, '0');
-    const dd = date.getDate().toString().padStart(2, '0');
-    const yearMonthDay = `${yy}${mm}${dd}`;
-
-    const allKien = [
-      ...tonKho,
-      ...chiTietList
-    ];
-
-    const kienCungNgay = allKien.filter(k => {
-      if (k['MA_KIEN'] && k['MA_KIEN'].startsWith('K')) {
-        const kienYearMonthDay = k['MA_KIEN'].substring(1, 7);
-        return kienYearMonthDay === yearMonthDay;
-      }
-      return false;
-    });
-
-    let maxNumber = 0;
-    kienCungNgay.forEach(k => {
-      const match = k['MA_KIEN'].match(/\d{3}$/);
-      if (match) {
-        const num = parseInt(match[0]);
-        if (num > maxNumber) maxNumber = num;
-      }
-    });
-
     for (let i = 0; i < soKien; i++) {
-      const nextNumber = (maxNumber + 1 + i).toString().padStart(3, '0');
-      const maKien = `K${yearMonthDay}-${nextNumber}`;
+      const maKien = generateMaKien(currentPhieu['NGAYNHAP_XUAT']);
 
       const chiTiet = {
         'ID_CT': Date.now() + i,
@@ -1104,6 +1076,9 @@ const XuatNhapKhoManagement = () => {
         'GHICHU': ''
       };
       newChiTietList.push(chiTiet);
+
+      // Update tonKho và chiTietList để generateMaKien tính đúng
+      setTonKho(prev => [...prev, chiTiet]);
     }
 
     setChiTietList(prev => [...prev, ...newChiTietList]);
@@ -1116,8 +1091,8 @@ const XuatNhapKhoManagement = () => {
       'NHOM_HANG': '',
       'SO_KIEN': '',
       'DONGIA': 0,
-      'TIEU_CHUAN': defaultTieuChuan, // Lấy giá trị đầu tiên
-      'DOI_HANG_KHO': currentChiTiet['DOI_HANG_KHO'] // GIỮ LẠI giá trị Đội hàng khô
+      'TIEU_CHUAN': defaultTieuChuan,
+      'DOI_HANG_KHO': currentChiTiet['DOI_HANG_KHO']
     });
     setNhomHangSearchTerm('');
     setSelectedNhomHangInfo(null);
@@ -3118,3 +3093,4 @@ const XuatNhapKhoManagement = () => {
 };
 
 export default XuatNhapKhoManagement;
+
