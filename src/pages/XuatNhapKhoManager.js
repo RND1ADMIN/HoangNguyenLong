@@ -648,7 +648,7 @@ const XuatNhapKhoManagement = () => {
           <div class="total-section">
             <div class="total-item">
               <span>Tổng khối lượng:</span>
-              <strong>${parseFloat(phieu['TONGKHOILUONG']).toFixed(3)} m³</strong>
+              <strong>${parseFloat(phieu['TONGKHOILUONG']).toFixed(4)} m³</strong>
             </div>
             <div class="total-item">
               <span>Tổng tiền:</span>
@@ -1724,56 +1724,108 @@ const XuatNhapKhoManagement = () => {
             </div>
           </div>
 
-          {/* Statistics Cards - Compact Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3 mb-3">
-            <div className="bg-gradient-to-br from-green-50 to-green-100 p-3 rounded-lg border border-green-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-green-600 font-medium">Phiếu nhập</p>
-                  <p className="text-xl md:text-2xl font-bold text-green-700 mt-1">{tongNhap}</p>
-                </div>
-                <div className="p-2 bg-green-200 rounded-lg">
-                  <TrendingUp className="w-5 h-5 text-green-700" />
-                </div>
+          {/* Statistics Cards - Colorful & Clean Design */}
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 md:gap-3 mb-3">
+            {/* Phiếu nhập */}
+            <div className="bg-gradient-to-br from-green-50 to-green-100 p-3 rounded-lg border-l-4 border-green-500 shadow-sm hover:shadow-md transition-all">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingUp className="w-4 h-4 text-green-600" />
+                <p className="text-xs font-medium text-green-700">Phiếu nhập</p>
               </div>
+              <p className="text-2xl font-bold text-green-900">{tongNhap}</p>
             </div>
 
-            <div className="bg-gradient-to-br from-red-50 to-red-100 p-3 rounded-lg border border-red-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-red-600 font-medium">Phiếu xuất</p>
-                  <p className="text-xl md:text-2xl font-bold text-red-700 mt-1">{tongXuat}</p>
-                </div>
-                <div className="p-2 bg-red-200 rounded-lg">
-                  <TrendingDown className="w-5 h-5 text-red-700" />
-                </div>
+            {/* Phiếu xuất */}
+            <div className="bg-gradient-to-br from-red-50 to-red-100 p-3 rounded-lg border-l-4 border-red-500 shadow-sm hover:shadow-md transition-all">
+              <div className="flex items-center gap-2 mb-1">
+                <TrendingDown className="w-4 h-4 text-red-600" />
+                <p className="text-xs font-medium text-red-700">Phiếu xuất</p>
               </div>
+              <p className="text-2xl font-bold text-red-900">{tongXuat}</p>
             </div>
 
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-lg border border-blue-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-blue-600 font-medium">KL Nhập (m³)</p>
-                  <p className="text-xl md:text-2xl font-bold text-blue-700 mt-1">{tongKhoiLuongNhap.toFixed(2)}</p>
-                </div>
-                <div className="p-2 bg-blue-200 rounded-lg">
-                  <Weight className="w-5 h-5 text-blue-700" />
-                </div>
+            {/* KL Nhập */}
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-3 rounded-lg border-l-4 border-blue-500 shadow-sm hover:shadow-md transition-all">
+              <div className="flex items-center gap-2 mb-1">
+                <Package className="w-4 h-4 text-blue-600" />
+                <p className="text-xs font-medium text-blue-700">KL Nhập</p>
               </div>
+              <p className="text-xl font-bold text-blue-900">
+                {tongKhoiLuongNhap.toFixed(4)} <span className="text-sm font-normal text-blue-700">m³</span>
+              </p>
+              <p className="text-xs text-blue-600 mt-0.5">
+                {phieuList.filter(p => p['NGHIEP_VU'] === 'NHAP').reduce((sum, p) => {
+                  const chiTietNhap = tonKho.filter(ct => ct['SOPHIEU'] === p['SOPHIEU']);
+                  return sum + chiTietNhap.length;
+                }, 0)} kiện
+              </p>
             </div>
 
-            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-3 rounded-lg border border-yellow-200 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-yellow-600 font-medium">Doanh thu</p>
-                  <p className="text-lg md:text-xl font-bold text-yellow-700 mt-1">{formatCurrency(tongTienXuat)}</p>
-                </div>
-                <div className="p-2 bg-yellow-200 rounded-lg">
-                  <DollarSign className="w-5 h-5 text-yellow-700" />
-                </div>
+            {/* KL Xuất */}
+            <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-3 rounded-lg border-l-4 border-orange-500 shadow-sm hover:shadow-md transition-all">
+              <div className="flex items-center gap-2 mb-1">
+                <Package className="w-4 h-4 text-orange-600" />
+                <p className="text-xs font-medium text-orange-700">KL Xuất</p>
               </div>
+              <p className="text-xl font-bold text-orange-900">
+                {phieuList
+                  .filter(p => p['NGHIEP_VU'] === 'XUAT')
+                  .reduce((sum, p) => sum + (parseFloat(p['TONGKHOILUONG']) || 0), 0)
+                  .toFixed(4)} <span className="text-sm font-normal text-orange-700">m³</span>
+              </p>
+              <p className="text-xs text-orange-600 mt-0.5">
+                {phieuList.filter(p => p['NGHIEP_VU'] === 'XUAT').reduce((sum, p) => {
+                  const chiTietXuat = tonKho.filter(ct => ct['SOPHIEU'] === p['SOPHIEU'] && ct['NGHIEP_VU'] === 'XUAT');
+                  return sum + chiTietXuat.length;
+                }, 0)} kiện
+              </p>
+            </div>
+
+            {/* KL Tồn */}
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-3 rounded-lg border-l-4 border-purple-500 shadow-sm hover:shadow-md transition-all">
+              <div className="flex items-center gap-2 mb-1">
+                <Weight className="w-4 h-4 text-purple-600" />
+                <p className="text-xs font-medium text-purple-700">KL Tồn</p>
+              </div>
+              <p className="text-xl font-bold text-purple-900">
+                {(() => {
+                  const klNhap = phieuList
+                    .filter(p => p['NGHIEP_VU'] === 'NHAP')
+                    .reduce((sum, p) => sum + (parseFloat(p['TONGKHOILUONG']) || 0), 0);
+                  const klXuat = phieuList
+                    .filter(p => p['NGHIEP_VU'] === 'XUAT')
+                    .reduce((sum, p) => sum + (parseFloat(p['TONGKHOILUONG']) || 0), 0);
+                  return (klNhap - klXuat).toFixed(4);
+                })()} <span className="text-sm font-normal text-purple-700">m³</span>
+              </p>
+              <p className="text-xs text-purple-600 mt-0.5">
+                {(() => {
+                  const kienNhap = tonKho.filter(ct => ct['NGHIEP_VU'] === 'NHAP').length;
+                  const kienXuat = tonKho.filter(ct => ct['NGHIEP_VU'] === 'XUAT').length;
+                  return kienNhap - kienXuat;
+                })()} kiện
+              </p>
+            </div>
+
+            {/* Doanh thu */}
+            <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 p-3 rounded-lg border-l-4 border-yellow-500 shadow-sm hover:shadow-md transition-all">
+              <div className="flex items-center gap-2 mb-1">
+                <DollarSign className="w-4 h-4 text-yellow-600" />
+                <p className="text-xs font-medium text-yellow-700">Doanh thu</p>
+              </div>
+              <p className="text-xl font-bold text-yellow-900">
+                {new Intl.NumberFormat('vi-VN', {
+                  notation: 'compact',
+                  compactDisplay: 'short',
+                  maximumFractionDigits: 1
+                }).format(tongTienXuat)}
+              </p>
+              <p className="text-xs text-yellow-600 mt-0.5 truncate" title={formatCurrency(tongTienXuat)}>
+                {formatCurrency(tongTienXuat)}
+              </p>
             </div>
           </div>
+
 
           {/* Filters Section - Collapsible */}
           {showFilters && (
@@ -1934,7 +1986,7 @@ const XuatNhapKhoManagement = () => {
                         {phieu['NGUOIPHUTRACH'] || '-'}
                       </td>
                       <td className="px-3 py-2 text-xs text-right font-medium text-gray-900">
-                        {parseFloat(phieu['TONGKHOILUONG'] || 0).toFixed(3)}
+                        {parseFloat(phieu['TONGKHOILUONG'] || 0).toFixed(4)}
                       </td>
                       <td className="px-3 py-2 text-xs text-right font-medium text-gray-900">
                         {formatCurrency(phieu['TONGTIEN'])}
@@ -2426,7 +2478,7 @@ const XuatNhapKhoManagement = () => {
                         <div className="flex justify-between items-center text-xs mb-1.5">
                           <span className="text-gray-600">Tổng khối lượng:</span>
                           <span className="font-bold text-purple-900">
-                            {parseFloat(currentPhieu['TONGKHOILUONG'] || 0).toFixed(3)} m³
+                            {parseFloat(currentPhieu['TONGKHOILUONG'] || 0).toFixed(4)} m³
                           </span>
                         </div>
                         {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
@@ -2626,7 +2678,7 @@ const XuatNhapKhoManagement = () => {
                                   className="px-2 py-1.5 text-xs bg-white border border-blue-300 rounded hover:bg-blue-50 hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
                                 >
                                   <div className="font-medium text-blue-900">{kien['MA_KIEN']}</div>
-                                  <div className="text-gray-600">{parseFloat(kien['SO_KHOI'] || 0).toFixed(3)} m³</div>
+                                  <div className="text-gray-600">{parseFloat(kien['SO_KHOI'] || 0).toFixed(4)} m³</div>
                                 </button>
                               ))}
                             </div>
@@ -2834,7 +2886,7 @@ const XuatNhapKhoManagement = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Tổng KL:</span>
-                      <span className="font-medium text-gray-900">{parseFloat(currentPhieu['TONGKHOILUONG'] || 0).toFixed(3)} m³</span>
+                      <span className="font-medium text-gray-900">{parseFloat(currentPhieu['TONGKHOILUONG'] || 0).toFixed(4)} m³</span>
                     </div>
                     {currentPhieu['NGHIEP_VU'] === 'XUAT' && (
                       <div className="flex justify-between">
