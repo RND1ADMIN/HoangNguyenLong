@@ -19,6 +19,8 @@ import DMHHManagement from './pages/DMHHManagement';
 import DSKHManagement from './pages/DSKHManagement';
 import HopDongNguyenTacManagement from './pages/HopDongNguyenTacManagement';
 import XuatNhapKhoManager from './pages/XuatNhapKhoManager';
+import ChiTietXuatNhapKhoManagement from './pages/ChiTietXuatNhapKhoManagement';
+
 
 import CongDoanDonGiaManagement from './pages/CongDoanDonGiaManagement';
 import PhanBoNhanSuManagement from './pages/PhanBoNhanSuManagement';
@@ -66,6 +68,7 @@ function App() {
                   <Route path="/dskh" element={<DSKHManagement />} />
                   <Route path="/hopdongnguyentac" element={<HopDongNguyenTacManagement />} />
                   <Route path="/xuatnhapkho" element={<XuatNhapKhoManager />} />
+                  <Route path="/chitietxuatnhapkho" element={<ChiTietXuatNhapKhoManagement />} />
                   <Route path="/tonkho" element={<TonKhoManager />} />
                   <Route path="/makien" element={<TheKhoManagement />} />
                   

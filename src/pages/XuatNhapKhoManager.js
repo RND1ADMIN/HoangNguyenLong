@@ -1239,11 +1239,11 @@ const XuatNhapKhoManagement = () => {
   };
 
   // View detail modal
-  const handleOpenDetailModal = async (phieu) => {
+  const handleOpenDetailModal = (phieu) => { // ✅ Bỏ async
     setCurrentPhieu(phieu);
     setCustomerSearchTerm(phieu['NCC_KHACHHANG'] || '');
-    await loadChiTiet(phieu['SOPHIEU']);
-    setShowDetailModal(true);
+    loadChiTiet(phieu['SOPHIEU']); // ✅ Không await
+    setShowDetailModal(true);      // ✅ Hiện ngay
   };
 
   const loadChiTiet = async (soPhieu) => {
@@ -1511,6 +1511,11 @@ const XuatNhapKhoManagement = () => {
       direction = 'descending';
     }
     setSortConfig({ key, direction });
+  };
+
+  // Thêm hàm tính số kiện cho mỗi phiếu
+  const getKienCountForPhieu = (soPhieu) => {
+    return tonKho.filter(ct => ct['SOPHIEU'] === soPhieu).length;
   };
 
   const getSortedPhieuList = useCallback(() => {
@@ -1943,6 +1948,10 @@ const XuatNhapKhoManagement = () => {
                     <th className="px-3 py-2 text-left text-xs font-semibold text-purple-900">
                       Người phụ trách
                     </th>
+                    {/* ✅ THÊM CỘT SỐ KIỆN */}
+                    <th className="px-3 py-2 text-center text-xs font-semibold text-purple-900">
+                      Số kiện
+                    </th>
                     <th className="px-3 py-2 text-right text-xs font-semibold text-purple-900 cursor-pointer hover:bg-purple-200 transition-colors"
                       onClick={() => requestSort('TONGKHOILUONG')}>
                       KL (m³) {getSortIcon('TONGKHOILUONG')}
@@ -1981,6 +1990,12 @@ const XuatNhapKhoManagement = () => {
                       </td>
                       <td className="px-3 py-2 text-xs text-gray-700">
                         {phieu['NGUOIPHUTRACH'] || '-'}
+                      </td>
+                      {/* ✅ HIỂN THỊ SỐ KIỆN */}
+                      <td className="px-3 py-2 text-center">
+                        <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold bg-blue-100 text-blue-800">
+                          {getKienCountForPhieu(phieu['SOPHIEU'])}
+                        </span>
                       </td>
                       <td className="px-3 py-2 text-xs text-right font-medium text-gray-900">
                         {parseFloat(phieu['TONGKHOILUONG'] || 0).toFixed(4)}

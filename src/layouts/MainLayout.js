@@ -137,6 +137,7 @@ const MainLayout = ({ children }) => {
                 { text: 'Cài đặt giá bán', icon: FileBox, path: '/giaban' },
                 { text: 'Quản lý hàng hóa', icon: FileBox, path: '/dmhh' },
                 { text: 'Quản lý xuất nhập kho', icon: Table, path: '/xuatnhapkho' },
+                { text: 'Chi tiết xuất nhập kho', icon: Table, path: '/chitietxuatnhapkho' },
                 { text: 'Báo cáo kho', icon: ChartArea, path: '/tonkho' },
                 { text: 'Mã kiện', icon: ChartArea, path: '/makien' }
             ]
