@@ -80,28 +80,27 @@ const DSKHManagement = () => {
                 if (data.code === '00' && data.data) {
                     const companyData = data.data;
 
-                    // Tạo tên viết tắt từ tên công ty
+                    // Hàm tạo tên viết tắt dự phòng (nếu API không trả về)
                     const generateAcronym = (name) => {
                         if (!name) return '';
 
-                        // Loại bỏ các từ phổ biến
                         const excludeWords = ['công', 'ty', 'tnhh', 'cổ', 'phần', 'trách', 'nhiệm', 'hữu', 'hạn', 'một', 'thành', 'viên'];
 
                         const words = name
                             .toLowerCase()
                             .normalize("NFD")
-                            .replace(/[\u0300-\u036f]/g, "") // Bỏ dấu
-                            .replace(/[^a-z0-9\s]/g, '') // Chỉ giữ chữ và số
+                            .replace(/[\u0300-\u036f]/g, "")
+                            .replace(/[^a-z0-9\s]/g, '')
                             .split(' ')
                             .filter(word => word && !excludeWords.includes(word));
 
-                        // Lấy chữ cái đầu của mỗi từ
                         return words.map(word => word[0]).join('').toUpperCase();
                     };
 
                     return {
                         'TEN_KHACHHANG': companyData.name || '',
-                        'TEN_VIET_TAT': generateAcronym(companyData.name || companyData.shortName || ''),
+                        // Ưu tiên lấy shortName từ API, nếu không có thì mới tự tạo
+                        'TEN_VIET_TAT': companyData.shortName || generateAcronym(companyData.name),
                         'DIACHI': companyData.address || '',
                         'NGUOI_DAIDIEN': companyData.representative || '',
                         'NGAY_THANHLAP': companyData.establishDate ? formatDateForInput(companyData.establishDate) : ''
@@ -109,8 +108,8 @@ const DSKHManagement = () => {
                 }
             }
 
-            // API 2: Backup API (nếu API 1 không hoạt động)
-            const response2 = await fetch(`https://api.tracuunnt.com/api/v1/company/search?mst=${mst}`);
+            // API 2: Backup API từ masothue.com
+            const response2 = await fetch(`https://api.masothue.com/api/company/${mst}`);
 
             if (response2.ok) {
                 const data2 = await response2.json();
@@ -133,7 +132,40 @@ const DSKHManagement = () => {
 
                     return {
                         'TEN_KHACHHANG': companyData.ten || companyData.name || '',
-                        'TEN_VIET_TAT': generateAcronym(companyData.ten || companyData.name || ''),
+                        // Ưu tiên lấy ten_viet_tat hoặc shortName từ API
+                        'TEN_VIET_TAT': companyData.ten_viet_tat || companyData.shortName || generateAcronym(companyData.ten || companyData.name),
+                        'DIACHI': companyData.dia_chi || companyData.address || '',
+                        'NGUOI_DAIDIEN': companyData.nguoi_dai_dien || companyData.representative || '',
+                        'NGAY_THANHLAP': companyData.ngay_thanh_lap ? formatDateForInput(companyData.ngay_thanh_lap) : ''
+                    };
+                }
+            }
+
+            // API 3: Tracuunnt.com (backup thứ 2)
+            const response3 = await fetch(`https://api.tracuunnt.com/api/v1/company/search?mst=${mst}`);
+
+            if (response3.ok) {
+                const data3 = await response3.json();
+
+                if (data3.success && data3.data) {
+                    const companyData = data3.data;
+
+                    const generateAcronym = (name) => {
+                        if (!name) return '';
+                        const excludeWords = ['công', 'ty', 'tnhh', 'cổ', 'phần', 'trách', 'nhiệm', 'hữu', 'hạn', 'một', 'thành', 'viên'];
+                        const words = name
+                            .toLowerCase()
+                            .normalize("NFD")
+                            .replace(/[\u0300-\u036f]/g, "")
+                            .replace(/[^a-z0-9\s]/g, '')
+                            .split(' ')
+                            .filter(word => word && !excludeWords.includes(word));
+                        return words.map(word => word[0]).join('').toUpperCase();
+                    };
+
+                    return {
+                        'TEN_KHACHHANG': companyData.ten || companyData.name || '',
+                        'TEN_VIET_TAT': companyData.ten_viet_tat || companyData.shortName || generateAcronym(companyData.ten || companyData.name),
                         'DIACHI': companyData.dia_chi || companyData.address || '',
                         'NGUOI_DAIDIEN': companyData.nguoi_dai_dien || companyData.representative || '',
                         'NGAY_THANHLAP': companyData.ngay_thanh_lap ? formatDateForInput(companyData.ngay_thanh_lap) : ''
@@ -149,6 +181,7 @@ const DSKHManagement = () => {
             setIsLoadingMST(false);
         }
     };
+
 
     // Handle MST input change with debounce
     const handleMSTChange = async (value) => {
@@ -509,8 +542,8 @@ const DSKHManagement = () => {
                             <button
                                 onClick={() => setShowFilters(!showFilters)}
                                 className={`px-3 py-2 rounded-lg flex items-center gap-2 transition-all shadow-sm hover:shadow text-sm ${showFilters
-                                        ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                                        : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                    ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                                    : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
                                     }`}
                             >
                                 <Filter className="w-4 h-4" />
@@ -810,8 +843,8 @@ const DSKHManagement = () => {
                                                 key={page}
                                                 onClick={() => goToPage(page)}
                                                 className={`min-w-[32px] px-2 py-1 rounded-lg border font-medium transition-all text-xs ${currentPage === page
-                                                        ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                                                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                                                    ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                                    : 'border-gray-300 text-gray-700 hover:bg-gray-50'
                                                     }`}
                                             >
                                                 {page}
