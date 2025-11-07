@@ -410,11 +410,13 @@ const ReportManagement = () => {
         'ĐƠN VỊ TÍNH': stageData['ĐƠN VỊ TÍNH'] || '',
         'PP TÍNH NĂNG SUẤT': stageData['PP TÍNH NĂNG SUẤT'] || '',
         'NHÂN SỰ': staffArray,
+        'SỐ LƯỢNG NHÂN SỰ': staffArray.length.toString(), // Thêm dòng này
         'ĐƠN GIÁ': stageData['ĐƠN GIÁ NĂNG SUẤT'] || '',
         'THÀNH TIỀN': calculateThanhTien(prev['KHỐI LƯỢNG'], stageData['ĐƠN GIÁ NĂNG SUẤT'])
       }));
     }
   };
+
 
   const handleFilterDateChange = (field, value) => {
     setFilters(prev => ({
@@ -607,7 +609,8 @@ const ReportManagement = () => {
       let reportData = {
         ...currentReport,
         'NGÀY': currentReport['NGÀY'].toISOString().split('T')[0],
-        'NHÂN SỰ': staffString
+        'NHÂN SỰ': staffString,
+        'SỐ LƯỢNG NHÂN SỰ': currentReport['NHÂN SỰ'].length.toString() // Thêm dòng này
       };
 
       if (reportData.IDBC) {
@@ -1620,7 +1623,7 @@ const ReportManagement = () => {
                     type="number"
                     placeholder="Nhập số lượng nhân sự"
                     className="p-2.5 border border-gray-300 rounded-lg w-full focus:ring-indigo-500 focus:border-indigo-500 bg-gray-100"
-                    value={currentReport['SỐ LƯỢNG NHÂN SỰ']}
+                    value={currentReport['NHÂN SỰ']?.length || 0}
                     readOnly
                     title="Số lượng sẽ tự động cập nhật khi chọn nhân sự"
                   />

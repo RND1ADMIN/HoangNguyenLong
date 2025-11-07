@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calendar, Filter, Download, RefreshCw, Package, TrendingUp, TrendingDown, Archive, FileText, ChevronDown, ArrowDownToLine, ArrowUpFromLine, Award, Layers } from 'lucide-react';
+import { Calendar, Filter, Download, RefreshCw, Package, TrendingUp, TrendingDown, Archive, FileText, ChevronDown, ArrowDownToLine, ArrowUpFromLine, Award, Layers, Search, X } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
@@ -15,10 +15,15 @@ const BaoCaoKho = () => {
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [selectedNhomHang, setSelectedNhomHang] = useState('ALL');
+  const [searchNhomHang, setSearchNhomHang] = useState('');
+  const [showNhomHangDropdown, setShowNhomHangDropdown] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showFilter, setShowFilter] = useState(true);
   const [activeTab, setActiveTab] = useState('tong-hop');
   const [activeTop10Tab, setActiveTop10Tab] = useState('nhap');
+
+  // Refs
+  const nhomHangDropdownRef = useRef(null);
 
   // Report data states
   const [tongHopData, setTongHopData] = useState({
@@ -37,6 +42,36 @@ const BaoCaoKho = () => {
   });
 
   const COLORS = ['#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16'];
+
+  // Get unique nhom hang
+  const uniqueNhomHang = [...new Set(chiTietList.map(item => item['NHOM_HANG']).filter(Boolean))];
+
+  // Filter nhom hang based on search
+  const filteredNhomHang = uniqueNhomHang.filter(nhomHang =>
+    nhomHang.toLowerCase().includes(searchNhomHang.toLowerCase())
+  );
+
+  // Get display text for selected nhom hang
+  const getSelectedNhomHangText = () => {
+    if (selectedNhomHang === 'ALL') {
+      return 'Tất cả nhóm hàng';
+    }
+    return selectedNhomHang;
+  };
+
+  // Handle click outside dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (nhomHangDropdownRef.current && !nhomHangDropdownRef.current.contains(event.target)) {
+        setShowNhomHangDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   // Fetch data
   const fetchData = async () => {
@@ -430,8 +465,6 @@ const BaoCaoKho = () => {
     );
   };
 
-  const uniqueNhomHang = [...new Set(chiTietList.map(item => item['NHOM_HANG']).filter(Boolean))];
-
   return (
     <div className="p-3 md:p-4 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
       <div className="mx-auto">
@@ -498,18 +531,100 @@ const BaoCaoKho = () => {
                   />
                 </div>
 
-                <div>
+                <div className="relative" ref={nhomHangDropdownRef}>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Nhóm hàng:</label>
-                  <select
-                    value={selectedNhomHang}
-                    onChange={(e) => setSelectedNhomHang(e.target.value)}
-                    className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  >
-                    <option value="ALL">Tất cả nhóm hàng</option>
-                    {uniqueNhomHang.map((nhomHang, index) => (
-                      <option key={index} value={nhomHang}>{nhomHang}</option>
-                    ))}
-                  </select>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowNhomHangDropdown(!showNhomHangDropdown)}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white text-left flex items-center justify-between"
+                    >
+                      <span className={selectedNhomHang === 'ALL' ? 'text-gray-500' : 'text-gray-900'}>
+                        {getSelectedNhomHangText()}
+                      </span>
+                      <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform ${showNhomHangDropdown ? 'transform rotate-180' : ''}`} />
+                    </button>
+
+                    {showNhomHangDropdown && (
+                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-80 overflow-hidden">
+                        {/* Search box */}
+                        <div className="p-2 border-b border-gray-200 sticky top-0 bg-white">
+                          <div className="relative">
+                            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                            <input
+                              type="text"
+                              value={searchNhomHang}
+                              onChange={(e) => setSearchNhomHang(e.target.value)}
+                              placeholder="Tìm kiếm nhóm hàng..."
+                              className="w-full pl-8 pr-8 py-1.5 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                            {searchNhomHang && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSearchNhomHang('');
+                                }}
+                                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Options list */}
+                        <div className="max-h-60 overflow-y-auto">
+                          <button
+                            onClick={() => {
+                              setSelectedNhomHang('ALL');
+                              setShowNhomHangDropdown(false);
+                              setSearchNhomHang('');
+                            }}
+                            className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-50 transition-colors ${selectedNhomHang === 'ALL' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'
+                              }`}
+                          >
+                            Tất cả nhóm hàng
+                          </button>
+
+                          {filteredNhomHang.length > 0 ? (
+                            filteredNhomHang.map((nhomHang, index) => (
+                              <button
+                                key={index}
+                                onClick={() => {
+                                  setSelectedNhomHang(nhomHang);
+                                  setShowNhomHangDropdown(false);
+                                  setSearchNhomHang('');
+                                }}
+                                className={`w-full px-3 py-2 text-left text-sm hover:bg-blue-50 transition-colors ${selectedNhomHang === nhomHang ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700'
+                                  }`}
+                              >
+                                {nhomHang}
+                              </button>
+                            ))
+                          ) : (
+                            <div className="px-3 py-4 text-center text-sm text-gray-500">
+                              Không tìm thấy nhóm hàng phù hợp
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Clear button */}
+                  {selectedNhomHang !== 'ALL' && (
+                    <button
+                      onClick={() => {
+                        setSelectedNhomHang('ALL');
+                        setSearchNhomHang('');
+                      }}
+                      className="absolute right-8 top-[30px] text-gray-400 hover:text-gray-600"
+                      title="Xóa lựa chọn"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1166,4 +1281,3 @@ const BaoCaoKho = () => {
 };
 
 export default BaoCaoKho;
-
