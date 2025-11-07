@@ -418,7 +418,7 @@ const XuatNhapKhoManagement = () => {
 
           for (let i = 0; i < group.chiTiet.length; i++) {
             const item = group.chiTiet[i];
-            const maKien = generateMaKien(group.ngay);
+            const maKien = generateMaKien(group.ngay); // ✅ Đã tự động dùng 5 chữ số
 
             const chiTiet = {
               'ID_CT': Date.now() + i,
@@ -428,7 +428,7 @@ const XuatNhapKhoManagement = () => {
               'KHO_NHAP': importNghiepVu === 'NHAP' ? group.kho : '',
               'NGAY_NHAP_XUAT': group.ngay,
               'NHOM_HANG': item.nhomHang,
-              'MA_KIEN': maKien,
+              'MA_KIEN': maKien, // ✅ Format mới: K-250107-00001
               'DAY': item.day,
               'RONG': item.rong,
               'DAI': item.dai,
@@ -436,8 +436,8 @@ const XuatNhapKhoManagement = () => {
               'SO_KHOI': item.soKhoi,
               'TIEU_CHUAN': item.tieuChuan,
               'DOI_HANG_KHO': item.doiHangKho,
-              'DONGIA': item.donGia, // Lưu đơn giá
-              'THANHTIEN': item.thanhTien, // Lưu thành tiền
+              'DONGIA': item.donGia,
+              'THANHTIEN': item.thanhTien,
               'GHICHU': ''
             };
 
@@ -726,7 +726,7 @@ const XuatNhapKhoManagement = () => {
     return `${prefix}-${yearMonthDay}-${nextNumber}`;
   };
 
-  // ==================== MÃ KIỆN TĂNG LIÊN TỤC (CÓ NGÀY, SỐ KHÔNG RESET) ====================
+  // ==================== MÃ KIỆN TĂNG LIÊN TỤC (CÓ NGÀY, SỐ KHÔNG RESET) - 5 CHỮ SỐ ====================
   const generateMaKien = (ngayNhapXuat) => {
     const date = new Date(ngayNhapXuat);
     const yy = date.getFullYear().toString().slice(-2);
@@ -744,7 +744,7 @@ const XuatNhapKhoManagement = () => {
     let maxNumber = 0;
     allKien.forEach(k => {
       if (k['MA_KIEN']) {
-        // Match format: K-yymmdd-0001
+        // Match format: K-yymmdd-00001 (5 chữ số)
         const match = k['MA_KIEN'].match(/-(\d+)$/);
         if (match) {
           const num = parseInt(match[1]);
@@ -753,10 +753,11 @@ const XuatNhapKhoManagement = () => {
       }
     });
 
-    // Số tiếp theo
-    const nextNumber = (maxNumber + 1).toString().padStart(4, '0');
+    // ✅ Số tiếp theo - TĂNG LÊN 5 CHỮ SỐ (từ 00001 đến 99999)
+    const nextNumber = (maxNumber + 1).toString().padStart(5, '0'); // 👈 ĐỔI TỪ 4 SANG 5
     return `K-${yearMonthDay}-${nextNumber}`;
   };
+
 
   // Format currency VND
   const formatCurrency = (amount) => {
@@ -1032,7 +1033,7 @@ const XuatNhapKhoManagement = () => {
   };
 
 
-  // ✅ SỬA LẠI: Thêm chi tiết nhập - Tạo mã kiện tăng dần
+  // ✅ SỬA LẠI: Thêm chi tiết nhập - Tạo mã kiện tăng dần (5 chữ số)
   const handleAddChiTietNhap = () => {
     if (!currentChiTiet['NHOM_HANG']) {
       toast.error('Vui lòng chọn nhóm hàng');
@@ -1071,9 +1072,9 @@ const XuatNhapKhoManagement = () => {
     const dd = date.getDate().toString().padStart(2, '0');
     const yearMonthDay = `${yy}${mm}${dd}`;
 
-    // ✅ Tạo danh sách kiện mới với số tăng dần
+    // ✅ Tạo danh sách kiện mới với số tăng dần (5 chữ số)
     for (let i = 0; i < soKien; i++) {
-      const nextNumber = (maxNumber + i + 1).toString().padStart(4, '0');
+      const nextNumber = (maxNumber + i + 1).toString().padStart(5, '0'); // 👈 ĐỔI TỪ 4 SANG 5
       const maKien = `K-${yearMonthDay}-${nextNumber}`;
 
       const chiTiet = {
@@ -1117,6 +1118,7 @@ const XuatNhapKhoManagement = () => {
     setNhomHangSearchTerm('');
     setSelectedNhomHangInfo(null);
   };
+
 
   // Update chi tiet field (for nhap kho)
   const handleUpdateChiTietField = (index, field, value) => {
