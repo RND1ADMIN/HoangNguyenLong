@@ -131,14 +131,16 @@ const XuatNhapKhoManagement = () => {
     return (dayNum * rongNum * daiNum * soThanhNum) / 1000000000;
   };
 
-  // Hàm xuất Excel mẫu - CẢI TIẾN: 2 sheet riêng cho Nhập và Xuất
+  // ==================== EXCEL FUNCTIONS - CẢI TIẾN CHO XUẤT KHO ====================
+
+  // Hàm xuất Excel mẫu - CẢI TIẾN: Xuất kho chỉ cần Mã kiện
   const handleExportTemplate = () => {
     // Template cho NHẬP KHO
     const templateNhapData = [
       {
         'Ngày (DD/MM/YYYY)': '01/01/2024',
         'NCC/Khách hàng': 'Công ty ABC',
-        'Kho': 'KHO A',
+        'Kho': 'Kho Phú Giáo',
         'Người phụ trách': 'Nguyễn Văn A',
         'Nhóm hàng': '25*100*2400',
         'Dày (mm)': 25,
@@ -152,7 +154,7 @@ const XuatNhapKhoManagement = () => {
       {
         'Ngày (DD/MM/YYYY)': '01/01/2024',
         'NCC/Khách hàng': 'Công ty ABC',
-        'Kho': 'KHO A',
+        'Kho': 'Kho Phú Giáo',
         'Người phụ trách': 'Nguyễn Văn A',
         'Nhóm hàng': '30*120*3000',
         'Dày (mm)': 30,
@@ -165,36 +167,24 @@ const XuatNhapKhoManagement = () => {
       }
     ];
 
-    // Template cho XUẤT KHO
+    // Template cho XUẤT KHO - CHỈ CẦN MÃ KIỆN
     const templateXuatData = [
       {
         'Ngày (DD/MM/YYYY)': '01/01/2024',
         'NCC/Khách hàng': 'Công ty XYZ',
-        'Kho xuất': 'KHO A',
+        'Kho xuất': 'Kho Phú Giáo',
         'Người phụ trách': 'Nguyễn Văn B',
-        'Nhóm hàng': '25*100*2400',
-        'Dày (mm)': 25,
-        'Rộng (mm)': 100,
-        'Dài (mm)': 2400,
-        'Số thanh': 50,
+        'Mã kiện': 'K2514048',
         'Đơn giá': 5000000,
-        'Tiêu chuẩn': 'A',
-        'Đội hàng khô': 'Đội 1',
         'Diễn giải': 'Xuất hàng cho khách'
       },
       {
         'Ngày (DD/MM/YYYY)': '01/01/2024',
         'NCC/Khách hàng': 'Công ty XYZ',
-        'Kho xuất': 'KHO A',
+        'Kho xuất': 'Kho Phú Giáo',
         'Người phụ trách': 'Nguyễn Văn B',
-        'Nhóm hàng': '30*120*3000',
-        'Dày (mm)': 30,
-        'Rộng (mm)': 120,
-        'Dài (mm)': 3000,
-        'Số thanh': 40,
+        'Mã kiện': 'K2514047',
         'Đơn giá': 6000000,
-        'Tiêu chuẩn': 'B',
-        'Đội hàng khô': 'Đội 2',
         'Diễn giải': ''
       }
     ];
@@ -219,21 +209,15 @@ const XuatNhapKhoManagement = () => {
     ];
     XLSX.utils.book_append_sheet(wb, wsNhap, 'Mẫu Nhập Kho');
 
-    // Sheet 2: Template Xuất Kho
+    // Sheet 2: Template Xuất Kho - ĐƠN GIẢN HƠN
     const wsXuat = XLSX.utils.json_to_sheet(templateXuatData);
     wsXuat['!cols'] = [
       { wch: 20 }, // Ngày
       { wch: 25 }, // NCC/Khách hàng
       { wch: 15 }, // Kho xuất
       { wch: 20 }, // Người phụ trách
-      { wch: 20 }, // Nhóm hàng
-      { wch: 12 }, // Dày
-      { wch: 12 }, // Rộng
-      { wch: 12 }, // Dài
-      { wch: 12 }, // Số thanh
+      { wch: 20 }, // Mã kiện
       { wch: 15 }, // Đơn giá
-      { wch: 15 }, // Tiêu chuẩn
-      { wch: 15 }, // Đội hàng khô
       { wch: 30 }  // Diễn giải
     ];
     XLSX.utils.book_append_sheet(wb, wsXuat, 'Mẫu Xuất Kho');
@@ -242,10 +226,10 @@ const XuatNhapKhoManagement = () => {
     const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     saveAs(data, `Template_NhapXuatKho_${new Date().getTime()}.xlsx`);
 
-    toast.success('Đã tải xuống file mẫu Excel (2 sheet: Nhập & Xuất)');
+    toast.success('Đã tải xuống file mẫu Excel (Nhập: đầy đủ thông tin | Xuất: chỉ cần mã kiện)');
   };
 
-  // Hàm xử lý khi chọn file - CẢI TIẾN: Hỗ trợ cả Nhập và Xuất
+  // Hàm xử lý khi chọn file - CẢI TIẾN: Đọc đúng sheet theo nghiệp vụ
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -262,8 +246,27 @@ const XuatNhapKhoManagement = () => {
       try {
         const bstr = evt.target.result;
         const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
+
+        // ✅ QUAN TRỌNG: Chọn sheet dựa vào nghiệp vụ
+        let sheetName;
+        if (importNghiepVu === 'NHAP') {
+          sheetName = 'Mẫu Nhập Kho';
+        } else if (importNghiepVu === 'XUAT') {
+          sheetName = 'Mẫu Xuất Kho';
+        } else {
+          sheetName = wb.SheetNames[0]; // Mặc định sheet đầu tiên
+        }
+
+        // Kiểm tra sheet có tồn tại không
+        if (!wb.Sheets[sheetName]) {
+          toast.error(`Không tìm thấy sheet "${sheetName}" trong file Excel!`);
+          console.error('Các sheet có sẵn:', wb.SheetNames);
+          return;
+        }
+
+        console.log(`✅ Đang đọc sheet: "${sheetName}"`);
+
+        const ws = wb.Sheets[sheetName];
         const data = XLSX.utils.sheet_to_json(ws);
 
         if (data.length === 0) {
@@ -271,74 +274,158 @@ const XuatNhapKhoManagement = () => {
           return;
         }
 
+        console.log(`📊 Đọc được ${data.length} dòng từ sheet "${sheetName}"`);
+        console.log('🔍 Dòng đầu tiên:', data[0]);
+
         // Validate và xử lý dữ liệu
         const processedData = data.map((row, index) => {
-          const day = parseFloat(row['Dày (mm)']) || 0;
-          const rong = parseFloat(row['Rộng (mm)']) || 0;
-          const dai = parseFloat(row['Dài (mm)']) || 0;
-          const soThanh = parseFloat(row['Số thanh']) || 0;
-          const soKhoi = calculateM3(day, rong, dai, soThanh);
-          const donGia = parseFloat(row['Đơn giá']) || 0;
-          const thanhTien = soKhoi * donGia;
-
-          return {
-            rowIndex: index + 2, // +2 vì Excel bắt đầu từ 1 và có header
+          let processedRow = {
+            rowIndex: index + 2,
             ngay: row['Ngày (DD/MM/YYYY)'],
             nccKhachHang: row['NCC/Khách hàng'] || '',
-            kho: row['Kho'] || row['Kho xuất'] || '', // Hỗ trợ cả 2 cột
+            kho: row['Kho'] || row['Kho xuất'] || '',
             nguoiPhuTrach: row['Người phụ trách'] || '',
-            nhomHang: row['Nhóm hàng'] || '',
-            day: day,
-            rong: rong,
-            dai: dai,
-            soThanh: soThanh,
-            soKhoi: soKhoi,
-            donGia: donGia, // Thêm đơn giá
-            thanhTien: thanhTien, // Thêm thành tiền
-            tieuChuan: row['Tiêu chuẩn'] || '',
-            doiHangKho: row['Đội hàng khô'] || '',
             dienGiai: row['Diễn giải'] || '',
             errors: []
           };
-        });
 
-        // Validate dữ liệu
-        processedData.forEach(row => {
-          if (!row.ngay) {
-            row.errors.push('Thiếu ngày');
+          // ✅ XỬ LÝ XUẤT KHO
+          if (importNghiepVu === 'XUAT') {
+            console.log(`🔍 Xử lý dòng ${index + 2} - Xuất kho`);
+
+            // Đọc mã kiện
+            const maKien = row['Mã kiện'];
+            console.log(`   Mã kiện: ${maKien}`);
+
+            if (!maKien || String(maKien).trim() === '') {
+              processedRow.errors.push('Thiếu mã kiện');
+              console.error(`   ❌ Thiếu mã kiện ở dòng ${index + 2}`);
+              return processedRow;
+            }
+
+            const maKienClean = String(maKien).trim();
+
+            // Tìm kiện trong tồn kho
+            const kienInfo = tonKho.find(k =>
+              k['MA_KIEN'] === maKienClean &&
+              k['NGHIEP_VU'] === 'NHAP'
+            );
+
+            if (!kienInfo) {
+              processedRow.errors.push(`Không tìm thấy kiện ${maKienClean} trong kho`);
+              console.error(`   ❌ Không tìm thấy kiện ${maKienClean}`);
+              return processedRow;
+            }
+
+            // Kiểm tra kiện đã xuất chưa
+            const daXuat = tonKho.find(k =>
+              k['MA_KIEN'] === maKienClean &&
+              k['NGHIEP_VU'] === 'XUAT'
+            );
+
+            if (daXuat) {
+              processedRow.errors.push(`Kiện ${maKienClean} đã được xuất`);
+              console.error(`   ❌ Kiện ${maKienClean} đã xuất`);
+              return processedRow;
+            }
+
+            // ✅ TỰ ĐỘNG LẤY THÔNG TIN TỪ KIỆN
+            const donGia = parseFloat(row['Đơn giá']) || 0;
+            const soKhoi = parseFloat(kienInfo['SO_KHOI']) || 0;
+            const thanhTien = soKhoi * donGia;
+
+            console.log(`   ✅ Tìm thấy kiện: ${kienInfo['NHOM_HANG']}, ${soKhoi.toFixed(4)} m³`);
+
+            processedRow = {
+              ...processedRow,
+              maKien: maKienClean,
+              nhomHang: kienInfo['NHOM_HANG'],
+              day: kienInfo['DAY'],
+              rong: kienInfo['RONG'],
+              dai: kienInfo['DAI'],
+              soThanh: kienInfo['THANH'],
+              soKhoi: soKhoi,
+              tieuChuan: kienInfo['TIEU_CHUAN'],
+              doiHangKho: kienInfo['DOI_HANG_KHO'],
+              donGia: donGia,
+              thanhTien: thanhTien
+            };
+
+            // Validate đơn giá
+            if (donGia <= 0) {
+              processedRow.errors.push('Đơn giá phải lớn hơn 0');
+            }
+
+          } else {
+            // ✅ XỬ LÝ NHẬP KHO
+            console.log(`🔍 Xử lý dòng ${index + 2} - Nhập kho`);
+
+            const day = parseFloat(row['Dày (mm)']) || 0;
+            const rong = parseFloat(row['Rộng (mm)']) || 0;
+            const dai = parseFloat(row['Dài (mm)']) || 0;
+            const soThanh = parseFloat(row['Số thanh']) || 0;
+            const soKhoi = calculateM3(day, rong, dai, soThanh);
+
+            processedRow = {
+              ...processedRow,
+              nhomHang: row['Nhóm hàng'] || '',
+              day: day,
+              rong: rong,
+              dai: dai,
+              soThanh: soThanh,
+              soKhoi: soKhoi,
+              donGia: 0,
+              thanhTien: 0,
+              tieuChuan: row['Tiêu chuẩn'] || '',
+              doiHangKho: row['Đội hàng khô'] || ''
+            };
+
+            // Validate nhập kho
+            if (!processedRow.nhomHang) {
+              processedRow.errors.push('Thiếu nhóm hàng');
+            }
+            if (day <= 0 || rong <= 0 || dai <= 0) {
+              processedRow.errors.push('Kích thước không hợp lệ');
+            }
+            if (soThanh <= 0) {
+              processedRow.errors.push('Số thanh phải lớn hơn 0');
+            }
+            if (!processedRow.tieuChuan) {
+              processedRow.errors.push('Thiếu tiêu chuẩn');
+            }
           }
-          if (!row.kho) {
-            row.errors.push('Thiếu kho');
+
+          // Validate chung
+          if (!processedRow.ngay) {
+            processedRow.errors.push('Thiếu ngày');
           }
-          if (!row.nhomHang) {
-            row.errors.push('Thiếu nhóm hàng');
+          if (!processedRow.kho) {
+            processedRow.errors.push('Thiếu kho');
           }
-          if (row.day <= 0 || row.rong <= 0 || row.dai <= 0) {
-            row.errors.push('Kích thước không hợp lệ');
-          }
-          if (row.soThanh <= 0) {
-            row.errors.push('Số thanh phải lớn hơn 0');
-          }
-          if (!row.tieuChuan) {
-            row.errors.push('Thiếu tiêu chuẩn');
-          }
-          // Validate đơn giá cho xuất kho
-          if (importNghiepVu === 'XUAT' && row.donGia <= 0) {
-            row.errors.push('Đơn giá phải lớn hơn 0 khi xuất kho');
-          }
+
+          return processedRow;
         });
 
         setImportPreview(processedData);
-        toast.success(`Đã đọc ${processedData.length} dòng dữ liệu từ Excel`);
+
+        const validCount = processedData.filter(r => r.errors.length === 0).length;
+        const errorCount = processedData.filter(r => r.errors.length > 0).length;
+
+        if (validCount > 0) {
+          toast.success(`Đã đọc ${processedData.length} dòng từ sheet "${sheetName}": ${validCount} hợp lệ, ${errorCount} lỗi`);
+        } else {
+          toast.error('Không có dòng dữ liệu hợp lệ');
+        }
       } catch (error) {
-        console.error('Error reading Excel file:', error);
+        console.error('❌ Error reading Excel file:', error);
         toast.error('Có lỗi khi đọc file Excel: ' + error.message);
       }
     };
     reader.readAsBinaryString(file);
   };
 
-  // Hàm xử lý import dữ liệu - CẢI TIẾN: Lưu đầy đủ DONGIA và THANHTIEN
+
+  // Hàm xử lý import dữ liệu - CẢI TIẾN: Xử lý xuất kho với mã kiện
   const handleImportData = async () => {
     if (importPreview.length === 0) {
       toast.error('Không có dữ liệu để import');
@@ -408,7 +495,7 @@ const XuatNhapKhoManagement = () => {
             'KHONHAP': importNghiepVu === 'NHAP' ? group.kho : '',
             'NGUOIPHUTRACH': group.nguoiPhuTrach,
             'TONGKHOILUONG': tongKhoiLuong,
-            'TONGTIEN': tongTien, // Lưu tổng tiền
+            'TONGTIEN': tongTien,
             'DIENGIAI': group.dienGiai
           };
 
@@ -417,12 +504,17 @@ const XuatNhapKhoManagement = () => {
             "Rows": [phieu]
           });
 
-          // Tạo chi tiết cho từng dòng
+          // Tạo chi tiết
           const chiTietToSave = [];
 
           for (let i = 0; i < group.chiTiet.length; i++) {
             const item = group.chiTiet[i];
-            const maKien = generateMaKien(group.ngay); // ✅ Đã tự động dùng 5 chữ số
+
+            // ✅ XUẤT KHO: Dùng mã kiện có sẵn
+            // ✅ NHẬP KHO: Tạo mã kiện mới
+            const maKien = importNghiepVu === 'XUAT'
+              ? item.maKien
+              : generateMaKien(group.ngay);
 
             const chiTiet = {
               'ID_CT': Date.now() + i,
@@ -432,7 +524,7 @@ const XuatNhapKhoManagement = () => {
               'KHO_NHAP': importNghiepVu === 'NHAP' ? group.kho : '',
               'NGAY_NHAP_XUAT': group.ngay,
               'NHOM_HANG': item.nhomHang,
-              'MA_KIEN': maKien, // ✅ Format mới: K-250107-00001
+              'MA_KIEN': maKien,
               'DAY': item.day,
               'RONG': item.rong,
               'DAI': item.dai,
@@ -464,7 +556,7 @@ const XuatNhapKhoManagement = () => {
       }
 
       if (successCount > 0) {
-        toast.success(`Import thành công ${successCount} phiếu với ${validRows.length} kiện`);
+        toast.success(`Import thành công ${successCount} phiếu với ${validRows.length} ${importNghiepVu === 'XUAT' ? 'kiện' : 'kiện'}`);
         await fetchPhieuList();
         await fetchTonKho();
         handleCloseImportModal();
@@ -481,6 +573,7 @@ const XuatNhapKhoManagement = () => {
       setIsImporting(false);
     }
   };
+
 
   // Hàm mở modal import
   const handleOpenImportModal = () => {
@@ -2237,16 +2330,15 @@ const XuatNhapKhoManagement = () => {
                     <strong>Lưu ý:</strong>
                   </p>
                   <ul className="text-xs text-blue-700 space-y-1 list-disc list-inside">
-                    <li><strong>Nhập kho:</strong> Cột "Kho" - Không cần đơn giá</li>
-                    <li><strong>Xuất kho:</strong> Cột "Kho xuất" + "Đơn giá" (bắt buộc)</li>
-                    <li>Số m³ = (Dày × Rộng × Dài × Số thanh) / 1,000,000,000</li>
-                    <li>Thành tiền = Số m³ × Đơn giá (chỉ xuất kho)</li>
+                    <li><strong>Nhập kho:</strong> Nhập đầy đủ thông tin (Nhóm hàng, Kích thước, Số thanh, Tiêu chuẩn...)</li>
+                    <li><strong>Xuất kho:</strong> Chỉ cần nhập Mã kiện + Đơn giá, hệ thống tự động lấy thông tin chi tiết</li>
+                    <li>Mã kiện phải tồn tại trong kho và chưa được xuất</li>
                     <li>Các dòng cùng ngày, kho, khách hàng sẽ gộp thành 1 phiếu</li>
                   </ul>
                 </div>
               </div>
 
-              {/* Preview Data */}
+              {/* Preview Data - CẢI TIẾN: Hiển thị khác nhau cho Nhập/Xuất */}
               {importPreview.length > 0 && (
                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                   <h3 className="font-semibold text-gray-900 mb-3 text-sm flex items-center justify-between">
@@ -2272,11 +2364,14 @@ const XuatNhapKhoManagement = () => {
                           <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Dòng</th>
                           <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Ngày</th>
                           <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Kho</th>
+                          {importNghiepVu === 'XUAT' && (
+                            <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Mã kiện</th>
+                          )}
                           <th className="px-2 py-1.5 text-left font-semibold text-gray-900">Nhóm hàng</th>
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Dày</th>
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Rộng</th>
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Dài</th>
-                          <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Thanh</th>
+                          <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Kích thước</th>
+                          {importNghiepVu === 'NHAP' && (
+                            <th className="px-2 py-1.5 text-center font-semibold text-gray-900">Thanh</th>
+                          )}
                           <th className="px-2 py-1.5 text-right font-semibold text-gray-900">m³</th>
                           {importNghiepVu === 'XUAT' && (
                             <>
@@ -2294,13 +2389,18 @@ const XuatNhapKhoManagement = () => {
                             <td className="px-2 py-1.5 text-gray-700">{row.rowIndex}</td>
                             <td className="px-2 py-1.5 text-gray-700">{row.ngay}</td>
                             <td className="px-2 py-1.5 text-gray-700">{row.kho}</td>
+                            {importNghiepVu === 'XUAT' && (
+                              <td className="px-2 py-1.5 font-medium text-blue-700">{row.maKien || '-'}</td>
+                            )}
                             <td className="px-2 py-1.5 text-gray-700">{row.nhomHang}</td>
-                            <td className="px-2 py-1.5 text-center text-gray-700">{row.day}</td>
-                            <td className="px-2 py-1.5 text-center text-gray-700">{row.rong}</td>
-                            <td className="px-2 py-1.5 text-center text-gray-700">{row.dai}</td>
-                            <td className="px-2 py-1.5 text-center text-gray-700">{row.soThanh}</td>
+                            <td className="px-2 py-1.5 text-center text-gray-700">
+                              {row.day}x{row.rong}x{row.dai}
+                            </td>
+                            {importNghiepVu === 'NHAP' && (
+                              <td className="px-2 py-1.5 text-center text-gray-700">{row.soThanh}</td>
+                            )}
                             <td className="px-2 py-1.5 text-right font-medium text-gray-900">
-                              {row.soKhoi.toFixed(4)}
+                              {row.soKhoi ? row.soKhoi.toFixed(4) : '-'}
                             </td>
                             {importNghiepVu === 'XUAT' && (
                               <>
@@ -2337,6 +2437,7 @@ const XuatNhapKhoManagement = () => {
                   </div>
                 </div>
               )}
+
             </div>
 
             <div className="flex justify-end gap-2 p-4 border-t border-gray-200 bg-gray-50">
