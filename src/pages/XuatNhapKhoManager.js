@@ -68,6 +68,10 @@ const XuatNhapKhoManagement = () => {
   const [selectedNhomHangInfo, setSelectedNhomHangInfo] = useState(null);
   const [availableKien, setAvailableKien] = useState([]);
 
+  // Thêm state mới cho độ dày
+  const [selectedDay, setSelectedDay] = useState('');
+  const [availableDay, setAvailableDay] = useState([]);
+
   const customerDropdownRef = useRef(null);
   const nhomHangDropdownRef = useRef(null);
 
@@ -908,6 +912,13 @@ const XuatNhapKhoManagement = () => {
     }
   };
 
+  // Cập nhật useEffect để load danh sách độ dày khi chọn kho xuất
+  useEffect(() => {
+    if (currentPhieu['NGHIEP_VU'] === 'XUAT' && currentPhieu['KHOXUAT']) {
+      loadAvailableDay(currentPhieu['KHOXUAT']);
+    }
+  }, [currentPhieu['KHOXUAT'], currentPhieu['NGHIEP_VU']]);
+
   // Set default tieu chuan when list is loaded
   useEffect(() => {
     if (tieuChuanList.length > 0 && !currentChiTiet['TIEU_CHUAN']) {
@@ -980,19 +991,56 @@ const XuatNhapKhoManagement = () => {
     setShowNhomHangDropdown(false);
 
     if (currentPhieu['NGHIEP_VU'] === 'XUAT') {
-      loadAvailableKien(nhomHang);
+      loadAvailableKien(nhomHang, selectedDay);
     }
   };
 
-  // Load available kien for xuat kho
-  const loadAvailableKien = (nhomHang) => {
+  // Thêm hàm lấy danh sách độ dày có sẵn
+  const loadAvailableDay = (khoXuat) => {
+    if (!khoXuat) return;
+
     const kienTon = tonKho.filter(item =>
+      item['NGHIEP_VU'] === 'NHAP' &&
+      item['KHO_NHAP'] === khoXuat
+    );
+
+    // Lấy danh sách độ dày unique
+    const dayList = [...new Set(kienTon.map(item => item['DAY']))].filter(Boolean).sort((a, b) => a - b);
+    setAvailableDay(dayList);
+  };
+
+  // Cập nhật hàm loadAvailableKien để lọc theo cả nhóm hàng và độ dày
+  const loadAvailableKien = (nhomHang, day = null) => {
+    let kienTon = tonKho.filter(item =>
       item['NHOM_HANG'] === nhomHang &&
       item['NGHIEP_VU'] === 'NHAP' &&
       item['KHO_NHAP'] === currentPhieu['KHOXUAT']
     );
+
+    // Lọc thêm theo độ dày nếu có
+    if (day) {
+      kienTon = kienTon.filter(item => item['DAY'] == day);
+    }
+
     setAvailableKien(kienTon);
   };
+
+  // Thêm hàm lọc kiện theo độ dày
+  const handleSelectDay = (day) => {
+    setSelectedDay(day);
+    if (currentChiTiet['NHOM_HANG']) {
+      loadAvailableKien(currentChiTiet['NHOM_HANG'], day);
+    } else {
+      // Nếu chưa chọn nhóm hàng, hiển thị tất cả kiện có độ dày này
+      const kienByDay = tonKho.filter(item =>
+        item['NGHIEP_VU'] === 'NHAP' &&
+        item['KHO_NHAP'] === currentPhieu['KHOXUAT'] &&
+        item['DAY'] == day
+      );
+      setAvailableKien(kienByDay);
+    }
+  };
+
 
   // Handle kien selection for xuat kho
   const handleSelectKien = (kien) => {
@@ -1289,11 +1337,17 @@ const XuatNhapKhoManagement = () => {
   };
 
   // Form handlers
+  // Reset selectedDay khi đổi kho xuất
   const handleInputChange = (field, value) => {
     setCurrentPhieu(prev => ({
       ...prev,
       [field]: value
     }));
+
+    if (field === 'KHOXUAT') {
+      setSelectedDay('');
+      setAvailableKien([]);
+    }
 
     if ((field === 'NGHIEP_VU' || field === 'NGAYNHAP_XUAT') && !isEditMode) {
       const nghiepVu = field === 'NGHIEP_VU' ? value : currentPhieu['NGHIEP_VU'];
@@ -1329,6 +1383,11 @@ const XuatNhapKhoManagement = () => {
 
     if (!phieu['NGAYNHAP_XUAT']) {
       errors.push('Ngày nhập/xuất không được để trống');
+    }
+
+    // ✅ Bắt buộc nhập khách hàng
+    if (!phieu['NCC_KHACHHANG'] || phieu['NCC_KHACHHANG'].trim() === '') {
+      errors.push(phieu['NGHIEP_VU'] === 'NHAP' ? 'Nhà cung cấp không được để trống' : 'Khách hàng không được để trống');
     }
 
     if (phieu['NGHIEP_VU'] === 'NHAP' && !phieu['KHONHAP']) {
@@ -2385,7 +2444,7 @@ const XuatNhapKhoManagement = () => {
 
                       <div>
                         <label className="block text-xs font-medium text-gray-700 mb-1">
-                          {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'Nhà cung cấp' : 'Khách hàng'}
+                          {currentPhieu['NGHIEP_VU'] === 'NHAP' ? 'Nhà cung cấp' : 'Khách hàng'} <span className="text-red-500">*</span>
                         </label>
                         <div className="relative" ref={customerDropdownRef}>
                           <input
@@ -2396,6 +2455,7 @@ const XuatNhapKhoManagement = () => {
                             disabled={isSubmitting}
                             className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
                             placeholder="Nhập để tìm kiếm..."
+                            required
                           />
                           {showCustomerDropdown && filteredCustomers.length > 0 && (
                             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -2413,6 +2473,7 @@ const XuatNhapKhoManagement = () => {
                           )}
                         </div>
                       </div>
+
 
                       {currentPhieu['NGHIEP_VU'] === 'NHAP' && (
                         <div>
@@ -2617,7 +2678,28 @@ const XuatNhapKhoManagement = () => {
                       </div>
                     ) : (
                       <div className="bg-white p-3 rounded-lg border border-blue-300 mb-3">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-2">
+                          {/* Chọn độ dày */}
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Độ dày (mm)
+                            </label>
+                            <select
+                              value={selectedDay}
+                              onChange={(e) => handleSelectDay(e.target.value)}
+                              disabled={isSubmitting || !currentPhieu['KHOXUAT']}
+                              className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                            >
+                              <option value="">-- Tất cả độ dày --</option>
+                              {availableDay.map((day, index) => (
+                                <option key={index} value={day}>
+                                  {day} mm
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Chọn nhóm hàng */}
                           <div className="relative" ref={nhomHangDropdownRef}>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
                               Nhóm hàng <span className="text-red-500">*</span>
@@ -2649,6 +2731,7 @@ const XuatNhapKhoManagement = () => {
                             )}
                           </div>
 
+                          {/* Đơn giá */}
                           <div>
                             <label className="block text-xs font-medium text-gray-700 mb-1">
                               Đơn giá
@@ -2663,35 +2746,69 @@ const XuatNhapKhoManagement = () => {
                             />
                           </div>
 
+                          {/* Thông tin số kiện */}
                           <div className="flex items-end">
                             <div className="text-xs text-gray-600 w-full">
                               {availableKien.length > 0 ? (
-                                <span className="text-green-600 font-medium">
-                                  {availableKien.length} kiện có sẵn
-                                </span>
+                                <div>
+                                  <span className="text-green-600 font-medium block">
+                                    {availableKien.length} kiện có sẵn
+                                  </span>
+                                  {selectedDay && (
+                                    <span className="text-blue-600 text-xs">
+                                      Độ dày: {selectedDay} mm
+                                    </span>
+                                  )}
+                                </div>
                               ) : (
                                 <span className="text-orange-600">
-                                  Chọn nhóm hàng để xem kiện
+                                  {currentPhieu['KHOXUAT'] ? 'Chọn độ dày hoặc nhóm hàng' : 'Chọn kho xuất trước'}
                                 </span>
                               )}
                             </div>
                           </div>
                         </div>
 
+                        {/* Hiển thị danh sách kiện có sẵn */}
                         {availableKien.length > 0 && (
-                          <div className="mt-2 max-h-32 overflow-y-auto border border-blue-200 rounded-lg">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 p-2">
-                              {availableKien.map((kien, index) => (
+                          <div className="mt-2">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-medium text-gray-700">
+                                Chọn kiện để xuất:
+                              </span>
+                              {selectedDay && (
                                 <button
-                                  key={index}
-                                  onClick={() => handleSelectKien(kien)}
-                                  disabled={isSubmitting}
-                                  className="px-2 py-1.5 text-xs bg-white border border-blue-300 rounded hover:bg-blue-50 hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                                  onClick={() => {
+                                    setSelectedDay('');
+                                    if (currentChiTiet['NHOM_HANG']) {
+                                      loadAvailableKien(currentChiTiet['NHOM_HANG']);
+                                    } else {
+                                      setAvailableKien([]);
+                                    }
+                                  }}
+                                  className="text-xs text-blue-600 hover:text-blue-800 underline"
                                 >
-                                  <div className="font-medium text-blue-900">{kien['MA_KIEN']}</div>
-                                  <div className="text-gray-600">{parseFloat(kien['SO_KHOI'] || 0).toFixed(4)} m³</div>
+                                  Xóa bộ lọc độ dày
                                 </button>
-                              ))}
+                              )}
+                            </div>
+                            <div className="max-h-32 overflow-y-auto border border-blue-200 rounded-lg">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1 p-2">
+                                {availableKien.map((kien, index) => (
+                                  <button
+                                    key={index}
+                                    onClick={() => handleSelectKien(kien)}
+                                    disabled={isSubmitting}
+                                    className="px-2 py-1.5 text-xs bg-white border border-blue-300 rounded hover:bg-blue-50 hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                                  >
+                                    <div className="font-medium text-blue-900">{kien['MA_KIEN']}</div>
+                                    <div className="text-gray-600">{parseFloat(kien['SO_KHOI'] || 0).toFixed(4)} m³</div>
+                                    <div className="text-xs text-gray-500">
+                                      {kien['DAY']}x{kien['RONG']}x{kien['DAI']}
+                                    </div>
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         )}
