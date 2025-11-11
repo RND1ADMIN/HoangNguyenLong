@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, Filter, X, Users, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Phone, Mail, Building, CreditCard, User, Briefcase, Calendar, FileText, Loader, History, Package, TrendingUp, TrendingDown, DollarSign, Eye, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Edit, Trash, Search, Filter, X, Users, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Phone, Mail, Building, CreditCard, User, Briefcase, Calendar, FileText, Loader, History, Package, TrendingUp, TrendingDown, DollarSign, Eye, ChevronDown, ChevronUp, Truck, ShoppingCart } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
@@ -19,7 +19,8 @@ const DSKHManagement = () => {
         'NGUOI_DAIDIEN': '',
         'CHUC_VU': '',
         'SO_TAIKHOAN': '',
-        'NGANHANG': ''
+        'NGANHANG': '',
+        'PHAN_LOAI': 'KH' // Mặc định là Khách hàng
     });
     const [showModal, setShowModal] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -32,6 +33,9 @@ const DSKHManagement = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [originalMaKH, setOriginalMaKH] = useState('');
     const [isLoadingMST, setIsLoadingMST] = useState(false);
+
+    // Filter by PHAN_LOAI
+    const [filterPhanLoai, setFilterPhanLoai] = useState('ALL'); // ALL, KH, NCC
 
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
@@ -78,6 +82,72 @@ const DSKHManagement = () => {
         }
     };
 
+    // Generate MA_KH automatically
+    const generateMaKH = (phanLoai, tenVietTat) => {
+        if (!tenVietTat) return '';
+
+        const prefix = phanLoai === 'NCC' ? 'NCC' : 'KH';
+        const cleanTenVietTat = tenVietTat.toUpperCase().trim();
+
+        console.log('🔍 Generating MA_KH for:', prefix, 'with TEN_VIET_TAT:', cleanTenVietTat);
+        console.log('📊 Total customers in state:', customers.length);
+
+        // Lọc TẤT CẢ các mã cùng PHAN_LOAI (KH hoặc NCC)
+        const matchingCustomers = customers.filter(c => {
+            const maKH = c['MA_KH'];
+            if (!maKH) return false;
+            // Chỉ cần bắt đầu bằng KH- hoặc NCC-
+            return maKH.startsWith(prefix + '-');
+        });
+
+        console.log('📋 Total matching customers with prefix', prefix + ':', matchingCustomers.length);
+        console.log('📋 Matching MA_KH:', matchingCustomers.map(c => c['MA_KH']));
+
+        // Lấy TẤT CẢ các số (không quan tâm tên viết tắt)
+        const existingNumbers = matchingCustomers
+            .map(c => {
+                const maKH = c['MA_KH'];
+                // Format: KH-XXX-0001 hoặc NCC-YYY-0001
+                const parts = maKH.split('-');
+                if (parts.length !== 3) {
+                    console.log('  ⚠️ Invalid format:', maKH);
+                    return 0;
+                }
+
+                const numPart = parts[2]; // Lấy phần số cuối
+                if (!/^\d+$/.test(numPart)) {
+                    console.log('  ⚠️ Non-numeric part:', numPart, 'in', maKH);
+                    return 0;
+                }
+
+                const num = parseInt(numPart, 10);
+                console.log('  📌 Extracted number:', num, 'from', maKH);
+                return num;
+            })
+            .filter(num => num > 0);
+
+        console.log('🔢 Valid existing numbers:', existingNumbers);
+
+        // Tính số tiếp theo - LẤY SỐ LỚN NHẤT + 1
+        let nextNum = 1;
+        if (existingNumbers.length > 0) {
+            const maxNum = Math.max(...existingNumbers);
+            nextNum = maxNum + 1;
+            console.log('  ➡️ Max number found:', maxNum);
+            console.log('  ➡️ Next number will be:', nextNum);
+        } else {
+            console.log('  ➡️ No existing numbers, starting from:', nextNum);
+        }
+
+        // Format: KH-D-0001, KH-DD-0002, NCC-A-0001
+        const formattedNum = String(nextNum).padStart(4, '0');
+        const newMaKH = `${prefix}-${cleanTenVietTat}-${formattedNum}`;
+
+        console.log('✅ Generated MA_KH:', newMaKH);
+
+        return newMaKH;
+    };
+
     // Fetch company info by MST
     const fetchCompanyInfoByMST = async (mst) => {
         if (!mst || mst.length < 10) {
@@ -87,7 +157,6 @@ const DSKHManagement = () => {
         setIsLoadingMST(true);
 
         try {
-            // API 1: Sử dụng API tra cứu MST công khai
             const response = await fetch(`https://api.vietqr.io/v2/business/${mst}`);
 
             if (response.ok) {
@@ -96,7 +165,6 @@ const DSKHManagement = () => {
                 if (data.code === '00' && data.data) {
                     const companyData = data.data;
 
-                    // Hàm tạo tên viết tắt dự phòng (nếu API không trả về)
                     const generateAcronym = (name) => {
                         if (!name) return '';
 
@@ -159,35 +227,104 @@ const DSKHManagement = () => {
         }
     };
 
+    // Handle PHAN_LOAI change
+    const handlePhanLoaiChange = (phanLoai) => {
+        setCurrentCustomer(prev => {
+            const newCustomer = {
+                ...prev,
+                'PHAN_LOAI': phanLoai
+            };
+
+            // Auto generate MA_KH if not in edit mode AND có tên viết tắt
+            if (!isEditMode && prev['TEN_VIET_TAT']) {
+                const newMaKH = generateMaKH(phanLoai, prev['TEN_VIET_TAT']);
+                newCustomer['MA_KH'] = newMaKH;
+                console.log('🔄 Generated MA_KH after PHAN_LOAI change:', newMaKH);
+            }
+
+            return newCustomer;
+        });
+    };
+
+    // Handle TEN_VIET_TAT change
+    const handleTenVietTatChange = (value) => {
+        const upperValue = value.toUpperCase().trim();
+
+        setCurrentCustomer(prev => {
+            const newCustomer = {
+                ...prev,
+                'TEN_VIET_TAT': upperValue
+            };
+
+            // Auto generate MA_KH if not in edit mode
+            if (!isEditMode && upperValue) {
+                const newMaKH = generateMaKH(prev['PHAN_LOAI'], upperValue);
+                newCustomer['MA_KH'] = newMaKH;
+                console.log('✅ Auto-generated MA_KH:', newMaKH);
+            } else if (!upperValue) {
+                newCustomer['MA_KH'] = '';
+                console.log('⚠️ Cleared MA_KH because TEN_VIET_TAT is empty');
+            }
+
+            return newCustomer;
+        });
+    };
+
+    // Fetch data
     // Fetch data
     const fetchDSKH = async () => {
         try {
             setIsLoading(true);
             const response = await authUtils.apiRequestKHO('DSKH', 'Find', {});
-            setCustomers(response);
+
+            console.log('📥 Fetched DSKH data:', response);
+            console.log('📊 Total customers loaded:', response?.length || 0);
+
+            if (response && response.length > 0) {
+                // Sắp xếp theo MA_KH để dễ debug
+                const sortedData = response.sort((a, b) => {
+                    const maA = a['MA_KH'] || '';
+                    const maB = b['MA_KH'] || '';
+                    return maA.localeCompare(maB);
+                });
+
+                console.log('📋 All MA_KH codes:', sortedData.map(c => c['MA_KH']));
+                setCustomers(sortedData);
+            } else {
+                setCustomers([]);
+            }
         } catch (error) {
-            console.error('Error fetching DSKH list:', error);
+            console.error('❌ Error fetching DSKH list:', error);
             toast.error('Lỗi khi tải danh sách khách hàng');
+            setCustomers([]);
         } finally {
             setIsLoading(false);
         }
     };
 
+
     useEffect(() => {
         fetchDSKH();
     }, []);
 
-    // Fetch customer history - CẬP NHẬT ĐỂ LẤY TỪ XUATNHAPKHO
+    // Debug: Log customers state changes
+    useEffect(() => {
+        console.log('🔄 Customers state updated:', customers.length);
+        if (customers.length > 0) {
+            console.log('📋 Current MA_KH list:', customers.map(c => c['MA_KH']).filter(Boolean));
+        }
+    }, [customers]);
+
+
+    // Fetch customer history
     const fetchCustomerHistory = async (customerName) => {
         try {
             setIsLoadingHistory(true);
 
             console.log('🔍 Đang tìm lịch sử cho khách hàng:', customerName);
 
-            // Fetch all phiếu xuất nhập kho
             const phieuResponse = await authUtils.apiRequestKHO('XUATNHAPKHO', 'Find', {});
 
-            // Filter phiếu by NCC_KHACHHANG
             const customerPhieu = phieuResponse.filter(p =>
                 p['NCC_KHACHHANG'] === customerName
             );
@@ -200,23 +337,18 @@ const DSKHManagement = () => {
                 return;
             }
 
-            // 🔥 FETCH TẤT CẢ CHI TIẾT 1 LẦN
             console.log('📦 Đang fetch tất cả chi tiết...');
             const allChiTiet = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
 
             console.log('✅ Tổng số chi tiết:', allChiTiet?.length);
-            console.log('📋 Sample chi tiết:', allChiTiet?.slice(0, 3));
 
-            // 🔥 FILTER Ở CLIENT-SIDE
             const phieuWithDetails = customerPhieu.map(phieu => {
                 const soPhieu = phieu['SOPHIEU'];
 
-                // Tìm chi tiết của phiếu này
                 const chiTietOfPhieu = allChiTiet.filter(ct => ct['SOPHIEU'] === soPhieu);
 
                 console.log(`📋 Phiếu ${soPhieu}: ${chiTietOfPhieu.length} chi tiết`);
 
-                // Tính toán
                 const soKien = chiTietOfPhieu.length;
                 const tongKL = chiTietOfPhieu.reduce((sum, ct) => {
                     return sum + parseFloat(ct['SO_KHOI'] || 0);
@@ -234,14 +366,12 @@ const DSKHManagement = () => {
 
             console.log('✅ Kết quả cuối cùng:', phieuWithDetails);
 
-            // Sort by date (newest first)
             phieuWithDetails.sort((a, b) =>
                 new Date(b['NGAYNHAP_XUAT']) - new Date(a['NGAYNHAP_XUAT'])
             );
 
             setHistoryData(phieuWithDetails);
 
-            // Tính toán thống kê
             const nhapStats = phieuWithDetails.filter(p => p['NGHIEP_VU'] === 'NHAP');
             const xuatStats = phieuWithDetails.filter(p => p['NGHIEP_VU'] === 'XUAT');
 
@@ -266,7 +396,6 @@ const DSKHManagement = () => {
             setIsLoadingHistory(false);
         }
     };
-
 
     // Open history modal
     const handleOpenHistoryModal = async (customer) => {
@@ -324,6 +453,7 @@ const DSKHManagement = () => {
     // Modal handlers
     const handleOpenModal = (customer = null) => {
         if (customer) {
+            // Edit mode
             setIsEditMode(true);
             setOriginalMaKH(customer['MA_KH']);
             setCurrentCustomer({
@@ -338,9 +468,14 @@ const DSKHManagement = () => {
                 'NGUOI_DAIDIEN': customer['NGUOI_DAIDIEN'] || '',
                 'CHUC_VU': customer['CHUC_VU'] || '',
                 'SO_TAIKHOAN': customer['SO_TAIKHOAN'] || '',
-                'NGANHANG': customer['NGANHANG'] || ''
+                'NGANHANG': customer['NGANHANG'] || '',
+                'PHAN_LOAI': customer['PHAN_LOAI'] || 'KH'
             });
         } else {
+            // Add mode
+            console.log('➕ Opening Add Modal');
+            console.log('📊 Current customers count:', customers.length);
+
             setIsEditMode(false);
             setOriginalMaKH('');
             setCurrentCustomer({
@@ -355,7 +490,8 @@ const DSKHManagement = () => {
                 'NGUOI_DAIDIEN': '',
                 'CHUC_VU': '',
                 'SO_TAIKHOAN': '',
-                'NGANHANG': ''
+                'NGANHANG': '',
+                'PHAN_LOAI': 'KH'
             });
         }
         setShowModal(true);
@@ -377,7 +513,8 @@ const DSKHManagement = () => {
             'NGUOI_DAIDIEN': '',
             'CHUC_VU': '',
             'SO_TAIKHOAN': '',
-            'NGANHANG': ''
+            'NGANHANG': '',
+            'PHAN_LOAI': 'KH'
         });
     };
 
@@ -398,6 +535,14 @@ const DSKHManagement = () => {
 
         if (!customer['TEN_KHACHHANG']) {
             errors.push('Tên khách hàng không được để trống');
+        }
+
+        if (!customer['TEN_VIET_TAT']) {
+            errors.push('Tên viết tắt không được để trống');
+        }
+
+        if (!customer['PHAN_LOAI']) {
+            errors.push('Phân loại không được để trống');
         }
 
         return errors;
@@ -529,7 +674,7 @@ const DSKHManagement = () => {
     // Filtering
     const filteredCustomers = getSortedCustomers().filter(customer => {
         const searchLower = search.toLowerCase();
-        return (
+        const matchSearch = (
             customer['MA_KH']?.toLowerCase().includes(searchLower) ||
             customer['TEN_KHACHHANG']?.toLowerCase().includes(searchLower) ||
             customer['TEN_VIET_TAT']?.toLowerCase().includes(searchLower) ||
@@ -539,6 +684,10 @@ const DSKHManagement = () => {
             customer['NGUOI_LIENHE']?.toLowerCase().includes(searchLower) ||
             customer['NGUOI_DAIDIEN']?.toLowerCase().includes(searchLower)
         );
+
+        const matchPhanLoai = filterPhanLoai === 'ALL' || customer['PHAN_LOAI'] === filterPhanLoai;
+
+        return matchSearch && matchPhanLoai;
     });
 
     // Pagination logic
@@ -550,7 +699,7 @@ const DSKHManagement = () => {
     // Reset to first page when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [search, itemsPerPage]);
+    }, [search, itemsPerPage, filterPhanLoai]);
 
     // Pagination handlers
     const goToFirstPage = () => setCurrentPage(1);
@@ -606,6 +755,34 @@ const DSKHManagement = () => {
         toast.success('Đã tải lại dữ liệu thành công!');
     };
 
+    // Get badge for PHAN_LOAI
+    const getPhanLoaiBadge = (phanLoai) => {
+        if (phanLoai === 'NCC') {
+            return (
+                <span className="px-2 py-1 bg-gradient-to-r from-orange-100 to-orange-200 text-orange-800 rounded text-xs font-semibold flex items-center gap-1 w-fit">
+                    <Truck className="w-3 h-3" />
+                    NCC
+                </span>
+            );
+        } else {
+            return (
+                <span className="px-2 py-1 bg-gradient-to-r from-blue-100 to-blue-200 text-blue-800 rounded text-xs font-semibold flex items-center gap-1 w-fit">
+                    <ShoppingCart className="w-3 h-3" />
+                    KH
+                </span>
+            );
+        }
+    };
+
+    // Calculate statistics by PHAN_LOAI
+    const calculatePhanLoaiStats = () => {
+        const nccCount = customers.filter(c => c['PHAN_LOAI'] === 'NCC').length;
+        const khCount = customers.filter(c => c['PHAN_LOAI'] === 'KH').length;
+        return { nccCount, khCount };
+    };
+
+    const { nccCount, khCount } = calculatePhanLoaiStats();
+
     return (
         <div className="p-3 md:p-4 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
             <div className="mx-auto">
@@ -617,8 +794,8 @@ const DSKHManagement = () => {
                                 <Users className="w-5 h-5 text-white" />
                             </div>
                             <div>
-                                <h1 className="text-xl md:text-2xl font-bold text-gray-800">Danh Sách Khách Hàng</h1>
-                                <p className="text-xs md:text-sm text-gray-500 mt-0.5">Quản lý thông tin khách hàng</p>
+                                <h1 className="text-xl md:text-2xl font-bold text-gray-800">Danh Sách Khách Hàng & NCC</h1>
+                                <p className="text-xs md:text-sm text-gray-500 mt-0.5">Quản lý thông tin khách hàng và nhà cung cấp</p>
                             </div>
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -645,14 +822,14 @@ const DSKHManagement = () => {
                                 className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-3 py-2 rounded-lg flex items-center gap-2 transition-all shadow-md hover:shadow-lg transform hover:-translate-y-0.5 text-sm"
                             >
                                 <Plus className="w-4 h-4" />
-                                Thêm KH
+                                Thêm mới
                             </button>
                         </div>
                     </div>
 
                     {/* Search Section */}
                     {showFilters && (
-                        <div className="mb-4 animate-fadeIn">
+                        <div className="mb-4 animate-fadeIn space-y-3">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <input
@@ -663,19 +840,77 @@ const DSKHManagement = () => {
                                     onChange={(e) => setSearch(e.target.value)}
                                 />
                             </div>
+
+                            {/* Filter by PHAN_LOAI */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-semibold text-gray-700">Lọc theo:</span>
+                                <button
+                                    onClick={() => setFilterPhanLoai('ALL')}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${filterPhanLoai === 'ALL'
+                                        ? 'bg-gradient-to-r from-gray-600 to-gray-700 text-white shadow-md'
+                                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                        }`}
+                                >
+                                    Tất cả ({customers.length})
+                                </button>
+                                <button
+                                    onClick={() => setFilterPhanLoai('KH')}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${filterPhanLoai === 'KH'
+                                        ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md'
+                                        : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                                        }`}
+                                >
+                                    <ShoppingCart className="w-3 h-3" />
+                                    Khách hàng ({khCount})
+                                </button>
+                                <button
+                                    onClick={() => setFilterPhanLoai('NCC')}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${filterPhanLoai === 'NCC'
+                                        ? 'bg-gradient-to-r from-orange-600 to-orange-700 text-white shadow-md'
+                                        : 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                                        }`}
+                                >
+                                    <Truck className="w-3 h-3" />
+                                    Nhà cung cấp ({nccCount})
+                                </button>
+                            </div>
                         </div>
                     )}
 
                     {/* Statistics cards */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                         <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <h3 className="text-xs font-medium text-blue-700 mb-1">Tổng khách hàng</h3>
+                                    <h3 className="text-xs font-medium text-blue-700 mb-1">Tổng số</h3>
                                     <p className="text-2xl font-bold text-blue-900">{customers.length}</p>
                                 </div>
                                 <div className="p-2 bg-blue-200 rounded-lg">
                                     <Users className="w-5 h-5 text-blue-700" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-cyan-50 to-cyan-100 border border-cyan-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xs font-medium text-cyan-700 mb-1">Khách hàng</h3>
+                                    <p className="text-2xl font-bold text-cyan-900">{khCount}</p>
+                                </div>
+                                <div className="p-2 bg-cyan-200 rounded-lg">
+                                    <ShoppingCart className="w-5 h-5 text-cyan-700" />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-orange-50 to-orange-100 border border-orange-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-xs font-medium text-orange-700 mb-1">Nhà cung cấp</h3>
+                                    <p className="text-2xl font-bold text-orange-900">{nccCount}</p>
+                                </div>
+                                <div className="p-2 bg-orange-200 rounded-lg">
+                                    <Truck className="w-5 h-5 text-orange-700" />
                                 </div>
                             </div>
                         </div>
@@ -690,20 +925,6 @@ const DSKHManagement = () => {
                                 </div>
                                 <div className="p-2 bg-green-200 rounded-lg">
                                     <Building className="w-5 h-5 text-green-700" />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h3 className="text-xs font-medium text-purple-700 mb-1">Có TK ngân hàng</h3>
-                                    <p className="text-2xl font-bold text-purple-900">
-                                        {customers.filter(c => c['SO_TAIKHOAN']).length}
-                                    </p>
-                                </div>
-                                <div className="p-2 bg-purple-200 rounded-lg">
-                                    <CreditCard className="w-5 h-5 text-purple-700" />
                                 </div>
                             </div>
                         </div>
@@ -742,11 +963,14 @@ const DSKHManagement = () => {
                             <table className="min-w-full divide-y divide-gray-200">
                                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                                     <tr>
+                                        <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('PHAN_LOAI')}>
+                                            <div className="flex items-center gap-1">Phân loại {getSortIcon('PHAN_LOAI')}</div>
+                                        </th>
                                         <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('MA_KH')}>
-                                            <div className="flex items-center gap-1">Mã KH {getSortIcon('MA_KH')}</div>
+                                            <div className="flex items-center gap-1">Mã {getSortIcon('MA_KH')}</div>
                                         </th>
                                         <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('TEN_KHACHHANG')}>
-                                            <div className="flex items-center gap-1">Tên KH {getSortIcon('TEN_KHACHHANG')}</div>
+                                            <div className="flex items-center gap-1">Tên {getSortIcon('TEN_KHACHHANG')}</div>
                                         </th>
                                         <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('TEN_VIET_TAT')}>
                                             <div className="flex items-center gap-1">Tên viết tắt {getSortIcon('TEN_VIET_TAT')}</div>
@@ -756,7 +980,6 @@ const DSKHManagement = () => {
                                         </th>
                                         <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Địa chỉ</th>
                                         <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">SĐT</th>
-                                        <th scope="col" className="px-3 py-2 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">Người liên hệ</th>
                                         <th scope="col" className="px-3 py-2 text-xs font-bold text-gray-700 uppercase tracking-wider text-center">Thao tác</th>
                                     </tr>
                                 </thead>
@@ -764,6 +987,9 @@ const DSKHManagement = () => {
                                     {currentItems.length > 0 ? (
                                         currentItems.map((customer, index) => (
                                             <tr key={customer['MA_KH']} className={`hover:bg-blue-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                                                <td className="px-3 py-2 whitespace-nowrap">
+                                                    {getPhanLoaiBadge(customer['PHAN_LOAI'])}
+                                                </td>
                                                 <td className="px-3 py-2 whitespace-nowrap">
                                                     <span className="px-2 py-1 bg-gradient-to-r from-indigo-100 to-indigo-200 text-indigo-800 rounded text-xs font-semibold">
                                                         {customer['MA_KH']}
@@ -787,9 +1013,6 @@ const DSKHManagement = () => {
                                                 </td>
                                                 <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
                                                     {customer['SO_DT'] || '—'}
-                                                </td>
-                                                <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-700">
-                                                    {customer['NGUOI_LIENHE'] || '—'}
                                                 </td>
                                                 <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
                                                     <div className="flex justify-center space-x-2">
@@ -823,8 +1046,8 @@ const DSKHManagement = () => {
                                             <td colSpan="8" className="px-6 py-12 text-center">
                                                 <div className="flex flex-col items-center justify-center text-gray-500">
                                                     <Users className="w-16 h-16 text-gray-300 mb-4" />
-                                                    <p className="text-lg font-medium">Không tìm thấy khách hàng nào</p>
-                                                    <p className="text-sm mt-1">Thử thay đổi từ khóa tìm kiếm</p>
+                                                    <p className="text-lg font-medium">Không tìm thấy dữ liệu nào</p>
+                                                    <p className="text-sm mt-1">Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc</p>
                                                 </div>
                                             </td>
                                         </tr>
@@ -849,6 +1072,7 @@ const DSKHManagement = () => {
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex-1">
                                             <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                {getPhanLoaiBadge(customer['PHAN_LOAI'])}
                                                 <span className="px-2 py-0.5 bg-gradient-to-r from-indigo-100 to-indigo-200 text-indigo-800 rounded text-xs font-semibold">
                                                     {customer['MA_KH']}
                                                 </span>
@@ -916,8 +1140,8 @@ const DSKHManagement = () => {
                         ) : (
                             <div className="flex flex-col items-center justify-center text-gray-500 py-12">
                                 <Users className="w-16 h-16 text-gray-300 mb-4" />
-                                <p className="text-base font-medium">Không tìm thấy khách hàng nào</p>
-                                <p className="text-sm mt-1">Thử thay đổi từ khóa tìm kiếm</p>
+                                <p className="text-base font-medium">Không tìm thấy dữ liệu nào</p>
+                                <p className="text-sm mt-1">Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc</p>
                             </div>
                         )}
                     </div>
@@ -970,7 +1194,7 @@ const DSKHManagement = () => {
                 </div>
             </div>
 
-            {/* History Modal */}
+            {/* History Modal - GIỮ NGUYÊN CODE CŨ */}
             {showHistoryModal && historyCustomer && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4 overflow-y-auto backdrop-blur-sm">
                     <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col animate-fadeIn">
@@ -1015,67 +1239,74 @@ const DSKHManagement = () => {
                             ) : (
                                 <>
                                     {/* Statistics Cards */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                                        {/* Nhập kho */}
-                                        <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-3 shadow-sm">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <div className="p-1.5 bg-green-200 rounded-lg">
-                                                    <TrendingUp className="w-4 h-4 text-green-700" />
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                                        {/* Nhập kho - Chỉ hiển thị cho NCC */}
+                                        {historyCustomer['PHAN_LOAI'] === 'NCC' && (
+                                            <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-3 shadow-sm">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <div className="p-1.5 bg-green-200 rounded-lg">
+                                                        <TrendingUp className="w-4 h-4 text-green-700" />
+                                                    </div>
+                                                    <h3 className="text-xs font-semibold text-green-700">NHẬP KHO</h3>
                                                 </div>
-                                                <h3 className="text-xs font-semibold text-green-700">NHẬP KHO</h3>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs text-green-600">
-                                                    <span className="font-bold text-lg text-green-900">{calculateStatistics().nhap.soPhieu}</span> phiếu
-                                                </p>
-                                                <p className="text-xs text-green-600">
-                                                    <span className="font-semibold">{calculateStatistics().nhap.soKien}</span> kiện
-                                                </p>
-                                                <p className="text-xs text-green-600">
-                                                    <span className="font-semibold">{calculateStatistics().nhap.khoiLuong.toFixed(4)}</span> m³
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Xuất kho */}
-                                        <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-lg p-3 shadow-sm">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <div className="p-1.5 bg-red-200 rounded-lg">
-                                                    <TrendingDown className="w-4 h-4 text-red-700" />
+                                                <div className="space-y-1">
+                                                    <p className="text-xs text-green-600">
+                                                        <span className="font-bold text-lg text-green-900">{calculateStatistics().nhap.soPhieu}</span> phiếu
+                                                    </p>
+                                                    <p className="text-xs text-green-600">
+                                                        <span className="font-semibold">{calculateStatistics().nhap.soKien}</span> kiện
+                                                    </p>
+                                                    <p className="text-xs text-green-600">
+                                                        <span className="font-semibold">{calculateStatistics().nhap.khoiLuong.toFixed(4)}</span> m³
+                                                    </p>
                                                 </div>
-                                                <h3 className="text-xs font-semibold text-red-700">XUẤT KHO</h3>
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs text-red-600">
-                                                    <span className="font-bold text-lg text-red-900">{calculateStatistics().xuat.soPhieu}</span> phiếu
-                                                </p>
-                                                <p className="text-xs text-red-600">
-                                                    <span className="font-semibold">{calculateStatistics().xuat.soKien}</span> kiện
-                                                </p>
-                                                <p className="text-xs text-red-600">
-                                                    <span className="font-semibold">{calculateStatistics().xuat.khoiLuong.toFixed(4)}</span> m³
-                                                </p>
-                                            </div>
-                                        </div>
+                                        )}
 
-                                        {/* Doanh thu */}
+                                        {/* Xuất kho - Chỉ hiển thị cho KH */}
+                                        {historyCustomer['PHAN_LOAI'] === 'KH' && (
+                                            <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-lg p-3 shadow-sm">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <div className="p-1.5 bg-red-200 rounded-lg">
+                                                        <TrendingDown className="w-4 h-4 text-red-700" />
+                                                    </div>
+                                                    <h3 className="text-xs font-semibold text-red-700">XUẤT KHO</h3>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-xs text-red-600">
+                                                        <span className="font-bold text-lg text-red-900">{calculateStatistics().xuat.soPhieu}</span> phiếu
+                                                    </p>
+                                                    <p className="text-xs text-red-600">
+                                                        <span className="font-semibold">{calculateStatistics().xuat.soKien}</span> kiện
+                                                    </p>
+                                                    <p className="text-xs text-red-600">
+                                                        <span className="font-semibold">{calculateStatistics().xuat.khoiLuong.toFixed(4)}</span> m³
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Doanh thu/Tổng giá trị - Hiển thị cho cả KH và NCC */}
                                         <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-lg p-3 shadow-sm">
                                             <div className="flex items-center gap-2 mb-2">
                                                 <div className="p-1.5 bg-yellow-200 rounded-lg">
                                                     <DollarSign className="w-4 h-4 text-yellow-700" />
                                                 </div>
-                                                <h3 className="text-xs font-semibold text-yellow-700">DOANH THU</h3>
+                                                <h3 className="text-xs font-semibold text-yellow-700">
+                                                    {historyCustomer['PHAN_LOAI'] === 'NCC' ? 'TỔNG GIÁ TRỊ' : 'DOANH THU'}
+                                                </h3>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-sm font-bold text-yellow-900">
                                                     {formatCurrency(calculateStatistics().doanhThu)}
                                                 </p>
                                                 <p className="text-xs text-yellow-600">
-                                                    Tổng giá trị xuất kho
+                                                    {historyCustomer['PHAN_LOAI'] === 'NCC' ? 'Tổng giá trị nhập kho' : 'Tổng giá trị xuất kho'}
                                                 </p>
                                             </div>
                                         </div>
                                     </div>
+
 
                                     {/* Phiếu List */}
                                     <div className="space-y-3">
@@ -1286,7 +1517,7 @@ const DSKHManagement = () => {
                                 <div className="p-2 bg-blue-100 rounded-lg">
                                     <Users className="w-5 h-5 text-blue-600" />
                                 </div>
-                                {isEditMode ? 'Cập nhật khách hàng' : 'Thêm khách hàng mới'}
+                                {isEditMode ? 'Cập nhật thông tin' : 'Thêm mới'}
                             </h2>
                             <button onClick={handleCloseModal} className="text-gray-500 hover:text-gray-700 focus:outline-none p-2 hover:bg-gray-100 rounded-lg transition-colors">
                                 <X className="h-5 w-5" />
@@ -1294,6 +1525,99 @@ const DSKHManagement = () => {
                         </div>
 
                         <div className="space-y-4">
+                            {/* Phân loại - Radio buttons */}
+                            <div className="bg-gradient-to-r from-indigo-50 to-indigo-100 border-2 border-indigo-200 rounded-lg p-4">
+                                <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                    <Info className="w-4 h-4 text-indigo-500" />
+                                    Phân loại <span className="text-red-500">*</span>
+                                </h3>
+                                <div className="flex gap-4">
+                                    {/* Radio button Khách hàng */}
+                                    <label className={`flex-1 cursor-pointer ${isEditMode ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <input
+                                            type="radio"
+                                            name="phanLoai"
+                                            value="KH"
+                                            checked={currentCustomer['PHAN_LOAI'] === 'KH'}
+                                            onChange={(e) => handlePhanLoaiChange(e.target.value)}
+                                            disabled={isEditMode}
+                                            className="sr-only"
+                                        />
+                                        <div className={`border-2 rounded-lg p-4 transition-all ${currentCustomer['PHAN_LOAI'] === 'KH'
+                                            ? 'border-blue-500 bg-blue-50 shadow-md'
+                                            : 'border-gray-300 bg-white hover:border-blue-300'
+                                            }`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-3 rounded-lg ${currentCustomer['PHAN_LOAI'] === 'KH'
+                                                    ? 'bg-blue-500'
+                                                    : 'bg-gray-300'
+                                                    }`}>
+                                                    <ShoppingCart className="w-6 h-6 text-white" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h4 className="font-bold text-gray-800 text-base">Khách hàng</h4>
+                                                    <p className="text-xs text-gray-600 mt-1">Mã tự động: KH-[Tên viết tắt]-001</p>
+                                                </div>
+                                                {currentCustomer['PHAN_LOAI'] === 'KH' && (
+                                                    <div className="flex-shrink-0">
+                                                        <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                                                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </label>
+
+                                    {/* Radio button Nhà cung cấp */}
+                                    <label className={`flex-1 cursor-pointer ${isEditMode ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                                        <input
+                                            type="radio"
+                                            name="phanLoai"
+                                            value="NCC"
+                                            checked={currentCustomer['PHAN_LOAI'] === 'NCC'}
+                                            onChange={(e) => handlePhanLoaiChange(e.target.value)}
+                                            disabled={isEditMode}
+                                            className="sr-only"
+                                        />
+                                        <div className={`border-2 rounded-lg p-4 transition-all ${currentCustomer['PHAN_LOAI'] === 'NCC'
+                                            ? 'border-orange-500 bg-orange-50 shadow-md'
+                                            : 'border-gray-300 bg-white hover:border-orange-300'
+                                            }`}>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`p-3 rounded-lg ${currentCustomer['PHAN_LOAI'] === 'NCC'
+                                                    ? 'bg-orange-500'
+                                                    : 'bg-gray-300'
+                                                    }`}>
+                                                    <Truck className="w-6 h-6 text-white" />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h4 className="font-bold text-gray-800 text-base">Nhà cung cấp</h4>
+                                                    <p className="text-xs text-gray-600 mt-1">Mã tự động: NCC-[Tên viết tắt]-001</p>
+                                                </div>
+                                                {currentCustomer['PHAN_LOAI'] === 'NCC' && (
+                                                    <div className="flex-shrink-0">
+                                                        <div className="w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
+                                                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                                            </svg>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                                {isEditMode && (
+                                    <p className="text-xs text-amber-600 mt-2 flex items-center gap-1">
+                                        <Info className="w-3 h-3" />
+                                        Không thể thay đổi phân loại khi chỉnh sửa
+                                    </p>
+                                )}
+                            </div>
+
                             {/* Thông tin cơ bản */}
                             <div className="bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-4">
                                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -1303,15 +1627,45 @@ const DSKHManagement = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                     <div>
                                         <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                            Mã khách hàng <span className="text-red-500">*</span>
+                                            Tên viết tắt <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={currentCustomer['TEN_VIET_TAT']}
+                                            onChange={(e) => handleTenVietTatChange(e.target.value)}
+                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm uppercase"
+                                            placeholder="VD: ABC, XYZ"
+                                            disabled={isEditMode}
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">💡 Nhập viết tắt để tự động tạo mã</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                            Mã {currentCustomer['PHAN_LOAI'] === 'NCC' ? 'NCC' : 'KH'} <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             value={currentCustomer['MA_KH']}
                                             onChange={(e) => handleInputChange('MA_KH', e.target.value)}
-                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-                                            placeholder="Nhập mã KH"
+                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm bg-gray-50"
+                                            placeholder="Tự động tạo"
                                             disabled={isEditMode}
+                                            readOnly={!isEditMode}
+                                        />
+                                        <p className="text-xs text-green-600 mt-1">✓ Mã được tạo tự động</p>
+                                    </div>
+
+                                    <div className="md:col-span-2">
+                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
+                                            Tên {currentCustomer['PHAN_LOAI'] === 'NCC' ? 'nhà cung cấp' : 'khách hàng'} <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={currentCustomer['TEN_KHACHHANG']}
+                                            onChange={(e) => handleInputChange('TEN_KHACHHANG', e.target.value)}
+                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
+                                            placeholder="Nhập tên đầy đủ"
                                         />
                                     </div>
 
@@ -1336,33 +1690,6 @@ const DSKHManagement = () => {
                                             )}
                                         </div>
                                         <p className="text-xs text-gray-500 mt-1">💡 Nhập MST (10-14 số) để tự động điền thông tin</p>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5">
-                                            Tên khách hàng <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={currentCustomer['TEN_KHACHHANG']}
-                                            onChange={(e) => handleInputChange('TEN_KHACHHANG', e.target.value)}
-                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-                                            placeholder="Nhập tên KH"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-xs font-semibold text-gray-700 mb-1.5 flex items-center gap-1">
-                                            <FileText className="w-3.5 h-3.5 text-amber-500" />
-                                            Tên viết tắt
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={currentCustomer['TEN_VIET_TAT']}
-                                            onChange={(e) => handleInputChange('TEN_VIET_TAT', e.target.value)}
-                                            className="p-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-sm"
-                                            placeholder="Nhập tên viết tắt"
-                                        />
                                     </div>
 
                                     <div>
@@ -1548,11 +1875,15 @@ const DSKHManagement = () => {
                         <div className="space-y-4">
                             <div className="bg-gradient-to-r from-red-50 to-red-100 border border-red-200 rounded-lg p-4">
                                 <p className="text-red-700 mb-2 font-medium text-sm">
-                                    Bạn có chắc chắn muốn xóa khách hàng này?
+                                    Bạn có chắc chắn muốn xóa {customerToDelete['PHAN_LOAI'] === 'NCC' ? 'nhà cung cấp' : 'khách hàng'} này?
                                 </p>
                                 <div className="bg-white rounded-lg p-3 mt-2 space-y-2 shadow-sm">
                                     <p className="text-xs text-gray-700 flex items-center gap-2">
-                                        <span className="font-semibold min-w-[80px]">Mã KH:</span>
+                                        <span className="font-semibold min-w-[80px]">Phân loại:</span>
+                                        {getPhanLoaiBadge(customerToDelete['PHAN_LOAI'])}
+                                    </p>
+                                    <p className="text-xs text-gray-700 flex items-center gap-2">
+                                        <span className="font-semibold min-w-[80px]">Mã:</span>
                                         <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded text-xs font-medium">
                                             {customerToDelete['MA_KH']}
                                         </span>
@@ -1652,6 +1983,19 @@ const DSKHManagement = () => {
 
                 .overflow-y-auto::-webkit-scrollbar-thumb:hover {
                     background: #555;
+                }
+
+                /* Hide default radio button */
+                .sr-only {
+                    position: absolute;
+                    width: 1px;
+                    height: 1px;
+                    padding: 0;
+                    margin: -1px;
+                    overflow: hidden;
+                    clip: rect(0, 0, 0, 0);
+                    white-space: nowrap;
+                    border-width: 0;
                 }
             `}</style>
         </div>
