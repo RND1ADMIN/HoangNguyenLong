@@ -1015,7 +1015,7 @@ const DSKHManagement = () => {
                             ) : (
                                 <>
                                     {/* Statistics Cards */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                                         {/* Nhập kho */}
                                         <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-3 shadow-sm">
                                             <div className="flex items-center gap-2 mb-2">
@@ -1054,24 +1054,6 @@ const DSKHManagement = () => {
                                                 </p>
                                                 <p className="text-xs text-red-600">
                                                     <span className="font-semibold">{calculateStatistics().xuat.khoiLuong.toFixed(4)}</span> m³
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        {/* Tồn kho */}
-                                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 shadow-sm">
-                                            <div className="flex items-center gap-2 mb-2">
-                                                <div className="p-1.5 bg-blue-200 rounded-lg">
-                                                    <Package className="w-4 h-4 text-blue-700" />
-                                                </div>
-                                                <h3 className="text-xs font-semibold text-blue-700">TỒN KHO</h3>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs text-blue-600">
-                                                    <span className="font-bold text-lg text-blue-900">{calculateStatistics().ton.soKien}</span> kiện
-                                                </p>
-                                                <p className="text-xs text-blue-600">
-                                                    <span className="font-semibold">{calculateStatistics().ton.khoiLuong.toFixed(4)}</span> m³
                                                 </p>
                                             </div>
                                         </div>
