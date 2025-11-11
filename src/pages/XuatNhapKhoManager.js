@@ -58,6 +58,11 @@ const XuatNhapKhoManagement = () => {
   const [importPreview, setImportPreview] = useState([]);
   const [importNghiepVu, setImportNghiepVu] = useState('NHAP');
   const [isImporting, setIsImporting] = useState(false);
+
+  const [showPrintOptions, setShowPrintOptions] = useState(false);
+  const [phieuToPrint, setPhieuToPrint] = useState(null);
+  const [printWithPrice, setPrintWithPrice] = useState(false);
+
   const fileInputRef = useRef(null);
 
   // Autocomplete states
@@ -595,13 +600,29 @@ const XuatNhapKhoManagement = () => {
 
   // ==================== ORIGINAL FUNCTIONS ====================
 
-  // Print function
-  const handlePrintPhieu = async (phieu) => {
+  // ✅ MỞ MODAL CHỌN TÙY CHỌN IN (nếu là phiếu xuất)
+  const handleOpenPrintOptions = (phieu) => {
+    if (phieu['NGHIEP_VU'] === 'XUAT') {
+      setPhieuToPrint(phieu);
+      setShowPrintOptions(true);
+      setPrintWithPrice(false); // Reset về mặc định
+    } else {
+      // Phiếu nhập in luôn không cần hỏi
+      handlePrintPhieu(phieu, false);
+    }
+  };
+
+  // ✅ IN PHIẾU - CÓ TÙY CHỌN HIỂN THỊ GIÁ
+  const handlePrintPhieu = async (phieu, showPrice = false) => {
     try {
-      let chiTiet = chiTietList;
-      if (phieu['SOPHIEU'] !== currentPhieu['SOPHIEU']) {
-        const response = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
-        chiTiet = response.filter(item => item['SOPHIEU'] === phieu['SOPHIEU']);
+      toast.info('Đang tải dữ liệu để in...');
+
+      const response = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
+      const chiTiet = response.filter(item => item['SOPHIEU'] === phieu['SOPHIEU']);
+
+      if (chiTiet.length === 0) {
+        toast.error('Không tìm thấy chi tiết phiếu để in');
+        return;
       }
 
       const date = new Date(phieu['NGAYNHAP_XUAT']);
@@ -634,6 +655,10 @@ const XuatNhapKhoManagement = () => {
       const sortedGroups = Object.values(groupedByDoi).sort((a, b) => {
         return a.doiHangKho.localeCompare(b.doiHangKho);
       });
+
+      // ✅ ĐỘNG: Thêm/bỏ cột đơn giá và thành tiền
+      const isXuatKho = phieu['NGHIEP_VU'] === 'XUAT';
+      const showPriceColumns = isXuatKho && showPrice;
 
       const printContent = `
       <!DOCTYPE html>
@@ -702,6 +727,8 @@ const XuatNhapKhoManagement = () => {
                 <th style="width: 80px;">Tiêu chuẩn</th>
                 <th style="width: 60px;">Thủ kho</th>
                 <th style="width: 80px;">Đội hàng Khô</th>
+                ${showPriceColumns ? '<th style="width: 80px;">Đơn giá</th>' : ''}
+                ${showPriceColumns ? '<th style="width: 100px;">Thành tiền</th>' : ''}
                 <th style="width: 60px;">Ghi chú</th>
               </tr>
             </thead>
@@ -718,6 +745,8 @@ const XuatNhapKhoManagement = () => {
                   <td>${item['TIEU_CHUAN'] || ''}</td>
                   <td></td>
                   <td>${item['DOI_HANG_KHO'] || ''}</td>
+                  ${showPriceColumns ? `<td class="right">${new Intl.NumberFormat('vi-VN').format(item['DONGIA'] || 0)}</td>` : ''}
+                  ${showPriceColumns ? `<td class="right">${new Intl.NumberFormat('vi-VN').format(item['THANHTIEN'] || 0)}</td>` : ''}
                   <td>${item['GHICHU'] || ''}</td>
                 </tr>
               `).join('')}
@@ -728,20 +757,21 @@ const XuatNhapKhoManagement = () => {
                   <td colspan="3">Hàng ${group.day}x${group.rong}x${group.dai}</td>
                   <td>${group.soKien}</td>
                   <td class="right">${group.tongKhoi.toFixed(4)}</td>
-                  <td colspan="4">${group.soKien} kiện</td>
+                  <td colspan="${showPriceColumns ? '6' : '4'}">${group.soKien} kiện</td>
                 </tr>
               `).join('')}
               
               <tr class="summary-row" style="background-color: #ffc107;">
-                <td colspan="5" class="left"><strong>TỔNG NGÀY ${day}/${month}/${year}</strong></td>
+                <td colspan="6" class="left"><strong>TỔNG NGÀY ${day}/${month}/${year}</strong></td>
                 <td><strong>${chiTiet.length}</strong></td>
                 <td class="right"><strong>${parseFloat(phieu['TONGKHOILUONG']).toFixed(4)}</strong></td>
-                <td colspan="4" class="left"><strong>Tổng cộng ${chiTiet.length} kiện</strong></td>
+                ${showPriceColumns ? `<td colspan="3" class="left"><strong>Tổng cộng ${chiTiet.length} kiện</strong></td>` : `<td colspan="5" class="left"><strong>Tổng cộng ${chiTiet.length} kiện</strong></td>`}
+                ${showPriceColumns ? `<td class="right" colspan="2"><strong>${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(phieu['TONGTIEN'])}</strong></td>` : ''}
               </tr>
             </tbody>
           </table>
           
-          ${phieu['NGHIEP_VU'] === 'XUAT' && phieu['TONGTIEN'] > 0 ? `
+          ${showPriceColumns ? `
           <div class="total-section">
             <div class="total-item">
               <span>Tổng khối lượng:</span>
@@ -787,11 +817,16 @@ const XuatNhapKhoManagement = () => {
       printWindow.document.write(printContent);
       printWindow.document.close();
 
+      toast.dismiss();
+      setShowPrintOptions(false);
+
     } catch (error) {
       console.error('Error printing phieu:', error);
-      toast.error('Có lỗi xảy ra khi in phiếu');
+      toast.error('Có lỗi xảy ra khi in phiếu: ' + error.message);
     }
   };
+
+
 
   // ==================== CẢI TIẾN: Generate số phiếu - Số tăng liên tục ====================
   const generateSoPhieu = (nghiepVu, ngayNhapXuat) => {
@@ -2164,7 +2199,7 @@ const XuatNhapKhoManagement = () => {
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handlePrintPhieu(phieu)}
+                            onClick={() => handleOpenPrintOptions(phieu)}
                             className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                             title="In phiếu"
                           >
@@ -3191,7 +3226,7 @@ const XuatNhapKhoManagement = () => {
 
             <div className="flex justify-end gap-2 p-4 border-t border-gray-200 bg-gray-50">
               <button
-                onClick={() => handlePrintPhieu(currentPhieu)}
+                onClick={() => handleOpenPrintOptions(currentPhieu)}
                 className="px-4 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center gap-2 transition-colors"
               >
                 <Printer className="w-4 h-4" />
@@ -3323,6 +3358,64 @@ const XuatNhapKhoManagement = () => {
                   className="flex-1 px-4 py-2 text-sm bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors font-medium"
                 >
                   Xóa
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Tùy Chọn In Phiếu Xuất */}
+      {showPrintOptions && phieuToPrint && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div className="p-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-green-100 rounded-full mx-auto mb-4">
+                <Printer className="w-6 h-6 text-green-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 text-center mb-2">
+                Tùy chọn in phiếu
+              </h3>
+              <p className="text-sm text-gray-600 text-center mb-6">
+                Phiếu: <strong>{phieuToPrint['SOPHIEU']}</strong>
+              </p>
+
+              {/* Checkbox hiển thị giá */}
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 mb-6">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={printWithPrice}
+                    onChange={(e) => setPrintWithPrice(e.target.checked)}
+                    className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-2 focus:ring-green-500"
+                  />
+                  <span className="ml-3 text-sm font-medium text-gray-900">
+                    Hiển thị đơn giá và thành tiền
+                  </span>
+                </label>
+                <p className="ml-8 mt-1 text-xs text-gray-500">
+                  {printWithPrice
+                    ? '✓ Phiếu sẽ hiển thị cột đơn giá và thành tiền'
+                    : '○ Phiếu chỉ hiển thị thông tin hàng hóa'}
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowPrintOptions(false);
+                    setPrintWithPrice(false);
+                  }}
+                  className="flex-1 px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={() => handlePrintPhieu(phieuToPrint, printWithPrice)}
+                  className="flex-1 px-4 py-2 text-sm bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-medium flex items-center justify-center gap-2"
+                >
+                  <Printer className="w-4 h-4" />
+                  In phiếu
                 </button>
               </div>
             </div>
