@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Edit, Trash, Search, Filter, X, Users, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Phone, Mail, Building, CreditCard, User, Briefcase, Calendar, FileText, Loader } from 'lucide-react';
+import { Plus, Edit, Trash, Search, Filter, X, Users, Info, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, RefreshCw, Phone, Mail, Building, CreditCard, User, Briefcase, Calendar, FileText, Loader, History, Package, TrendingUp, TrendingDown, DollarSign, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
@@ -36,6 +36,22 @@ const DSKHManagement = () => {
     // Pagination states
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // History Modal states
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [historyCustomer, setHistoryCustomer] = useState(null);
+    const [historyData, setHistoryData] = useState([]);
+    const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+    const [expandedPhieu, setExpandedPhieu] = useState(null);
+
+    // Format currency
+    const formatCurrency = (value) => {
+        if (!value) return '0 ₫';
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND'
+        }).format(value);
+    };
 
     // Format date
     const formatDate = (dateString) => {
@@ -99,76 +115,10 @@ const DSKHManagement = () => {
 
                     return {
                         'TEN_KHACHHANG': companyData.name || '',
-                        // Ưu tiên lấy shortName từ API, nếu không có thì mới tự tạo
                         'TEN_VIET_TAT': companyData.shortName || generateAcronym(companyData.name),
                         'DIACHI': companyData.address || '',
                         'NGUOI_DAIDIEN': companyData.representative || '',
                         'NGAY_THANHLAP': companyData.establishDate ? formatDateForInput(companyData.establishDate) : ''
-                    };
-                }
-            }
-
-            // API 2: Backup API từ masothue.com
-            const response2 = await fetch(`https://api.masothue.com/api/company/${mst}`);
-
-            if (response2.ok) {
-                const data2 = await response2.json();
-
-                if (data2.success && data2.data) {
-                    const companyData = data2.data;
-
-                    const generateAcronym = (name) => {
-                        if (!name) return '';
-                        const excludeWords = ['công', 'ty', 'tnhh', 'cổ', 'phần', 'trách', 'nhiệm', 'hữu', 'hạn', 'một', 'thành', 'viên'];
-                        const words = name
-                            .toLowerCase()
-                            .normalize("NFD")
-                            .replace(/[\u0300-\u036f]/g, "")
-                            .replace(/[^a-z0-9\s]/g, '')
-                            .split(' ')
-                            .filter(word => word && !excludeWords.includes(word));
-                        return words.map(word => word[0]).join('').toUpperCase();
-                    };
-
-                    return {
-                        'TEN_KHACHHANG': companyData.ten || companyData.name || '',
-                        // Ưu tiên lấy ten_viet_tat hoặc shortName từ API
-                        'TEN_VIET_TAT': companyData.ten_viet_tat || companyData.shortName || generateAcronym(companyData.ten || companyData.name),
-                        'DIACHI': companyData.dia_chi || companyData.address || '',
-                        'NGUOI_DAIDIEN': companyData.nguoi_dai_dien || companyData.representative || '',
-                        'NGAY_THANHLAP': companyData.ngay_thanh_lap ? formatDateForInput(companyData.ngay_thanh_lap) : ''
-                    };
-                }
-            }
-
-            // API 3: Tracuunnt.com (backup thứ 2)
-            const response3 = await fetch(`https://api.tracuunnt.com/api/v1/company/search?mst=${mst}`);
-
-            if (response3.ok) {
-                const data3 = await response3.json();
-
-                if (data3.success && data3.data) {
-                    const companyData = data3.data;
-
-                    const generateAcronym = (name) => {
-                        if (!name) return '';
-                        const excludeWords = ['công', 'ty', 'tnhh', 'cổ', 'phần', 'trách', 'nhiệm', 'hữu', 'hạn', 'một', 'thành', 'viên'];
-                        const words = name
-                            .toLowerCase()
-                            .normalize("NFD")
-                            .replace(/[\u0300-\u036f]/g, "")
-                            .replace(/[^a-z0-9\s]/g, '')
-                            .split(' ')
-                            .filter(word => word && !excludeWords.includes(word));
-                        return words.map(word => word[0]).join('').toUpperCase();
-                    };
-
-                    return {
-                        'TEN_KHACHHANG': companyData.ten || companyData.name || '',
-                        'TEN_VIET_TAT': companyData.ten_viet_tat || companyData.shortName || generateAcronym(companyData.ten || companyData.name),
-                        'DIACHI': companyData.dia_chi || companyData.address || '',
-                        'NGUOI_DAIDIEN': companyData.nguoi_dai_dien || companyData.representative || '',
-                        'NGAY_THANHLAP': companyData.ngay_thanh_lap ? formatDateForInput(companyData.ngay_thanh_lap) : ''
                     };
                 }
             }
@@ -182,19 +132,16 @@ const DSKHManagement = () => {
         }
     };
 
-
     // Handle MST input change with debounce
     const handleMSTChange = async (value) => {
         handleInputChange('MST', value);
 
-        // Chỉ tra cứu khi MST đủ độ dài (10-14 ký tự)
         if (value.length >= 10 && value.length <= 14) {
             toast.info('Đang tra cứu thông tin doanh nghiệp...', { autoClose: 1000 });
 
             const companyInfo = await fetchCompanyInfoByMST(value);
 
             if (companyInfo) {
-                // Chỉ cập nhật các trường trống
                 setCurrentCustomer(prev => ({
                     ...prev,
                     'MST': value,
@@ -229,6 +176,150 @@ const DSKHManagement = () => {
     useEffect(() => {
         fetchDSKH();
     }, []);
+
+    // Fetch customer history - CẬP NHẬT ĐỂ LẤY TỪ XUATNHAPKHO
+    const fetchCustomerHistory = async (customerName) => {
+        try {
+            setIsLoadingHistory(true);
+
+            console.log('🔍 Đang tìm lịch sử cho khách hàng:', customerName);
+
+            // Fetch all phiếu xuất nhập kho
+            const phieuResponse = await authUtils.apiRequestKHO('XUATNHAPKHO', 'Find', {});
+
+            // Filter phiếu by NCC_KHACHHANG
+            const customerPhieu = phieuResponse.filter(p =>
+                p['NCC_KHACHHANG'] === customerName
+            );
+
+            console.log('👤 Phiếu của khách hàng:', customerPhieu);
+
+            if (customerPhieu.length === 0) {
+                setHistoryData([]);
+                setIsLoadingHistory(false);
+                return;
+            }
+
+            // 🔥 FETCH TẤT CẢ CHI TIẾT 1 LẦN
+            console.log('📦 Đang fetch tất cả chi tiết...');
+            const allChiTiet = await authUtils.apiRequestKHO('XUATNHAPKHO_CHITIET', 'Find', {});
+
+            console.log('✅ Tổng số chi tiết:', allChiTiet?.length);
+            console.log('📋 Sample chi tiết:', allChiTiet?.slice(0, 3));
+
+            // 🔥 FILTER Ở CLIENT-SIDE
+            const phieuWithDetails = customerPhieu.map(phieu => {
+                const soPhieu = phieu['SOPHIEU'];
+
+                // Tìm chi tiết của phiếu này
+                const chiTietOfPhieu = allChiTiet.filter(ct => ct['SOPHIEU'] === soPhieu);
+
+                console.log(`📋 Phiếu ${soPhieu}: ${chiTietOfPhieu.length} chi tiết`);
+
+                // Tính toán
+                const soKien = chiTietOfPhieu.length;
+                const tongKL = chiTietOfPhieu.reduce((sum, ct) => {
+                    return sum + parseFloat(ct['SO_KHOI'] || 0);
+                }, 0);
+                const tongTien = parseFloat(phieu['TONGTIEN'] || 0);
+
+                return {
+                    ...phieu,
+                    chiTiet: chiTietOfPhieu,
+                    soKien: soKien,
+                    tongKL: tongKL,
+                    tongTien: tongTien
+                };
+            });
+
+            console.log('✅ Kết quả cuối cùng:', phieuWithDetails);
+
+            // Sort by date (newest first)
+            phieuWithDetails.sort((a, b) =>
+                new Date(b['NGAYNHAP_XUAT']) - new Date(a['NGAYNHAP_XUAT'])
+            );
+
+            setHistoryData(phieuWithDetails);
+
+            // Tính toán thống kê
+            const nhapStats = phieuWithDetails.filter(p => p['NGHIEP_VU'] === 'NHAP');
+            const xuatStats = phieuWithDetails.filter(p => p['NGHIEP_VU'] === 'XUAT');
+
+            const tongNhap = nhapStats.reduce((sum, p) => sum + p.tongKL, 0);
+            const tongXuat = xuatStats.reduce((sum, p) => sum + p.tongKL, 0);
+            const tongDoanhThu = xuatStats.reduce((sum, p) => sum + p.tongTien, 0);
+
+            console.log('📊 Thống kê:', {
+                soPhieuNhap: nhapStats.length,
+                soPhieuXuat: xuatStats.length,
+                tongNhap: tongNhap.toFixed(4) + ' m³',
+                tongXuat: tongXuat.toFixed(4) + ' m³',
+                ton: (tongNhap - tongXuat).toFixed(4) + ' m³',
+                doanhThu: tongDoanhThu.toLocaleString('vi-VN') + ' ₫'
+            });
+
+        } catch (error) {
+            console.error('❌ Error fetching customer history:', error);
+            toast.error('Lỗi khi tải lịch sử giao dịch');
+            setHistoryData([]);
+        } finally {
+            setIsLoadingHistory(false);
+        }
+    };
+
+
+    // Open history modal
+    const handleOpenHistoryModal = async (customer) => {
+        setHistoryCustomer(customer);
+        setShowHistoryModal(true);
+        setExpandedPhieu(null);
+        await fetchCustomerHistory(customer['TEN_KHACHHANG']);
+    };
+
+    // Close history modal
+    const handleCloseHistoryModal = () => {
+        setShowHistoryModal(false);
+        setHistoryCustomer(null);
+        setHistoryData([]);
+        setExpandedPhieu(null);
+    };
+
+    // Toggle phiếu expansion
+    const togglePhieuExpansion = (sophieu) => {
+        setExpandedPhieu(expandedPhieu === sophieu ? null : sophieu);
+    };
+
+    // Calculate statistics from history
+    const calculateStatistics = () => {
+        const nhapPhieu = historyData.filter(p => p['NGHIEP_VU'] === 'NHAP');
+        const xuatPhieu = historyData.filter(p => p['NGHIEP_VU'] === 'XUAT');
+
+        const tongNhapKien = nhapPhieu.reduce((sum, p) => sum + p.soKien, 0);
+        const tongNhapKL = nhapPhieu.reduce((sum, p) => sum + p.tongKL, 0);
+
+        const tongXuatKien = xuatPhieu.reduce((sum, p) => sum + p.soKien, 0);
+        const tongXuatKL = xuatPhieu.reduce((sum, p) => sum + p.tongKL, 0);
+
+        const tongDoanhThu = xuatPhieu.reduce((sum, p) => sum + p.tongTien, 0);
+
+        return {
+            nhap: {
+                soPhieu: nhapPhieu.length,
+                soKien: tongNhapKien,
+                khoiLuong: tongNhapKL
+            },
+            xuat: {
+                soPhieu: xuatPhieu.length,
+                soKien: tongXuatKien,
+                khoiLuong: tongXuatKL
+            },
+            ton: {
+                soKien: tongNhapKien - tongXuatKien,
+                khoiLuong: tongNhapKL - tongXuatKL
+            },
+            doanhThu: tongDoanhThu
+        };
+    };
 
     // Modal handlers
     const handleOpenModal = (customer = null) => {
@@ -703,6 +794,13 @@ const DSKHManagement = () => {
                                                 <td className="px-3 py-2 whitespace-nowrap text-sm text-gray-500 text-center">
                                                     <div className="flex justify-center space-x-2">
                                                         <button
+                                                            onClick={() => handleOpenHistoryModal(customer)}
+                                                            className="text-purple-600 hover:text-purple-900 p-1.5 rounded-lg hover:bg-purple-100 transition-all transform hover:scale-110"
+                                                            title="Xem lịch sử"
+                                                        >
+                                                            <History className="h-4 w-4" />
+                                                        </button>
+                                                        <button
                                                             onClick={() => handleOpenModal(customer)}
                                                             className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-lg hover:bg-indigo-100 transition-all transform hover:scale-110"
                                                             title="Sửa"
@@ -763,6 +861,12 @@ const DSKHManagement = () => {
                                             <h3 className="font-semibold text-gray-900 text-sm">{customer['TEN_KHACHHANG']}</h3>
                                         </div>
                                         <div className="flex gap-1">
+                                            <button
+                                                onClick={() => handleOpenHistoryModal(customer)}
+                                                className="text-purple-600 hover:text-purple-900 p-1.5 rounded-lg hover:bg-purple-100 transition-all"
+                                            >
+                                                <History className="h-4 w-4" />
+                                            </button>
                                             <button
                                                 onClick={() => handleOpenModal(customer)}
                                                 className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-lg hover:bg-indigo-100 transition-all"
@@ -865,6 +969,331 @@ const DSKHManagement = () => {
                     )}
                 </div>
             </div>
+
+            {/* History Modal */}
+            {showHistoryModal && historyCustomer && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 md:p-4 overflow-y-auto backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-7xl w-full max-h-[95vh] overflow-hidden flex flex-col animate-fadeIn">
+                        {/* Header */}
+                        <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-purple-100">
+                            <div>
+                                <h2 className="text-lg md:text-xl font-bold text-gray-800 flex items-center gap-2">
+                                    <div className="p-2 bg-purple-500 rounded-lg">
+                                        <History className="w-5 h-5 text-white" />
+                                    </div>
+                                    Lịch sử giao dịch
+                                </h2>
+                                <p className="text-sm text-gray-600 mt-1 ml-11">
+                                    {historyCustomer['TEN_KHACHHANG']}
+                                    {historyCustomer['TEN_VIET_TAT'] && (
+                                        <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-800 rounded text-xs font-semibold">
+                                            {historyCustomer['TEN_VIET_TAT']}
+                                        </span>
+                                    )}
+                                </p>
+                            </div>
+                            <button onClick={handleCloseHistoryModal} className="text-gray-500 hover:text-gray-700 focus:outline-none p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+
+                        {/* Body */}
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {isLoadingHistory ? (
+                                <div className="flex items-center justify-center py-20">
+                                    <div className="text-center">
+                                        <RefreshCw className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
+                                        <p className="text-gray-600">Đang tải lịch sử giao dịch...</p>
+                                    </div>
+                                </div>
+                            ) : historyData.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center text-gray-500 py-20">
+                                    <Package className="w-16 h-16 text-gray-300 mb-4" />
+                                    <p className="text-lg font-medium">Chưa có giao dịch nào</p>
+                                    <p className="text-sm mt-1">Khách hàng này chưa có lịch sử nhập xuất</p>
+                                </div>
+                            ) : (
+                                <>
+                                    {/* Statistics Cards */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                                        {/* Nhập kho */}
+                                        <div className="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg p-3 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="p-1.5 bg-green-200 rounded-lg">
+                                                    <TrendingUp className="w-4 h-4 text-green-700" />
+                                                </div>
+                                                <h3 className="text-xs font-semibold text-green-700">NHẬP KHO</h3>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-green-600">
+                                                    <span className="font-bold text-lg text-green-900">{calculateStatistics().nhap.soPhieu}</span> phiếu
+                                                </p>
+                                                <p className="text-xs text-green-600">
+                                                    <span className="font-semibold">{calculateStatistics().nhap.soKien}</span> kiện
+                                                </p>
+                                                <p className="text-xs text-green-600">
+                                                    <span className="font-semibold">{calculateStatistics().nhap.khoiLuong.toFixed(4)}</span> m³
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Xuất kho */}
+                                        <div className="bg-gradient-to-br from-red-50 to-red-100 border border-red-200 rounded-lg p-3 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="p-1.5 bg-red-200 rounded-lg">
+                                                    <TrendingDown className="w-4 h-4 text-red-700" />
+                                                </div>
+                                                <h3 className="text-xs font-semibold text-red-700">XUẤT KHO</h3>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-red-600">
+                                                    <span className="font-bold text-lg text-red-900">{calculateStatistics().xuat.soPhieu}</span> phiếu
+                                                </p>
+                                                <p className="text-xs text-red-600">
+                                                    <span className="font-semibold">{calculateStatistics().xuat.soKien}</span> kiện
+                                                </p>
+                                                <p className="text-xs text-red-600">
+                                                    <span className="font-semibold">{calculateStatistics().xuat.khoiLuong.toFixed(4)}</span> m³
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Tồn kho */}
+                                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg p-3 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="p-1.5 bg-blue-200 rounded-lg">
+                                                    <Package className="w-4 h-4 text-blue-700" />
+                                                </div>
+                                                <h3 className="text-xs font-semibold text-blue-700">TỒN KHO</h3>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs text-blue-600">
+                                                    <span className="font-bold text-lg text-blue-900">{calculateStatistics().ton.soKien}</span> kiện
+                                                </p>
+                                                <p className="text-xs text-blue-600">
+                                                    <span className="font-semibold">{calculateStatistics().ton.khoiLuong.toFixed(4)}</span> m³
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        {/* Doanh thu */}
+                                        <div className="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-lg p-3 shadow-sm">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="p-1.5 bg-yellow-200 rounded-lg">
+                                                    <DollarSign className="w-4 h-4 text-yellow-700" />
+                                                </div>
+                                                <h3 className="text-xs font-semibold text-yellow-700">DOANH THU</h3>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-sm font-bold text-yellow-900">
+                                                    {formatCurrency(calculateStatistics().doanhThu)}
+                                                </p>
+                                                <p className="text-xs text-yellow-600">
+                                                    Tổng giá trị xuất kho
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Phiếu List */}
+                                    <div className="space-y-3">
+                                        <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                            <FileText className="w-4 h-4 text-gray-500" />
+                                            Danh sách phiếu ({historyData.length})
+                                        </h3>
+
+                                        {historyData.map((phieu) => (
+                                            <div key={phieu['SOPHIEU']} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                                                {/* Phiếu Header */}
+                                                <div
+                                                    className={`p-3 cursor-pointer ${phieu['NGHIEP_VU'] === 'NHAP'
+                                                        ? 'bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-150'
+                                                        : 'bg-gradient-to-r from-red-50 to-red-100 hover:from-red-100 hover:to-red-150'
+                                                        }`}
+                                                    onClick={() => togglePhieuExpansion(phieu['SOPHIEU'])}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                                <span className={`px-2 py-1 rounded text-xs font-bold ${phieu['NGHIEP_VU'] === 'NHAP'
+                                                                    ? 'bg-green-600 text-white'
+                                                                    : 'bg-red-600 text-white'
+                                                                    }`}>
+                                                                    {phieu['NGHIEP_VU'] === 'NHAP' ? '📥 NHẬP' : '📤 XUẤT'}
+                                                                </span>
+                                                                <span className="px-2 py-1 bg-white rounded text-xs font-semibold text-gray-700 border border-gray-300">
+                                                                    {phieu['SOPHIEU']}
+                                                                </span>
+                                                                <span className="text-xs text-gray-600">
+                                                                    📅 {formatDate(phieu['NGAYNHAP_XUAT'])}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 text-xs text-gray-600 flex-wrap">
+                                                                {phieu['NGHIEP_VU'] === 'NHAP' ? (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Building className="w-3 h-3" />
+                                                                        Nhập: {phieu['KHONHAP']}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Building className="w-3 h-3" />
+                                                                        Xuất: {phieu['KHOXUAT']}
+                                                                    </span>
+                                                                )}
+                                                                {phieu['NGUOIPHUTRACH'] && (
+                                                                    <span className="flex items-center gap-1">
+                                                                        <User className="w-3 h-3" />
+                                                                        {phieu['NGUOIPHUTRACH']}
+                                                                    </span>
+                                                                )}
+                                                                <span className="flex items-center gap-1 font-semibold">
+                                                                    <Package className="w-3 h-3" />
+                                                                    {phieu.soKien} kiện
+                                                                </span>
+                                                                <span className="flex items-center gap-1 font-semibold">
+                                                                    📦 {phieu.tongKL.toFixed(4)} m³
+                                                                </span>
+                                                                {phieu['NGHIEP_VU'] === 'XUAT' && phieu.tongTien > 0 && (
+                                                                    <span className="flex items-center gap-1 font-semibold text-yellow-700">
+                                                                        💰 {formatCurrency(phieu.tongTien)}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            {phieu['DIENGIAI'] && (
+                                                                <div className="mt-1 text-xs text-gray-500 italic">
+                                                                    📝 {phieu['DIENGIAI']}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            {expandedPhieu === phieu['SOPHIEU'] ? (
+                                                                <ChevronUp className="w-5 h-5 text-gray-500" />
+                                                            ) : (
+                                                                <ChevronDown className="w-5 h-5 text-gray-500" />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Chi tiết phiếu (Expandable) */}
+                                                {expandedPhieu === phieu['SOPHIEU'] && (
+                                                    <div className="p-3 bg-white border-t border-gray-200">
+                                                        {phieu.chiTiet && phieu.chiTiet.length > 0 ? (
+                                                            <div className="overflow-x-auto">
+                                                                <table className="w-full text-xs">
+                                                                    <thead className="bg-gray-50 border-b border-gray-200">
+                                                                        <tr>
+                                                                            <th className="px-2 py-2 text-left font-semibold text-gray-700">STT</th>
+                                                                            <th className="px-2 py-2 text-left font-semibold text-gray-700">Mã kiện</th>
+                                                                            <th className="px-2 py-2 text-left font-semibold text-gray-700">Nhóm hàng</th>
+                                                                            <th className="px-2 py-2 text-center font-semibold text-gray-700">Kích thước (D×R×D)</th>
+                                                                            <th className="px-2 py-2 text-center font-semibold text-gray-700">Thành</th>
+                                                                            <th className="px-2 py-2 text-right font-semibold text-gray-700">Số khối (m³)</th>
+                                                                            <th className="px-2 py-2 text-center font-semibold text-gray-700">Tiêu chuẩn</th>
+                                                                            {phieu['NGHIEP_VU'] === 'XUAT' && (
+                                                                                <>
+                                                                                    <th className="px-2 py-2 text-right font-semibold text-gray-700">Đơn giá</th>
+                                                                                    <th className="px-2 py-2 text-right font-semibold text-gray-700">Thành tiền</th>
+                                                                                </>
+                                                                            )}
+                                                                            {phieu['NGHIEP_VU'] === 'NHAP' && (
+                                                                                <th className="px-2 py-2 text-left font-semibold text-gray-700">Đổi hàng kho</th>
+                                                                            )}
+                                                                            <th className="px-2 py-2 text-left font-semibold text-gray-700">Ghi chú</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className="divide-y divide-gray-200">
+                                                                        {phieu.chiTiet.map((ct, index) => (
+                                                                            <tr key={index} className="hover:bg-gray-50">
+                                                                                <td className="px-2 py-2 text-gray-600">{index + 1}</td>
+                                                                                <td className="px-2 py-2 font-medium text-blue-700">{ct['MA_KIEN']}</td>
+                                                                                <td className="px-2 py-2 text-gray-700">{ct['NHOM_HANG']}</td>
+                                                                                <td className="px-2 py-2 text-center text-gray-600">
+                                                                                    {ct['DAY']}×{ct['RONG']}×{ct['DAI']}
+                                                                                </td>
+                                                                                <td className="px-2 py-2 text-center text-gray-600">
+                                                                                    {ct['THANH'] || '—'}
+                                                                                </td>
+                                                                                <td className="px-2 py-2 text-right font-semibold text-gray-900">
+                                                                                    {parseFloat(ct['SO_KHOI'] || 0).toFixed(4)}
+                                                                                </td>
+                                                                                <td className="px-2 py-2 text-center text-gray-600">
+                                                                                    {ct['TIEU_CHUAN'] || '—'}
+                                                                                </td>
+                                                                                {phieu['NGHIEP_VU'] === 'XUAT' && (
+                                                                                    <>
+                                                                                        <td className="px-2 py-2 text-right text-gray-700">
+                                                                                            {formatCurrency(ct['DONGIA'])}
+                                                                                        </td>
+                                                                                        <td className="px-2 py-2 text-right font-semibold text-yellow-700">
+                                                                                            {formatCurrency(ct['THANHTIEN'])}
+                                                                                        </td>
+                                                                                    </>
+                                                                                )}
+                                                                                {phieu['NGHIEP_VU'] === 'NHAP' && (
+                                                                                    <td className="px-2 py-2 text-gray-600">
+                                                                                        {ct['DOI_HANG_KHO'] || '—'}
+                                                                                    </td>
+                                                                                )}
+                                                                                <td className="px-2 py-2 text-gray-600">
+                                                                                    {ct['GHICHU'] || '—'}
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                        {/* Tổng cộng */}
+                                                                        <tr className="bg-gray-100 font-bold">
+                                                                            <td colSpan={phieu['NGHIEP_VU'] === 'XUAT' ? "5" : "5"} className="px-2 py-2 text-right text-gray-900">
+                                                                                TỔNG CỘNG:
+                                                                            </td>
+                                                                            <td className="px-2 py-2 text-right text-gray-900">
+                                                                                {phieu.tongKL.toFixed(4)}
+                                                                            </td>
+                                                                            {phieu['NGHIEP_VU'] === 'XUAT' && (
+                                                                                <>
+                                                                                    <td className="px-2 py-2"></td>
+                                                                                    <td className="px-2 py-2"></td>
+                                                                                    <td className="px-2 py-2 text-right text-yellow-700">
+                                                                                        {formatCurrency(phieu.tongTien)}
+                                                                                    </td>
+                                                                                </>
+                                                                            )}
+                                                                            {phieu['NGHIEP_VU'] === 'NHAP' && (
+                                                                                <>
+                                                                                    <td className="px-2 py-2"></td>
+                                                                                    <td className="px-2 py-2"></td>
+                                                                                </>
+                                                                            )}
+                                                                        </tr>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        ) : (
+                                                            <p className="text-sm text-gray-500 text-center py-4">
+                                                                Không có chi tiết
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex justify-end gap-2 p-4 border-t border-gray-200 bg-gray-50">
+                            <button
+                                onClick={handleCloseHistoryModal}
+                                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 hover:border-gray-400 transition-all shadow-sm flex items-center gap-2 text-sm"
+                            >
+                                <X className="h-4 w-4" />
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Add/Edit Modal */}
             {showModal && (
