@@ -161,8 +161,8 @@ const MainLayout = ({ children }) => {
             icon: Settings,
             color: 'text-gray-600',
             items: [
-                { text: 'Tổng quan', icon: Gauge, path: '/dashboard' },
-                { text: 'Báo cáo sản xuất', icon: ChartPie, path: '/baocaoreport' },
+                // { text: 'Tổng quan', icon: Gauge, path: '/dashboard' },
+                // { text: 'Báo cáo sản xuất', icon: ChartPie, path: '/baocaoreport' },
                 { text: 'Quản lý người dùng', icon: User, path: '/users' },
                 { text: 'Quản lý khách hàng', icon: User, path: '/dskh' },
                 { text: 'Quản lý hợp đồng', icon: User, path: '/hopdongnguyentac' },

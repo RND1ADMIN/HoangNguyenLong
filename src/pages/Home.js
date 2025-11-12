@@ -101,18 +101,18 @@ const Home = () => {
             icon: Settings,
             color: 'bg-gray-500',
             items: [
-                {
-                    title: 'Tổng quan',
-                    icon: Gauge,
-                    path: '/dashboard',
-                    color: 'bg-indigo-500'
-                },
-                {
-                    title: 'Báo cáo sản xuất',
-                    icon: ChartPie,
-                    path: '/baocaoreport',
-                    color: 'bg-purple-500'
-                },
+                // {
+                //     title: 'Tổng quan',
+                //     icon: Gauge,
+                //     path: '/dashboard',
+                //     color: 'bg-indigo-500'
+                // },
+                // {
+                //     title: 'Báo cáo sản xuất',
+                //     icon: ChartPie,
+                //     path: '/baocaoreport',
+                //     color: 'bg-purple-500'
+                // },
                 {
                     title: 'Quản lý người dùng',
                     icon: User,

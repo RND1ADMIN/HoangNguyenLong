@@ -4,7 +4,7 @@ import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import LoginPage from './pages/LoginPage';
 import Home from './pages/Home';
-import Dashboard from './pages/Dashboard';
+// import Dashboard from './pages/Dashboard';
 import MainLayout from './layouts/MainLayout';
 import authUtils from './utils/authUtils';
 import Profile from './pages/Profile';
@@ -28,7 +28,7 @@ import NhapBaoBiManagement from './pages/NhapBaoBiManagement';
 
 import BaoCaoMobie from './pages/BaoCaoMobie';
 import TonKhoManager from './pages/TonKhoManager';
-import Baocaoreport from './pages/Baocaoreport';
+// import Baocaoreport from './pages/Baocaoreport';
 import TheKhoManagement from './pages/TheKhoManagement';
 
 // Protected Route Component
@@ -57,7 +57,7 @@ function App() {
               <MainLayout>
                 <Routes>
                   <Route path="/home" element={<Home />} />
-                  <Route path="/dashboard" element={<Dashboard />} />
+                  {/* <Route path="/dashboard" element={<Dashboard />} /> */}
                   <Route path="/profile" element={<Profile />} />
                   <Route path="/users" element={<Users />} />
                   {/* <Route path="/xuatnhapfrom" element={<XuatNhapKhoForm />} />
@@ -72,7 +72,7 @@ function App() {
                   <Route path="/tonkho" element={<TonKhoManager />} />
                   <Route path="/makien" element={<TheKhoManagement />} />
                   
-                  <Route path="/baocaoreport" element={<Baocaoreport />} />
+                  {/* <Route path="/baocaoreport" element={<Baocaoreport />} /> */}
                   <Route path="/nhapbaobi" element={<NhapBaoBiManagement />} />
                   <Route path="/congdoan_dongia" element={<CongDoanDonGiaManagement />} />
                   <Route path="/phanbonhansu" element={<PhanBoNhanSuManagement />} />
