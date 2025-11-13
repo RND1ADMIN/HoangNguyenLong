@@ -11,6 +11,7 @@ import Profile from './pages/Profile';
 import Users from './pages/UserManagement';
 import ReportManagement from './pages/BaoCao';
 import TongHop from './pages/TongHop';
+import HuongDanSuDung from './pages/HuongDanSuDung';
 // import XuatNhapKhoForm from './pages/XuatNhapKhoForm';
 // import QuyCachManagement from './pages/QuyCachManagement';
 
@@ -79,6 +80,8 @@ function App() {
                   <Route path="/report" element={<ReportManagement />} />
                   <Route path="/tonghop" element={<TongHop />} />
                   <Route path="/reportMobile" element={<BaoCaoMobie />} />
+
+                  <Route path="/huongdansudung" element={<HuongDanSuDung />} />
                   
 
 

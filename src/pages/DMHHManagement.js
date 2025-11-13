@@ -70,29 +70,55 @@ const DMHHManagement = () => {
         return `${day}*${rong}*${dai}`;
     };
 
-    // Tính tồn kho cho từng nhóm hàng
+    // ✅ SỬA LẠI: Tính tồn kho = NHẬP - XUẤT
     const getTonKhoByNhomHang = (nhomHang) => {
-        const kienTon = tonKho.filter(item =>
+        const kienNhap = tonKho.filter(item =>
             item['NHOM_HANG'] === nhomHang &&
             item['NGHIEP_VU'] === 'NHAP'
         );
-        return kienTon.length;
+
+        const kienXuat = tonKho.filter(item =>
+            item['NHOM_HANG'] === nhomHang &&
+            item['NGHIEP_VU'] === 'XUAT'
+        );
+
+        return kienNhap.length - kienXuat.length;
     };
 
-    // Tính tổng khối lượng tồn kho
+    // ✅ SỬA LẠI: Tính tổng khối lượng tồn kho = NHẬP - XUẤT
     const getTongKhoiLuongTon = (nhomHang) => {
-        const kienTon = tonKho.filter(item =>
-            item['NHOM_HANG'] === nhomHang &&
-            item['NGHIEP_VU'] === 'NHAP'
-        );
-        return kienTon.reduce((sum, item) => sum + (parseFloat(item['SO_KHOI']) || 0), 0);
+        const khoiNhap = tonKho
+            .filter(item =>
+                item['NHOM_HANG'] === nhomHang &&
+                item['NGHIEP_VU'] === 'NHAP'
+            )
+            .reduce((sum, item) => sum + (parseFloat(item['SO_KHOI']) || 0), 0);
+
+        const khoiXuat = tonKho
+            .filter(item =>
+                item['NHOM_HANG'] === nhomHang &&
+                item['NGHIEP_VU'] === 'XUAT'
+            )
+            .reduce((sum, item) => sum + (parseFloat(item['SO_KHOI']) || 0), 0);
+
+        return khoiNhap - khoiXuat;
     };
 
-    // Lấy danh sách kiện tồn kho chi tiết
+    // ✅ SỬA LẠI: Lấy danh sách kiện tồn kho chi tiết (CHỈ NHẬP, chưa xuất)
     const getChiTietTonKho = (nhomHang) => {
+        // Lấy danh sách mã kiện đã xuất
+        const maKienDaXuat = tonKho
+            .filter(item =>
+                item['NHOM_HANG'] === nhomHang &&
+                item['NGHIEP_VU'] === 'XUAT'
+            )
+            .map(item => item['MA_KIEN']);
+
+        // Lấy danh sách kiện nhập, loại bỏ những kiện đã xuất
         return tonKho.filter(item =>
             item['NHOM_HANG'] === nhomHang &&
-            item['NGHIEP_VU'] === 'NHAP'
+            item['NGHIEP_VU'] === 'NHAP' &&
+            !maKienDaXuat.includes(item['MA_KIEN']) // Loại bỏ kiện đã xuất
         );
     };
 
@@ -1615,3 +1641,4 @@ const DMHHManagement = () => {
 };
 
 export default DMHHManagement;
+

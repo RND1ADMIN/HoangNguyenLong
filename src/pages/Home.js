@@ -130,6 +130,12 @@ const Home = () => {
                     icon: File,
                     path: '/hopdongnguyentac',
                     color: 'bg-blue-400'
+                },
+                {
+                    title: 'Hướng dẫn sử dụng',
+                    icon: File,
+                    path: '/huongdansudung',
+                    color: 'bg-blue-400'
                 }
             ]
         }
