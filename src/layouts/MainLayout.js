@@ -2,25 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
     LayoutDashboard,
-    UtensilsCrossed,
-    Table,
-    Receipt,
-    User,
-    FileBox,
-    Gauge, ChartArea,
-    LayoutList,
-    Wallet,
-    ChevronLeft,
-    ChartPie,
-    NotebookPen,
-    LogOut,
-    Menu as MenuIcon,
-    X,
     Package,
     TrendingUp,
     Settings,
+    DollarSign,
+    BarChart3,
+    ClipboardList,
+    Users,
+    BookOpen,
+    PackageCheck,
+    Boxes,
+    Receipt,
+    NotebookPen,
+    ChartPie,
+    User,
+    ShoppingCart,
+    Handshake,
+    LogOut,
+    Menu as MenuIcon,
+    X,
     ChevronDown,
-    ChevronRight
+    ChevronRight,
+    Home,
+    PanelLeftClose,
+    PanelLeftOpen
 } from 'lucide-react';
 import authUtils from '../utils/authUtils';
 
@@ -32,31 +37,28 @@ const MainLayout = ({ children }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Initialize sidebar state based on screen size - open by default on desktop, closed on mobile
     const [isSidebarOpen, setIsSidebarOpen] = useState(!isMobileDevice());
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isMobile, setIsMobile] = useState(isMobileDevice());
-    const [isCollapsed, setIsCollapsed] = useState(false); // Thêm state cho collapsed
-    
-    // State để quản lý việc mở/đóng các nhóm menu - MẶC ĐỊNH TẤT CẢ ĐÓNG
+    const [isCollapsed, setIsCollapsed] = useState(false);
+
     const [expandedGroups, setExpandedGroups] = useState({
+        home: true,
         warehouse: false,
         productivity: false,
+        sales: false,
         other: false
     });
 
-    // State để lưu các nút chức năng đặc biệt từ trang con
     const [pageActions, setPageActions] = useState([]);
 
     const userData = authUtils.getUserData();
 
-    // Add resize listener
     useEffect(() => {
         const handleResize = () => {
             const mobile = isMobileDevice();
             setIsMobile(mobile);
 
-            // Automatically close sidebar on mobile when resizing
             if (mobile && isSidebarOpen) {
                 setIsSidebarOpen(false);
                 setIsCollapsed(false);
@@ -69,12 +71,10 @@ const MainLayout = ({ children }) => {
         return () => window.removeEventListener('resize', handleResize);
     }, [isSidebarOpen]);
 
-    // Tự động mở nhóm chứa trang hiện tại (chỉ khi không collapsed)
     useEffect(() => {
         if (!isCollapsed) {
             const currentPath = location.pathname;
-            
-            // Tìm nhóm chứa trang hiện tại và mở nó
+
             menuGroups.forEach(group => {
                 const hasActivePage = group.items.some(item => item.path === currentPath);
                 if (hasActivePage) {
@@ -87,7 +87,6 @@ const MainLayout = ({ children }) => {
         }
     }, [location.pathname, isCollapsed]);
 
-    // Tạo phương thức để các trang con có thể đăng ký nút
     useEffect(() => {
         window.registerPageActions = (actions) => {
             setPageActions(actions);
@@ -103,7 +102,6 @@ const MainLayout = ({ children }) => {
         };
     }, []);
 
-    // Close profile menu when clicking outside
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (isProfileMenuOpen && !event.target.closest('.profile-menu-container')) {
@@ -115,7 +113,6 @@ const MainLayout = ({ children }) => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isProfileMenuOpen]);
 
-    // Nhóm menu items theo categories
     const menuGroups = [
         {
             id: 'home',
@@ -133,13 +130,12 @@ const MainLayout = ({ children }) => {
             icon: Package,
             color: 'text-blue-600',
             items: [
-                // { text: 'Cài đặt quy cách', icon: FileBox, path: '/quycach' },
-                { text: 'Cài đặt giá bán', icon: FileBox, path: '/giaban' },
-                { text: 'Quản lý hàng hóa', icon: FileBox, path: '/dmhh' },
-                { text: 'Quản lý xuất nhập kho', icon: Table, path: '/xuatnhapkho' },
-                { text: 'Chi tiết xuất nhập kho', icon: Table, path: '/chitietxuatnhapkho' },
-                { text: 'Báo cáo kho', icon: ChartArea, path: '/tonkho' },
-                { text: 'Mã kiện', icon: ChartArea, path: '/makien' }
+                { text: 'Cài đặt giá bán', icon: DollarSign, path: '/giaban' },
+                { text: 'Quản lý hàng hóa', icon: Boxes, path: '/dmhh' },
+                { text: 'Quản lý xuất nhập kho', icon: ClipboardList, path: '/xuatnhapkho' },
+                { text: 'Chi tiết xuất nhập kho', icon: ClipboardList, path: '/chitietxuatnhapkho' },
+                { text: 'Báo cáo kho', icon: BarChart3, path: '/tonkho' },
+                { text: 'Mã kiện', icon: PackageCheck, path: '/makien' }
             ]
         },
         {
@@ -148,27 +144,44 @@ const MainLayout = ({ children }) => {
             icon: TrendingUp,
             color: 'text-green-600',
             items: [
-                { text: 'Công đoạn - Đơn giá', icon: LayoutList, path: '/congdoan_dongia' },
-                { text: 'Phân bố nhân sự', icon: LayoutList, path: '/phanbonhansu' },
+                { text: 'Công đoạn - Đơn giá', icon: Receipt, path: '/congdoan_dongia' },
+                { text: 'Phân bố nhân sự', icon: Users, path: '/phanbonhansu' },
                 { text: 'Nhập bao bì', icon: NotebookPen, path: '/nhapbaobi' },
-                { text: 'Báo cáo sản lượng', icon: NotebookPen, path: '/report' },
-                { text: 'Tổng hợp năng suất', icon: NotebookPen, path: '/tonghop' }
+                { text: 'Báo cáo sản lượng', icon: ChartPie, path: '/report' },
+                { text: 'Tổng hợp năng suất', icon: ChartPie, path: '/tonghop' }
+            ]
+        },
+        {
+            id: 'sales',
+            title: 'Quản lý bán hàng',
+            icon: ShoppingCart,
+            color: 'text-orange-600',
+            items: [
+                { text: 'Quản lý khách hàng', icon: Users, path: '/dskh' },
+                { text: 'Hợp đồng nguyên tắc', icon: Handshake, path: '/hopdongnguyentac' },
+                { text: 'Báo cáo bán hàng', icon: BarChart3, path: '/baocaobanhang' }
             ]
         },
         {
             id: 'other',
             title: 'Chức năng khác',
             icon: Settings,
-            color: 'text-gray-600',
+            color: 'text-purple-600',
             items: [
-                // { text: 'Tổng quan', icon: Gauge, path: '/dashboard' },
-                // { text: 'Báo cáo sản xuất', icon: ChartPie, path: '/baocaoreport' },
                 { text: 'Quản lý người dùng', icon: User, path: '/users' },
-                { text: 'Quản lý khách hàng', icon: User, path: '/dskh' },
-                { text: 'Quản lý hợp đồng', icon: User, path: '/hopdongnguyentac' },
+                { text: 'Hướng dẫn sử dụng', icon: BookOpen, path: '/huongdansudung' }
             ]
         }
     ];
+
+    // Hàm lấy tên trang hiện tại
+    const getCurrentPageName = () => {
+        for (const group of menuGroups) {
+            const foundItem = group.items.find(item => item.path === location.pathname);
+            if (foundItem) return foundItem.text;
+        }
+        return 'Trang chủ';
+    };
 
     const handleLogout = () => {
         authUtils.logout();
@@ -179,13 +192,7 @@ const MainLayout = ({ children }) => {
         if (isMobile) {
             setIsSidebarOpen(!isSidebarOpen);
         } else {
-            // Desktop: toggle collapsed state
-            if (isSidebarOpen) {
-                setIsCollapsed(!isCollapsed);
-            } else {
-                setIsSidebarOpen(true);
-                setIsCollapsed(false);
-            }
+            setIsCollapsed(!isCollapsed);
         }
     };
 
@@ -203,7 +210,6 @@ const MainLayout = ({ children }) => {
 
     const Sidebar = () => (
         <div className="flex flex-col h-full bg-white">
-            {/* Logo & Brand */}
             <div className={`flex items-center px-4 py-4 border-b ${isCollapsed ? 'justify-center px-2' : 'gap-2'}`}>
                 <img src="/logo1.png" alt="Logo" className={`h-8 ${isCollapsed ? 'mx-auto' : ''}`} />
                 {!isCollapsed && (
@@ -213,7 +219,6 @@ const MainLayout = ({ children }) => {
                 )}
             </div>
 
-            {/* User Info */}
             <div className={`px-1 py-4 border-b ${isCollapsed ? 'px-2' : ''}`}>
                 <div
                     className={`flex items-center space-x-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg ${isCollapsed ? 'justify-center space-x-0' : ''}`}
@@ -239,15 +244,13 @@ const MainLayout = ({ children }) => {
                 </div>
             </div>
 
-            {/* Navigation */}
             <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
                 {menuGroups.map((group) => {
                     const GroupIcon = group.icon;
                     const isExpanded = expandedGroups[group.id];
-                    
+
                     return (
                         <div key={group.id} className="mb-1">
-                            {/* Group Header */}
                             {!group.alwaysExpanded && !isCollapsed ? (
                                 <button
                                     onClick={() => toggleGroup(group.id)}
@@ -265,7 +268,6 @@ const MainLayout = ({ children }) => {
                                 </button>
                             ) : null}
 
-                            {/* Group Items */}
                             {((isExpanded || group.alwaysExpanded) && !isCollapsed) || isCollapsed ? (
                                 <div className={`space-y-1 ${!group.alwaysExpanded && !isCollapsed ? 'ml-6 mt-1' : ''} transition-all duration-200`}>
                                     {group.items.map((item) => {
@@ -278,11 +280,10 @@ const MainLayout = ({ children }) => {
                                                     navigate(item.path);
                                                     isMobile && setIsSidebarOpen(false);
                                                 }}
-                                                className={`w-full flex items-center ${isCollapsed ? 'justify-center px-3' : 'space-x-3 px-3'} py-2 rounded-lg transition-colors text-sm ${
-                                                    isActive 
-                                                        ? 'bg-blue-50 text-blue-600 border-l-2 border-blue-500' 
+                                                className={`w-full flex items-center ${isCollapsed ? 'justify-center px-3' : 'space-x-3 px-3'} py-2 rounded-lg transition-colors text-sm ${isActive
+                                                        ? 'bg-blue-50 text-blue-600 border-l-2 border-blue-500'
                                                         : 'text-gray-600 hover:bg-gray-50'
-                                                }`}
+                                                    }`}
                                                 title={isCollapsed ? item.text : ''}
                                             >
                                                 <Icon className={`h-4 w-4 ${isActive ? 'text-blue-500' : 'text-gray-500'}`} />
@@ -300,7 +301,6 @@ const MainLayout = ({ children }) => {
                     );
                 })}
 
-                {/* Logout Button */}
                 <div className="border-t pt-2 mt-4">
                     <button
                         onClick={handleLogout}
@@ -319,7 +319,6 @@ const MainLayout = ({ children }) => {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            {/* Mobile Sidebar Backdrop */}
             {isSidebarOpen && isMobile && (
                 <div
                     className="fixed inset-0 bg-gray-800/50 z-40"
@@ -327,7 +326,6 @@ const MainLayout = ({ children }) => {
                 />
             )}
 
-            {/* Sidebar */}
             <aside
                 className={`fixed top-0 left-0 h-full transform transition-all duration-200 ease-in-out z-50 
                 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'} shadow-lg`}
@@ -336,36 +334,52 @@ const MainLayout = ({ children }) => {
                 <Sidebar />
             </aside>
 
-            {/* Main Content */}
             <div className={`transition-all duration-200 ${isSidebarOpen ? (isMobile ? 'lg:pl-72' : `lg:pl-${isCollapsed ? '16' : '72'}`) : 'pl-0'}`}
-                 style={{ paddingLeft: isSidebarOpen && !isMobile ? sidebarWidth : 0 }}>
-                {/* Header */}
+                style={{ paddingLeft: isSidebarOpen && !isMobile ? sidebarWidth : 0 }}>
                 <header className={`fixed top-0 right-0 left-0 z-20 transition-all duration-200`}
-                        style={{ left: isSidebarOpen && !isMobile ? sidebarWidth : 0 }}>
+                    style={{ left: isSidebarOpen && !isMobile ? sidebarWidth : 0 }}>
                     <div className="h-16 bg-white border-b px-4 flex items-center justify-between shadow-sm">
-                        {/* Sidebar Toggle */}
                         <div className="flex items-center space-x-2">
                             <button
-                                className="text-gray-500 hover:text-gray-700"
+                                className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-lg transition-colors"
                                 onClick={toggleSidebar}
                                 aria-label={isSidebarOpen ? (isCollapsed ? "Mở rộng menu" : "Thu gọn menu") : "Mở menu"}
                             >
-                                {isSidebarOpen ? <ChevronLeft className="h-6 w-6" /> : <MenuIcon className="h-6 w-6" />}
+                                {isMobile ? (
+                                    isSidebarOpen ? (
+                                        <X className="h-6 w-6" />
+                                    ) : (
+                                        <MenuIcon className="h-6 w-6" />
+                                    )
+                                ) : (
+                                    isCollapsed ? (
+                                        <PanelLeftOpen className="h-6 w-6" />
+                                    ) : (
+                                        <PanelLeftClose className="h-6 w-6" />
+                                    )
+                                )}
                             </button>
 
-                            {/* Page title based on current route */}
-                            <h2 className="text-lg font-medium hidden md:block">
-                                {(() => {
-                                    for (const group of menuGroups) {
-                                        const foundItem = group.items.find(item => item.path === location.pathname);
-                                        if (foundItem) return foundItem.text;
-                                    }
-                                    return 'Trang chủ';
-                                })()}
-                            </h2>
+                            {/* BREADCRUMB VÀ TIÊU ĐỀ CÙNG DÒNG */}
+                            <div className="flex items-center gap-2 text-sm">
+                                {location.pathname !== '/home' && (
+                                    <>
+                                        <button
+                                            onClick={() => navigate('/home')}
+                                            className="flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline transition-colors"
+                                        >
+                                            <Home className="w-4 h-4" />
+                                            <span className="font-medium hidden md:inline">Trang chủ</span>
+                                        </button>
+                                        <ChevronRight className="w-4 h-4 text-gray-400" />
+                                    </>
+                                )}
+                                <h2 className="text-lg font-medium text-gray-800">
+                                    {getCurrentPageName()}
+                                </h2>
+                            </div>
                         </div>
 
-                        {/* Các nút tùy chỉnh từ trang con */}
                         <div className="flex-1 flex justify-center">
                             <div className="flex items-center space-x-2 overflow-x-auto max-w-[90%] px-4">
                                 {pageActions.map((action, index) => (
@@ -391,7 +405,6 @@ const MainLayout = ({ children }) => {
                             </div>
                         </div>
 
-                        {/* User Menu */}
                         <div className="relative profile-menu-container">
                             <button
                                 onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
@@ -403,7 +416,6 @@ const MainLayout = ({ children }) => {
                                 </div>
                             </button>
 
-                            {/* Dropdown Menu */}
                             {isProfileMenuOpen && (
                                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border py-1 z-50">
                                     <button
@@ -429,7 +441,6 @@ const MainLayout = ({ children }) => {
                     </div>
                 </header>
 
-                {/* Page Content */}
                 <main className={`pt-16 transition-all duration-200`}>
                     {children}
                 </main>

@@ -1912,7 +1912,7 @@ const XuatNhapKhoManagement = () => {
             </div>
           </div>
 
-          {/* Statistics Cards - Colorful & Clean Design */}
+          {/* Statistics Cards - Colorful & Clean Design - CẢI TIẾN: Thống kê theo dữ liệu đã lọc */}
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-2 md:gap-3 mb-3">
             {/* Phiếu nhập */}
             <div className="bg-gradient-to-br from-green-50 to-green-100 p-3 rounded-lg border-l-4 border-green-500 shadow-sm hover:shadow-md transition-all">
@@ -1920,7 +1920,14 @@ const XuatNhapKhoManagement = () => {
                 <TrendingUp className="w-4 h-4 text-green-600" />
                 <p className="text-xs font-medium text-green-700">Phiếu nhập</p>
               </div>
-              <p className="text-2xl font-bold text-green-900">{tongNhap}</p>
+              <p className="text-2xl font-bold text-green-900">
+                {filteredPhieuList.filter(p => p['NGHIEP_VU'] === 'NHAP').length}
+              </p>
+              {(filterNghiepVu !== 'ALL' || filterCustomer !== 'ALL' || filterDateFrom || filterDateTo) && (
+                <p className="text-xs text-green-600 mt-0.5">
+                  Tổng: {phieuList.filter(p => p['NGHIEP_VU'] === 'NHAP').length}
+                </p>
+              )}
             </div>
 
             {/* Phiếu xuất */}
@@ -1929,7 +1936,14 @@ const XuatNhapKhoManagement = () => {
                 <TrendingDown className="w-4 h-4 text-red-600" />
                 <p className="text-xs font-medium text-red-700">Phiếu xuất</p>
               </div>
-              <p className="text-2xl font-bold text-red-900">{tongXuat}</p>
+              <p className="text-2xl font-bold text-red-900">
+                {filteredPhieuList.filter(p => p['NGHIEP_VU'] === 'XUAT').length}
+              </p>
+              {(filterNghiepVu !== 'ALL' || filterCustomer !== 'ALL' || filterDateFrom || filterDateTo) && (
+                <p className="text-xs text-red-600 mt-0.5">
+                  Tổng: {phieuList.filter(p => p['NGHIEP_VU'] === 'XUAT').length}
+                </p>
+              )}
             </div>
 
             {/* KL Nhập */}
@@ -1939,13 +1953,24 @@ const XuatNhapKhoManagement = () => {
                 <p className="text-xs font-medium text-blue-700">KL Nhập</p>
               </div>
               <p className="text-xl font-bold text-blue-900">
-                {tongKhoiLuongNhap.toFixed(4)} <span className="text-sm font-normal text-blue-700">m³</span>
+                {filteredPhieuList
+                  .filter(p => p['NGHIEP_VU'] === 'NHAP')
+                  .reduce((sum, p) => sum + (parseFloat(p['TONGKHOILUONG']) || 0), 0)
+                  .toFixed(4)} <span className="text-sm font-normal text-blue-700">m³</span>
               </p>
               <p className="text-xs text-blue-600 mt-0.5">
-                {phieuList.filter(p => p['NGHIEP_VU'] === 'NHAP').reduce((sum, p) => {
+                {filteredPhieuList.filter(p => p['NGHIEP_VU'] === 'NHAP').reduce((sum, p) => {
                   const chiTietNhap = tonKho.filter(ct => ct['SOPHIEU'] === p['SOPHIEU']);
                   return sum + chiTietNhap.length;
                 }, 0)} kiện
+                {(filterNghiepVu !== 'ALL' || filterCustomer !== 'ALL' || filterDateFrom || filterDateTo) && (
+                  <span className="ml-1">
+                    / {phieuList.filter(p => p['NGHIEP_VU'] === 'NHAP').reduce((sum, p) => {
+                      const chiTietNhap = tonKho.filter(ct => ct['SOPHIEU'] === p['SOPHIEU']);
+                      return sum + chiTietNhap.length;
+                    }, 0)}
+                  </span>
+                )}
               </p>
             </div>
 
@@ -1956,20 +1981,28 @@ const XuatNhapKhoManagement = () => {
                 <p className="text-xs font-medium text-orange-700">KL Xuất</p>
               </div>
               <p className="text-xl font-bold text-orange-900">
-                {phieuList
+                {filteredPhieuList
                   .filter(p => p['NGHIEP_VU'] === 'XUAT')
                   .reduce((sum, p) => sum + (parseFloat(p['TONGKHOILUONG']) || 0), 0)
                   .toFixed(4)} <span className="text-sm font-normal text-orange-700">m³</span>
               </p>
               <p className="text-xs text-orange-600 mt-0.5">
-                {phieuList.filter(p => p['NGHIEP_VU'] === 'XUAT').reduce((sum, p) => {
+                {filteredPhieuList.filter(p => p['NGHIEP_VU'] === 'XUAT').reduce((sum, p) => {
                   const chiTietXuat = tonKho.filter(ct => ct['SOPHIEU'] === p['SOPHIEU'] && ct['NGHIEP_VU'] === 'XUAT');
                   return sum + chiTietXuat.length;
                 }, 0)} kiện
+                {(filterNghiepVu !== 'ALL' || filterCustomer !== 'ALL' || filterDateFrom || filterDateTo) && (
+                  <span className="ml-1">
+                    / {phieuList.filter(p => p['NGHIEP_VU'] === 'XUAT').reduce((sum, p) => {
+                      const chiTietXuat = tonKho.filter(ct => ct['SOPHIEU'] === p['SOPHIEU'] && ct['NGHIEP_VU'] === 'XUAT');
+                      return sum + chiTietXuat.length;
+                    }, 0)}
+                  </span>
+                )}
               </p>
             </div>
 
-            {/* KL Tồn */}
+            {/* KL Tồn - KHÔNG ĐỔI (vì đây là tồn kho thực tế) */}
             <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-3 rounded-lg border-l-4 border-purple-500 shadow-sm hover:shadow-md transition-all">
               <div className="flex items-center gap-2 mb-1">
                 <Weight className="w-4 h-4 text-purple-600" />
@@ -2006,14 +2039,25 @@ const XuatNhapKhoManagement = () => {
                   notation: 'compact',
                   compactDisplay: 'short',
                   maximumFractionDigits: 1
-                }).format(tongTienXuat)}
+                }).format(
+                  filteredPhieuList
+                    .filter(p => p['NGHIEP_VU'] === 'XUAT')
+                    .reduce((sum, p) => sum + (parseFloat(p['TONGTIEN']) || 0), 0)
+                )}
               </p>
-              <p className="text-xs text-yellow-600 mt-0.5 truncate" title={formatCurrency(tongTienXuat)}>
-                {formatCurrency(tongTienXuat)}
+              <p className="text-xs text-yellow-600 mt-0.5 truncate" title={formatCurrency(
+                filteredPhieuList
+                  .filter(p => p['NGHIEP_VU'] === 'XUAT')
+                  .reduce((sum, p) => sum + (parseFloat(p['TONGTIEN']) || 0), 0)
+              )}>
+                {formatCurrency(
+                  filteredPhieuList
+                    .filter(p => p['NGHIEP_VU'] === 'XUAT')
+                    .reduce((sum, p) => sum + (parseFloat(p['TONGTIEN']) || 0), 0)
+                )}
               </p>
             </div>
           </div>
-
 
           {/* Filters Section - Collapsible */}
           {showFilters && (

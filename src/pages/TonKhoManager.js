@@ -6,14 +6,34 @@ import 'react-toastify/dist/ReactToastify.css';
 import authUtils from '../utils/authUtils';
 
 const BaoCaoKho = () => {
+  // Helper function to get default date range (first day of month to today)
+  const getDefaultDateRange = () => {
+    const today = new Date();
+    const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+
+    const formatDate = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    return {
+      from: formatDate(firstDayOfMonth),
+      to: formatDate(today)
+    };
+  };
+
+  const defaultDates = getDefaultDateRange();
+
   // State Management
   const [phieuList, setPhieuList] = useState([]);
   const [chiTietList, setChiTietList] = useState([]);
   const [dmhh, setDmhh] = useState([]);
 
-  // Filter states
-  const [filterDateFrom, setFilterDateFrom] = useState('');
-  const [filterDateTo, setFilterDateTo] = useState('');
+  // Filter states - Khởi tạo với giá trị mặc định
+  const [filterDateFrom, setFilterDateFrom] = useState(defaultDates.from);
+  const [filterDateTo, setFilterDateTo] = useState(defaultDates.to);
   const [selectedNhomHang, setSelectedNhomHang] = useState('ALL');
   const [searchNhomHang, setSearchNhomHang] = useState('');
   const [showNhomHangDropdown, setShowNhomHangDropdown] = useState(false);
@@ -629,60 +649,6 @@ const BaoCaoKho = () => {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-lg mb-4 border border-gray-100">
-          <div className="flex border-b border-gray-200 overflow-x-auto">
-            <button
-              onClick={() => setActiveTab('tong-hop')}
-              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === 'tong-hop'
-                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <FileText className="w-4 h-4" />
-                <span>Tổng Hợp</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('nhom-hang')}
-              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === 'nhom-hang'
-                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Package className="w-4 h-4" />
-                <span>Nhóm Hàng</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('do-day')}
-              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === 'do-day'
-                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Layers className="w-4 h-4" />
-                <span>Nhóm Độ Dày</span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('theo-kien')}
-              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === 'theo-kien'
-                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Archive className="w-4 h-4" />
-                <span>Theo Kiện</span>
-              </div>
-            </button>
-          </div>
         </div>
 
         {/* Statistics Cards - Hiển thị ở tất cả các tab */}

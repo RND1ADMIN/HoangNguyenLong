@@ -1,21 +1,23 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Gauge,
-    Table,
-    FileBox,
-    LayoutList,
-    NotebookPen,
-    ChartArea,
-    ChartPie,
-    User,
-    File,
-    UtensilsCrossed,
-    Receipt,
-    Wallet,
     Package,
     TrendingUp,
-    Settings
+    Settings,
+    DollarSign,
+    BarChart3,
+    ClipboardList,
+    Users,
+    FileText,
+    BookOpen,
+    PackageCheck,
+    Boxes,
+    Receipt,
+    NotebookPen,
+    ChartPie,
+    User,
+    ShoppingCart,
+    Handshake
 } from 'lucide-react';
 
 const Home = () => {
@@ -23,159 +25,191 @@ const Home = () => {
 
     const menuCategories = [
         {
-            title: 'Quản lý kho',
+            title: 'QUẢN LÝ KHO',
             icon: Package,
-            color: 'bg-blue-500',
+            gradient: 'from-blue-500 to-blue-600',
+            bgColor: 'bg-blue-50',
+            borderColor: 'border-blue-200',
             items: [
-                // {
-                //     title: 'Cài đặt quy cách',
-                //     icon: Settings,
-                //     path: '/quycach',
-                //     color: 'bg-blue-400'
-                // },
                 {
                     title: 'Cài đặt giá bán',
-                    icon: Settings,
+                    icon: DollarSign,
                     path: '/giaban',
-                    color: 'bg-blue-400'
+                    gradient: 'from-blue-400 to-blue-500'
                 },
                 {
                     title: 'Quản lý hàng hóa',
-                    icon: FileBox,
+                    icon: Boxes,
                     path: '/dmhh',
-                    color: 'bg-blue-400'
+                    gradient: 'from-cyan-400 to-cyan-500'
                 },
                 {
                     title: 'Quản lý xuất nhập kho',
-                    icon: Table,
+                    icon: ClipboardList,
                     path: '/xuatnhapkho',
-                    color: 'bg-blue-500'
+                    gradient: 'from-blue-500 to-blue-600'
                 },
                 {
                     title: 'Báo cáo kho',
-                    icon: ChartArea,
+                    icon: BarChart3,
                     path: '/tonkho',
-                    color: 'bg-blue-600'
+                    gradient: 'from-indigo-500 to-indigo-600'
                 },
                 {
                     title: 'Mã kiện',
-                    icon: ChartArea,
+                    icon: PackageCheck,
                     path: '/makien',
-                    color: 'bg-blue-600'
+                    gradient: 'from-sky-500 to-sky-600'
                 }
             ]
         },
         {
-            title: 'Quản lý năng suất',
+            title: 'QUẢN LÝ NĂNG SUẤT',
             icon: TrendingUp,
-            color: 'bg-green-500',
+            gradient: 'from-green-500 to-emerald-600',
+            bgColor: 'bg-green-50',
+            borderColor: 'border-green-200',
             items: [
                 {
                     title: 'Công đoạn - Đơn giá',
-                    icon: LayoutList,
+                    icon: Receipt,
                     path: '/congdoan_dongia',
-                    color: 'bg-green-400'
+                    gradient: 'from-green-400 to-green-500'
                 },
                 {
                     title: 'Phân bố nhân sự',
-                    icon: User,
+                    icon: Users,
                     path: '/phanbonhansu',
-                    color: 'bg-green-500'
+                    gradient: 'from-emerald-400 to-emerald-500'
                 },
                 {
                     title: 'Nhập bao bì',
                     icon: NotebookPen,
                     path: '/nhapbaobi',
-                    color: 'bg-green-600'
+                    gradient: 'from-teal-500 to-teal-600'
+                },
+                {
+                    title: 'Báo cáo sản lượng',
+                    icon: ChartPie,
+                    path: '/report',
+                    gradient: 'from-teal-500 to-teal-600'
                 },
                 {
                     title: 'Tổng hợp năng suất',
-                    icon: Receipt,
-                    path: '/report',
-                    color: 'bg-green-700'
+                    icon: ChartPie,
+                    path: '/tonghop',
+                    gradient: 'from-green-600 to-green-700'
                 }
             ]
         },
         {
-            title: 'Chức năng khác',
-            icon: Settings,
-            color: 'bg-gray-500',
+            title: 'QUẢN LÝ BÁN HÀNG',
+            icon: ShoppingCart,
+            gradient: 'from-orange-500 to-orange-600',
+            bgColor: 'bg-orange-50',
+            borderColor: 'border-orange-200',
             items: [
-                // {
-                //     title: 'Tổng quan',
-                //     icon: Gauge,
-                //     path: '/dashboard',
-                //     color: 'bg-indigo-500'
-                // },
-                // {
-                //     title: 'Báo cáo sản xuất',
-                //     icon: ChartPie,
-                //     path: '/baocaoreport',
-                //     color: 'bg-purple-500'
-                // },
+                {
+                    title: 'Quản lý khách hàng',
+                    icon: Users,
+                    path: '/dskh',
+                    gradient: 'from-orange-400 to-orange-500'
+                },
+                {
+                    title: 'Hợp đồng nguyên tắc',
+                    icon: Handshake,
+                    path: '/hopdongnguyentac',
+                    gradient: 'from-amber-500 to-amber-600'
+                },
+                {
+                    title: 'Báo cáo bán hàng',
+                    icon: BarChart3,
+                    path: '/baocaobanhang',
+                    gradient: 'from-orange-600 to-orange-700'
+                }
+            ]
+        },
+        {
+            title: 'CHỨC NĂNG KHÁC',
+            icon: Settings,
+            gradient: 'from-purple-500 to-purple-600',
+            bgColor: 'bg-purple-50',
+            borderColor: 'border-purple-200',
+            items: [
                 {
                     title: 'Quản lý người dùng',
                     icon: User,
                     path: '/users',
-                    color: 'bg-red-500'
-                },
-                {
-                    title: 'Quản lý khách hàng',
-                    icon: User,
-                    path: '/dskh',
-                    color: 'bg-blue-400'
-                },
-                {
-                    title: 'Hợp đồng nguyên tắc',
-                    icon: File,
-                    path: '/hopdongnguyentac',
-                    color: 'bg-blue-400'
+                    gradient: 'from-purple-500 to-purple-600'
                 },
                 {
                     title: 'Hướng dẫn sử dụng',
-                    icon: File,
+                    icon: BookOpen,
                     path: '/huongdansudung',
-                    color: 'bg-blue-400'
+                    gradient: 'from-pink-500 to-pink-600'
                 }
             ]
         }
     ];
 
     return (
-        <div className="p-6 bg-gray-50 min-h-screen">
-            <div className=" mx-auto">
+        <div className="p-3 bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
+            <div className="mx-auto px-6 py-4 max-w-7xl">
+
                 {/* Menu Categories */}
                 {menuCategories.map((category, categoryIndex) => {
                     const CategoryIcon = category.icon;
                     return (
-                        <div key={categoryIndex} className="mb-8">
+                        <div key={categoryIndex} className="mb-4">
                             {/* Category Header */}
-                            <div className="flex items-center mb-4">
-                                <div className={`w-8 h-8 ${category.color} rounded-lg flex items-center justify-center mr-3`}>
-                                    <CategoryIcon className="h-5 w-5 text-white" />
+                            <div className={`${category.bgColor} border ${category.borderColor} rounded-lg p-2.5 mb-2.5 shadow-sm`}>
+                                <div className="flex items-center">
+                                    <div className={`w-9 h-9 bg-gradient-to-br ${category.gradient} rounded-lg flex items-center justify-center mr-2.5 shadow-sm transform hover:scale-110 transition-transform duration-300`}>
+                                        <CategoryIcon className="h-5 w-5 text-white" strokeWidth={2.5} />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-base font-bold text-gray-800">
+                                            {category.title}
+                                        </h2>
+                                        <p className="text-xs text-gray-600">
+                                            {category.items.length} chức năng
+                                        </p>
+                                    </div>
                                 </div>
-                                <h2 className="text-xl font-semibold text-gray-800">
-                                    {category.title}
-                                </h2>
                             </div>
 
                             {/* Category Items Grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 px-1">
                                 {category.items.map((item, index) => {
                                     const Icon = item.icon;
                                     return (
                                         <div
                                             key={index}
                                             onClick={() => navigate(item.path)}
-                                            className="bg-white rounded-lg shadow-sm border hover:shadow-md transition-all duration-200 cursor-pointer transform hover:-translate-y-1 group"
+                                            className="group relative bg-white rounded-lg shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:-translate-y-1 border border-gray-100 overflow-hidden"
                                         >
-                                            <div className="p-4 text-center">
-                                                <div className={`w-10 h-10 ${item.color} rounded-lg flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform duration-200`}>
-                                                    <Icon className="h-5 w-5 text-white" />
+                                            {/* Gradient Background Effect */}
+                                            <div className={`absolute inset-0 bg-gradient-to-br ${item.gradient} opacity-0 group-hover:opacity-5 transition-opacity duration-300`}></div>
+
+                                            <div className="relative p-2.5">
+                                                {/* Icon Container */}
+                                                <div className="flex justify-center mb-1.5">
+                                                    <div className={`w-10 h-10 bg-gradient-to-br ${item.gradient} rounded-lg flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:rotate-6 transition-all duration-300`}>
+                                                        <Icon className="h-5 w-5 text-white" strokeWidth={2.5} />
+                                                    </div>
                                                 </div>
-                                                <h3 className="text-sm font-medium text-gray-800 leading-tight">
+
+                                                {/* Title */}
+                                                <h3 className="text-center text-xs font-semibold text-gray-800 leading-tight min-h-[28px] flex items-center justify-center px-1">
                                                     {item.title}
                                                 </h3>
+
+                                                {/* Hover Arrow Indicator */}
+                                                <div className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                                    <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                                    </svg>
+                                                </div>
                                             </div>
                                         </div>
                                     );
@@ -184,54 +218,6 @@ const Home = () => {
                         </div>
                     );
                 })}
-
-                {/* Quick Stats */}
-                {/* <div className="mt-8 bg-white rounded-lg shadow-sm border p-4">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4">
-                        Thống kê nhanh
-                    </h2>
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                            <div className="flex items-center">
-                                <Wallet className="h-6 w-6 text-blue-500 mr-3" />
-                                <div>
-                                    <p className="text-xs text-blue-600">Tổng tồn kho</p>
-                                    <p className="text-lg font-bold text-blue-800">54.6M</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-green-50 p-3 rounded-lg">
-                            <div className="flex items-center">
-                                <Receipt className="h-6 w-6 text-green-500 mr-3" />
-                                <div>
-                                    <p className="text-xs text-green-600">Giao dịch hôm nay</p>
-                                    <p className="text-lg font-bold text-green-800">0</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-orange-50 p-3 rounded-lg">
-                            <div className="flex items-center">
-                                <UtensilsCrossed className="h-6 w-6 text-orange-500 mr-3" />
-                                <div>
-                                    <p className="text-xs text-orange-600">Nguyên vật liệu</p>
-                                    <p className="text-lg font-bold text-orange-800">8</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-red-50 p-3 rounded-lg">
-                            <div className="flex items-center">
-                                <ChartArea className="h-6 w-6 text-red-500 mr-3" />
-                                <div>
-                                    <p className="text-xs text-red-600">Cảnh báo kho</p>
-                                    <p className="text-lg font-bold text-red-800">0</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div> */}
             </div>
         </div>
     );
